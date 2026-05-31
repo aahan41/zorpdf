@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, FileCheck, Download, X, AlertCircle,
   RotateCcw, CheckCircle2, File, Package, Trash2,
-  ArrowRight, Zap
+  ArrowRight, Zap, FileText, Layers
 } from 'lucide-react';
 import type { Tool, ToolId } from './ToolsGrid';
 import type { CompressionLevel } from '@/lib/imageCompression';
-import { estimatePdfSize, convertImageToPdf, type PdfConversionResult } from '@/lib/pdfConverter';
-import { compressImage, formatBytes, calculateCompressionPercentage } from '@/lib/imageCompression';
+import type { ImageProcessingResult } from '@/lib/pdfMerger';
+import { loadImageInfo, mergeImagesToPdf, type MergeResult } from '@/lib/pdfMerger';
+import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
+import { estimatePdfSize } from '@/lib/pdfEstimator';
 import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
+import ImageReorderGrid from '@/components/ui/ImageReorderGrid';
 
 interface UploadSectionProps {
   toolId: ToolId;
@@ -21,30 +24,67 @@ interface UploadSectionProps {
 interface FileItem {
   id: string;
   file: File;
-  status: 'pending' | 'converting' | 'done' | 'error';
+  status: 'pending' | 'loading' | 'ready' | 'converting' | 'done' | 'error';
   progress: number;
+  thumbnail?: string;
+  width?: number;
+  height?: number;
   result?: { blob: Blob; filename: string };
-  pdfResult?: PdfConversionResult;
+  pdfResult?: MergeResult;
   error?: string;
 }
+
+const MAX_FILES = 100;
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
 export default function UploadSection({ toolId, tool }: UploadSectionProps) {
-  const [state, setState] = useState<'idle' | 'selected' | 'converting' | 'done' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'loading' | 'selected' | 'converting' | 'done' | 'error'>('idle');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('balanced');
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const addFiles = (newFiles: FileList | File[]) => {
+  // Load thumbnails for images (JPG to PDF only)
+  useEffect(() => {
+    if (toolId === 'jpg-to-pdf' && state === 'loading' && files.some(f => f.status === 'pending')) {
+      loadPendingThumbnails();
+    }
+  }, [files, state, toolId]);
+
+  const loadPendingThumbnails = async () => {
+    const pendingFiles = files.filter(f => f.status === 'pending');
+    if (pendingFiles.length === 0) return;
+
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const fileItem = pendingFiles[i];
+
+      try {
+        const info = await loadImageInfo(fileItem.file);
+
+        setFiles(prev => prev.map(f =>
+          f.id === fileItem.id
+            ? { ...f, status: 'ready', thumbnail: info.thumbnail, width: info.width, height: info.height }
+            : f
+        ));
+
+        setLoadingProgress({ loaded: i + 1, total: pendingFiles.length });
+      } catch (err) {
+        console.error('Failed to load thumbnail:', err);
+      }
+    }
+
+    setState('selected');
+  };
+
+  const addFiles = async (newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles);
-    const maxFiles = 50;
     const maxSize = 50 * 1024 * 1024;
 
-    if (files.length + fileArray.length > maxFiles) {
-      alert(`Maximum ${maxFiles} files allowed.`);
+    if (files.length + fileArray.length > MAX_FILES) {
+      alert(`Maximum ${MAX_FILES} files allowed.`);
       return;
     }
 
@@ -62,13 +102,17 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
     }));
 
     setFiles(prev => [...prev, ...newFileItems]);
-    setState('selected');
 
-    // Estimate PDF size for JPG to PDF
     if (toolId === 'jpg-to-pdf') {
+      setState('loading');
+      setLoadingProgress({ loaded: 0, total: newFileItems.length });
+
+      // Estimate PDF size
       const allFiles = [...files.map(f => f.file), ...fileArray];
       const size = estimatePdfSize(allFiles, compressionLevel);
       setEstimatedSize({ min: size.minSize, max: size.maxSize });
+    } else {
+      setState('selected');
     }
   };
 
@@ -79,9 +123,11 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
         setState('idle');
         setEstimatedSize(null);
       } else if (toolId === 'jpg-to-pdf') {
-        const remainingFiles = updated.map(f => f.file);
-        const size = estimatePdfSize(remainingFiles, compressionLevel);
-        setEstimatedSize({ min: size.minSize, max: size.maxSize });
+        const remainingFiles = updated.filter(f => f.status === 'ready').map(f => f.file);
+        if (remainingFiles.length > 0) {
+          const size = estimatePdfSize(remainingFiles, compressionLevel);
+          setEstimatedSize({ min: size.minSize, max: size.maxSize });
+        }
       }
       return updated;
     });
@@ -91,7 +137,12 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
     setFiles([]);
     setState('idle');
     setEstimatedSize(null);
+    setLoadingProgress({ loaded: 0, total: 0 });
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const reorderFiles = (newFiles: FileItem[]) => {
+    setFiles(newFiles);
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -123,7 +174,7 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
     id: string,
     status: FileItem['status'],
     result?: { blob: Blob; filename: string },
-    pdfResult?: PdfConversionResult,
+    pdfResult?: MergeResult,
     error?: string
   ) => {
     setFiles(prev => prev.map(f =>
@@ -138,35 +189,49 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
 
     try {
       if (toolId === 'jpg-to-pdf') {
-        // JPG to PDF with advanced compression
-        const imageFiles = files.map(f => f.file).filter(f =>
-          f.type.startsWith('image/') && (f.type.includes('jpeg') || f.type.includes('jpg') || f.type.includes('png'))
-        );
+        // JPG to PDF - Merge all images into single PDF
+        const readyFiles = files.filter(f => f.status === 'ready' && f.thumbnail);
 
-        if (imageFiles.length === 0) {
-          throw new Error('No valid image files found');
+        if (readyFiles.length === 0) {
+          throw new Error('No valid images ready for conversion');
         }
 
-        // Update all to converting
-        files.forEach(f => updateFileStatus(f.id, 'converting'));
-        files.forEach(f => updateFileProgress(f.id, 10));
+        const imageData: ImageProcessingResult[] = readyFiles.map(f => ({
+          id: f.id,
+          file: f.file,
+          thumbnail: f.thumbnail!,
+          width: f.width!,
+          height: f.height!,
+        }));
 
-        // Convert to PDF
-        const result = await convertImageToPdf(
-          imageFiles,
+        // Mark all as converting
+        readyFiles.forEach(f => updateFileStatus(f.id, 'converting'));
+
+        // Merge all images into single PDF with progress tracking
+        const result = await mergeImagesToPdf(
+          imageData,
           compressionLevel,
-          (fileIndex, progress) => {
-            const fileId = files[fileIndex]?.id;
-            if (fileId) {
-              updateFileProgress(fileId, 10 + progress * 0.8);
-            }
+          (current, total, imageId) => {
+            // Update progress for specific image
+            updateFileProgress(imageId, Math.round((current / total) * 100));
+
+            // Update overall progress
+            setFiles(prev => prev.map(f => {
+              if (f.id === imageId) {
+                return { ...f, progress: Math.round((current / total) * 100) };
+              }
+              return f;
+            }));
           }
         );
 
-        // Mark all as done
-        files.forEach(f => {
-          updateFileProgress(f.id, 100);
-          updateFileStatus(f.id, 'done', { blob: result.blob, filename: result.filename }, result);
+        // Store result on first file (all merge into one)
+        const firstReady = readyFiles[0];
+        updateFileStatus(firstReady.id, 'done', { blob: result.blob, filename: result.filename }, result);
+
+        // Mark others as done too
+        readyFiles.slice(1).forEach(f => {
+          updateFileStatus(f.id, 'done');
         });
 
       } else if (toolId === 'png-to-jpg') {
@@ -189,12 +254,10 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
             updateFileStatus(fileItem.id, 'error', undefined, undefined, err?.message || 'Conversion failed');
           }
         }
-
       } else if (toolId === 'image-compressor') {
         // Image compression
         for (const fileItem of files) {
           updateFileStatus(fileItem.id, 'converting');
-          updateFileProgress(fileItem.id, 20);
 
           try {
             const compressed = await compressImage(fileItem.file, compressionLevel);
@@ -211,7 +274,6 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
             updateFileStatus(fileItem.id, 'error', undefined, undefined, err?.message || 'Compression failed');
           }
         }
-
       } else {
         // Not yet implemented
         for (const fileItem of files) {
@@ -276,17 +338,28 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
   const completedCount = files.filter(f => f.status === 'done').length;
   const hasErrors = files.some(f => f.status === 'error');
 
-  // Calculate total PDF savings for JPG to PDF
-  const totalOriginalSize = files.reduce((sum, f) => sum + f.file.size, 0);
-  const totalPdfSize = files.find(f => f.pdfResult)?.pdfResult?.pdfSize || 0;
-  const totalSavings = totalOriginalSize > 0 && totalPdfSize > 0
-    ? calculateCompressionPercentage(totalOriginalSize, totalPdfSize)
+  // For JPG to PDF, get the merged result
+  const mergedPdf = files.find(f => f.pdfResult)?.pdfResult;
+
+  const totalSavings = mergedPdf
+    ? calculateCompressionPercentage(mergedPdf.originalSize, mergedPdf.pdfSize)
     : 0;
+
+  // Get ready images for reorder grid
+  const readyImages: ImageProcessingResult[] = files
+    .filter(f => f.status === 'ready' && f.thumbnail)
+    .map(f => ({
+      id: f.id,
+      file: f.file,
+      thumbnail: f.thumbnail!,
+      width: f.width!,
+      height: f.height!,
+    }));
 
   return (
     <div>
       <AnimatePresence mode="wait">
-        {(state === 'idle' || state === 'selected') && (
+        {(state === 'idle' || state === 'loading' || state === 'selected') && (
           <motion.div
             key="drop"
             initial={{ opacity: 0 }}
@@ -305,8 +378,8 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                   value={compressionLevel}
                   onChange={(level) => {
                     setCompressionLevel(level);
-                    if (files.length > 0) {
-                      const size = estimatePdfSize(files.map(f => f.file), level);
+                    if (readyImages.length > 0) {
+                      const size = estimatePdfSize(readyImages.map(i => i.file), level);
                       setEstimatedSize({ min: size.minSize, max: size.maxSize });
                     }
                   }}
@@ -332,7 +405,12 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                 <p className="text-white text-lg font-semibold mb-2">
                   {isDragging ? 'Drop your files here' : 'Drag & drop your files here'}
                 </p>
-                <p className="text-slate-500 text-sm mb-5">or click to browse (max 50 files)</p>
+                <p className="text-slate-500 text-sm mb-5">
+                  {toolId === 'jpg-to-pdf'
+                    ? `Up to ${MAX_FILES} images - All merged into ONE PDF`
+                    : 'or click to browse'
+                  }
+                </p>
                 <button
                   onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
                   className="btn-primary px-6 py-3 rounded-xl text-sm font-semibold text-white shadow-lg shadow-blue-900/30"
@@ -353,34 +431,73 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
               />
             </div>
 
-            {/* File List */}
+            {/* File List / Reorder Grid */}
             {files.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-6"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-5 h-5 text-blue-400" />
-                    <span className="text-white font-semibold">
-                      {files.length} file{files.length !== 1 ? 's' : ''} selected
-                    </span>
-                    <span className="text-slate-500 text-sm">
-                      ({formatBytes(totalSize)})
-                    </span>
+                {/* Loading state for thumbnails */}
+                {state === 'loading' && toolId === 'jpg-to-pdf' && (
+                  <div className="mb-4 p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
+                        <span className="text-slate-300 text-sm">
+                          Loading thumbnails... {loadingProgress.loaded} of {loadingProgress.total}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={clearAllFiles}
-                    className="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1.5 text-sm"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Clear all
-                  </button>
-                </div>
+                )}
+
+                {/* Image Reorder Grid for JPG to PDF */}
+                {toolId === 'jpg-to-pdf' && readyImages.length > 0 && (
+                  <div className="mb-4">
+                    <ImageReorderGrid
+                      images={readyImages}
+                      onReorder={(reordered) => {
+                        // Preserve order in files array
+                        const reorderedMap = new Map(reordered.map((img, idx) => [img.id, idx]));
+                        setFiles(prev => {
+                          const reordered = [...prev].sort((a, b) => {
+                            const aIdx = reorderedMap.get(a.id) ?? prev.indexOf(a);
+                            const bIdx = reorderedMap.get(b.id) ?? prev.indexOf(b);
+                            return aIdx - bIdx;
+                          });
+                          return reordered;
+                        });
+                      }}
+                      onRemove={removeFile}
+                    />
+                  </div>
+                )}
+
+                {/* Simple file list for other tools */}
+                {toolId !== 'jpg-to-pdf' && (
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-5 h-5 text-blue-400" />
+                      <span className="text-white font-semibold">
+                        {files.length} file{files.length !== 1 ? 's' : ''} selected
+                      </span>
+                      <span className="text-slate-500 text-sm">
+                        ({formatBytes(totalSize)})
+                      </span>
+                    </div>
+                    <button
+                      onClick={clearAllFiles}
+                      className="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1.5 text-sm"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Clear all
+                    </button>
+                  </div>
+                )}
 
                 {/* Size estimation for JPG to PDF */}
-                {toolId === 'jpg-to-pdf' && estimatedSize && files.length > 0 && (
+                {toolId === 'jpg-to-pdf' && estimatedSize && readyImages.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -394,7 +511,7 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                         </div>
                         <ArrowRight className="w-4 h-4 text-blue-400" />
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-400 text-sm">Estimated PDF:</span>
+                          <span className="text-slate-400 text-sm">Est. PDF:</span>
                           <span className="text-green-400 font-semibold">
                             {formatBytes(estimatedSize.min)} - {formatBytes(estimatedSize.max)}
                           </span>
@@ -410,39 +527,35 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                   </motion.div>
                 )}
 
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                  {files.map((fileItem) => (
-                    <motion.div
-                      key={fileItem.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-white/10 transition-colors"
+                {/* Clear all button for JPG to PDF */}
+                {toolId === 'jpg-to-pdf' && readyImages.length > 0 && (
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={clearAllFiles}
+                      className="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1.5 text-sm"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-700/20 flex items-center justify-center flex-shrink-0">
-                        <File className="w-5 h-5 text-blue-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{fileItem.file.name}</p>
-                        <p className="text-slate-500 text-xs">{formatBytes(fileItem.file.size)}</p>
-                      </div>
-                      <button
-                        onClick={() => removeFile(fileItem.id)}
-                        className="p-2 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
+                      <Trash2 className="w-4 h-4" />
+                      Clear all
+                    </button>
+                  </div>
+                )}
 
                 <button
                   onClick={processFilesWithCompression}
-                  disabled={files.length === 0}
-                  className="w-full btn-primary py-4 rounded-2xl text-base font-bold text-white shadow-xl shadow-blue-900/40 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-6"
+                  disabled={files.length === 0 || (toolId === 'jpg-to-pdf' && readyImages.length === 0)}
+                  className="w-full btn-primary py-4 rounded-2xl text-base font-bold text-white shadow-xl shadow-blue-900/40 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                 >
-                  <FileCheck className="w-5 h-5" />
-                  Convert to {tool.to}
-                  {toolId === 'jpg-to-pdf' && ' with Compression'}
+                  {toolId === 'jpg-to-pdf' ? (
+                    <>
+                      <Layers className="w-5 h-5" />
+                      Merge {readyImages.length} Image{readyImages.length !== 1 ? 's' : ''} to PDF
+                    </>
+                  ) : (
+                    <>
+                      <FileCheck className="w-5 h-5" />
+                      Convert to {tool.to}
+                    </>
+                  )}
                 </button>
               </motion.div>
             )}
@@ -464,45 +577,48 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                 className="w-16 h-16 mx-auto mb-4 rounded-full border-4 border-blue-500/30 border-t-blue-500"
               />
               <p className="text-white font-semibold text-xl mb-2">
-                {toolId === 'jpg-to-pdf' ? 'Compressing & Converting...' : 'Converting files...'}
+                {toolId === 'jpg-to-pdf' ? 'Merging images into PDF...' : 'Converting files...'}
               </p>
-              <p className="text-slate-500 text-sm">
-                {completedCount} of {files.length} completed
-              </p>
+              {toolId === 'jpg-to-pdf' && mergedPdf === undefined && (
+                <p className="text-slate-500 text-sm">
+                  Processing {files.filter(f => f.status === 'converting').length} of {files.filter(f => f.status !== 'pending').length} pages
+                </p>
+              )}
             </div>
 
-            <div className="w-full max-w-xs mx-auto bg-slate-800 rounded-full h-2 mb-8 overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${(completedCount / files.length) * 100}%` }}
-                transition={{ ease: 'easeOut', duration: 0.3 }}
-              />
-            </div>
-
-            <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
-              {files.map((fileItem) => (
-                <div
-                  key={fileItem.id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-white text-sm font-medium truncate">{fileItem.file.name}</p>
-                      <span className="text-blue-400 text-xs font-medium">{fileItem.progress}%</span>
+            {/* Progress list for JPG to PDF */}
+            {toolId === 'jpg-to-pdf' && (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
+                {files.filter(f => f.status === 'converting' || f.progress > 0).map((fileItem) => (
+                  <div
+                    key={fileItem.id}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-700/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {fileItem.thumbnail ? (
+                        <img src={fileItem.thumbnail} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <File className="w-5 h-5 text-blue-400" />
+                      )}
                     </div>
-                    <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${fileItem.progress}%` }}
-                        transition={{ ease: 'easeOut', duration: 0.2 }}
-                      />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-white text-sm font-medium truncate">{fileItem.file.name}</p>
+                        <span className="text-blue-400 text-xs font-medium">{fileItem.progress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                        <motion.div
+                          className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${fileItem.progress}%` }}
+                          transition={{ ease: 'easeOut', duration: 0.2 }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -523,100 +639,130 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
               >
                 <CheckCircle2 className="w-10 h-10 text-green-400" />
               </motion.div>
+
               <h3 className="text-white font-bold text-2xl mb-2">
-                Conversion Complete!
+                {toolId === 'jpg-to-pdf' ? 'PDF Created!' : 'Conversion Complete!'}
               </h3>
 
               {/* Compression stats for JPG to PDF */}
-              {toolId === 'jpg-to-pdf' && totalPdfSize > 0 && (
+              {toolId === 'jpg-to-pdf' && mergedPdf && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-4 rounded-xl bg-gradient-to-r from-green-900/20 to-green-800/10 border border-green-500/20"
+                  className="mt-4 p-5 rounded-xl bg-gradient-to-r from-green-900/20 to-green-800/10 border border-green-500/20"
                 >
+                  <div className="flex items-center justify-center gap-3 text-sm mb-3">
+                    <div className="text-center">
+                      <p className="text-slate-400 text-xs mb-1">Images</p>
+                      <p className="text-white font-bold text-lg">{mergedPdf.pageCount}</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-green-400" />
+                    <div className="text-center">
+                      <p className="text-slate-400 text-xs mb-1">PDF Pages</p>
+                      <p className="text-white font-bold text-lg">{mergedPdf.pageCount}</p>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-center gap-3 text-sm">
                     <div className="text-center">
-                      <p className="text-slate-400 text-xs mb-1">Original</p>
-                      <p className="text-white font-semibold">{formatBytes(totalOriginalSize)}</p>
+                      <p className="text-slate-400 text-xs mb-1">Original Size</p>
+                      <p className="text-white font-semibold">{formatBytes(mergedPdf.originalSize)}</p>
                     </div>
                     <ArrowRight className="w-5 h-5 text-green-400" />
                     <div className="text-center">
                       <p className="text-slate-400 text-xs mb-1">PDF Size</p>
-                      <p className="text-green-400 font-bold">{formatBytes(totalPdfSize)}</p>
+                      <p className="text-green-400 font-bold">{formatBytes(mergedPdf.pdfSize)}</p>
                     </div>
-                    <div className="ml-3 px-3 py-1.5 bg-green-500/20 rounded-lg">
+                    <div className="ml-2 px-3 py-1.5 bg-green-500/20 rounded-lg">
                       <p className="text-green-400 font-bold">{totalSavings}% saved</p>
                     </div>
                   </div>
                 </motion.div>
               )}
 
-              {!hasErrors && (
+              {!hasErrors && toolId !== 'jpg-to-pdf' && (
                 <p className="text-slate-500 text-sm mt-4">
                   {completedCount} file{completedCount !== 1 ? 's' : ''} converted successfully
                 </p>
               )}
             </div>
 
-            <div className="space-y-2 max-h-64 overflow-y-auto pr-2 mb-8">
-              {files.map((fileItem) => (
-                <div
-                  key={fileItem.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                    fileItem.status === 'done'
-                      ? 'bg-slate-800/50 border-white/5 hover:border-blue-500/30'
-                      : 'bg-red-900/10 border-red-500/20'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    fileItem.status === 'done'
-                      ? 'bg-gradient-to-br from-green-500/20 to-green-700/20'
-                      : 'bg-gradient-to-br from-red-500/20 to-red-700/20'
-                  }`}>
-                    {fileItem.status === 'done' ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-400" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 text-red-400" />
-                    )}
+            {/* Results */}
+            {toolId === 'jpg-to-pdf' && mergedPdf ? (
+              <div className="space-y-3 mb-8">
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-800/50 border border-white/5">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-500/20 to-red-700/20 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-6 h-6 text-red-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">
-                      {fileItem.result?.filename || fileItem.file.name}
-                    </p>
+                    <p className="text-white text-sm font-medium truncate">{mergedPdf.filename}</p>
                     <p className="text-slate-500 text-xs">
-                      {fileItem.result ? `${formatBytes(fileItem.result.blob.size)}` : fileItem.error || 'Failed'}
+                      {mergedPdf.pageCount} page{mergedPdf.pageCount !== 1 ? 's' : ''} | {formatBytes(mergedPdf.pdfSize)}
                     </p>
                   </div>
-                  {fileItem.status === 'done' && fileItem.result && (
-                    <button
-                      onClick={() => downloadFile(fileItem)}
-                      className="p-2 text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                      title="Download"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      const fileItem = files.find(f => f.pdfResult);
+                      if (fileItem) downloadFile(fileItem);
+                    }}
+                    className="btn-primary px-4 py-2 rounded-lg text-white font-semibold text-sm flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-2 mb-8">
+                {files.map((fileItem) => (
+                  <div
+                    key={fileItem.id}
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                      fileItem.status === 'done'
+                        ? 'bg-slate-800/50 border-white/5 hover:border-blue-500/30'
+                        : 'bg-red-900/10 border-red-500/20'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      fileItem.status === 'done'
+                        ? 'bg-gradient-to-br from-green-500/20 to-green-700/20'
+                        : 'bg-gradient-to-br from-red-500/20 to-red-700/20'
+                    }`}>
+                      {fileItem.status === 'done' ? (
+                        <CheckCircle2 className="w-5 h-5 text-green-400" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-red-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">
+                        {fileItem.result?.filename || fileItem.file.name}
+                      </p>
+                      <p className="text-slate-500 text-xs">
+                        {fileItem.result ? `${formatBytes(fileItem.result.blob.size)}` : fileItem.error || 'Failed'}
+                      </p>
+                    </div>
+                    {fileItem.status === 'done' && fileItem.result && (
+                      <button
+                        onClick={() => downloadFile(fileItem)}
+                        className="p-2 text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
+                        title="Download"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-3">
-              {completedCount > 1 && (
+              {completedCount > 1 && toolId !== 'jpg-to-pdf' && (
                 <button
                   onClick={downloadAllAsZip}
                   className="flex-1 btn-primary py-3.5 rounded-2xl text-sm font-bold text-white shadow-xl shadow-blue-900/40 flex items-center justify-center gap-2"
                 >
                   <Download className="w-4 h-4" />
                   Download All as ZIP
-                </button>
-              )}
-              {completedCount === 1 && files.find(f => f.status === 'done') && (
-                <button
-                  onClick={() => downloadFile(files.find(f => f.status === 'done')!)}
-                  className="flex-1 btn-primary py-3.5 rounded-2xl text-sm font-bold text-white shadow-xl shadow-blue-900/40 flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  Download File
                 </button>
               )}
               <button

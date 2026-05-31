@@ -93,8 +93,84 @@ export const tools: Tool[] = [
   },
 ];
 
+interface ToolCardProps {
+  tool: Tool;
+  onNavigate: (toolId: ToolId) => void;
+}
+
+function ToolCard({ tool, onNavigate }: ToolCardProps) {
+  const handleClick = () => {
+    onNavigate(tool.id);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+      whileHover={{ y: -8, scale: 1.02 }}
+      className="h-full"
+    >
+      <div
+        className={`group relative card-hover glass-card rounded-2xl p-6 h-full flex flex-col cursor-pointer bg-gradient-to-br ${tool.gradient}`}
+        onClick={handleClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
+      >
+        {/* Glowing border on hover */}
+        <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+          style={{ boxShadow: '0 0 40px rgba(59, 130, 246, 0.3), inset 0 0 40px rgba(59, 130, 246, 0.05)' }}
+        />
+
+        {/* Format badges */}
+        <div className="flex items-center gap-2 mb-5">
+          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-slate-300 border border-white/10">
+            {tool.from}
+          </span>
+          <ArrowRight className="w-4 h-4 text-blue-400" />
+          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600/20 text-blue-300 border border-blue-500/30">
+            {tool.to}
+          </span>
+        </div>
+
+        {/* Icon */}
+        <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+          <tool.icon className="w-8 h-8 text-white" />
+        </div>
+
+        {/* Content */}
+        <h3 className="text-xl font-bold text-white mb-3 group-hover:text-blue-300 transition-colors">
+          {tool.title}
+        </h3>
+        <p className="text-slate-400 text-sm leading-relaxed flex-1 mb-6">
+          {tool.description}
+        </p>
+
+        {/* CTA Button */}
+        <div
+          className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none"
+        >
+          <span>Open Tool</span>
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function ToolsGrid() {
   const router = useRouter();
+
+  const handleNavigate = (toolId: ToolId) => {
+    router.push(`/tool/${toolId}`);
+  };
 
   return (
     <section id="tools" className="py-24 px-4 sm:px-6 lg:px-8">
@@ -118,57 +194,11 @@ export default function ToolsGrid() {
         {/* Tool cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {tools.map((tool, index) => (
-            <motion.div
+            <ToolCard
               key={tool.id}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              whileHover={{ y: -8, scale: 1.02 }}
-            >
-              <div
-                className={`group relative card-hover glass-card rounded-2xl p-6 h-full flex flex-col cursor-pointer bg-gradient-to-br ${tool.gradient}`}
-                onClick={() => router.push(`/tool/${tool.id}`)}
-              >
-                {/* Glowing border on hover */}
-                <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                  style={{ boxShadow: '0 0 40px rgba(59, 130, 246, 0.3), inset 0 0 40px rgba(59, 130, 246, 0.05)' }}
-                />
-
-                {/* Format badges */}
-                <div className="flex items-center gap-2 mb-5">
-                  <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-slate-300 border border-white/10">
-                    {tool.from}
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-blue-400" />
-                  <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600/20 text-blue-300 border border-blue-500/30">
-                    {tool.to}
-                  </span>
-                </div>
-
-                {/* Icon */}
-                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-                  <tool.icon className="w-8 h-8 text-white" />
-                </div>
-
-                {/* Content */}
-                <h3 className="text-xl font-bold text-white mb-3 group-hover:text-blue-300 transition-colors">
-                  {tool.title}
-                </h3>
-                <p className="text-slate-400 text-sm leading-relaxed flex-1 mb-6">
-                  {tool.description}
-                </p>
-
-                {/* CTA */}
-                <motion.div
-                  className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100"
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <span>Open Tool</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </motion.div>
-              </div>
-            </motion.div>
+              tool={tool}
+              onNavigate={handleNavigate}
+            />
           ))}
         </div>
       </div>
