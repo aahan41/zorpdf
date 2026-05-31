@@ -4,10 +4,14 @@ import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, FileCheck, Download, X, AlertCircle,
-  RotateCcw, CheckCircle2, File, Link, Loader2,
-  Package, FileArchive, Trash2
+  RotateCcw, CheckCircle2, File, Package, Trash2,
+  ArrowRight, Zap
 } from 'lucide-react';
 import type { Tool, ToolId } from './ToolsGrid';
+import type { CompressionLevel } from '@/lib/imageCompression';
+import { estimatePdfSize, convertImageToPdf, type PdfConversionResult } from '@/lib/pdfConverter';
+import { compressImage, formatBytes, calculateCompressionPercentage } from '@/lib/imageCompression';
+import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
 
 interface UploadSectionProps {
   toolId: ToolId;
@@ -20,26 +24,19 @@ interface FileItem {
   status: 'pending' | 'converting' | 'done' | 'error';
   progress: number;
   result?: { blob: Blob; filename: string };
+  pdfResult?: PdfConversionResult;
   error?: string;
 }
-
-const formatBytes = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-};
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
 export default function UploadSection({ toolId, tool }: UploadSectionProps) {
-  const [state, setState] = useState<ConversionState>('idle');
+  const [state, setState] = useState<'idle' | 'selected' | 'converting' | 'done' | 'error'>('idle');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('balanced');
+  const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  type ConversionState = 'idle' | 'selected' | 'uploading' | 'converting' | 'done' | 'error';
 
   const addFiles = (newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles);
@@ -66,6 +63,13 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
 
     setFiles(prev => [...prev, ...newFileItems]);
     setState('selected');
+
+    // Estimate PDF size for JPG to PDF
+    if (toolId === 'jpg-to-pdf') {
+      const allFiles = [...files.map(f => f.file), ...fileArray];
+      const size = estimatePdfSize(allFiles, compressionLevel);
+      setEstimatedSize({ min: size.minSize, max: size.maxSize });
+    }
   };
 
   const removeFile = (id: string) => {
@@ -73,6 +77,11 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
       const updated = prev.filter(f => f.id !== id);
       if (updated.length === 0) {
         setState('idle');
+        setEstimatedSize(null);
+      } else if (toolId === 'jpg-to-pdf') {
+        const remainingFiles = updated.map(f => f.file);
+        const size = estimatePdfSize(remainingFiles, compressionLevel);
+        setEstimatedSize({ min: size.minSize, max: size.maxSize });
       }
       return updated;
     });
@@ -81,6 +90,7 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
   const clearAllFiles = () => {
     setFiles([]);
     setState('idle');
+    setEstimatedSize(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -90,7 +100,7 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
     if (e.dataTransfer.files.length > 0) {
       addFiles(e.dataTransfer.files);
     }
-  }, [files]);
+  }, [files, compressionLevel]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -105,207 +115,124 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
     }
   };
 
-  const convertImageToPdf = async (imageFile: File): Promise<{ blob: Blob; filename: string }> => {
-    const { jsPDF } = await import('jspdf');
-
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imgData = e.target?.result as string;
-        if (!imgData) {
-          reject(new Error('Failed to read image data'));
-          return;
-        }
-
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const pdf = new jsPDF({
-              orientation: img.width > img.height ? 'landscape' : 'portrait',
-              unit: 'px',
-              format: [img.width, img.height]
-            });
-
-            pdf.addImage(imgData, imageFile.type.includes('png') ? 'PNG' : 'JPEG', 0, 0, img.width, img.height);
-
-            const baseName = imageFile.name.replace(/\.[^.]+$/, '');
-            const pdfBlob = pdf.output('blob');
-            resolve({ blob: pdfBlob, filename: `${baseName}.pdf` });
-          } catch (err) {
-            reject(err);
-          }
-        };
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = imgData;
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(imageFile);
-    });
-  };
-
-  const convertImage = async (imageFile: File, targetFormat: string): Promise<{ blob: Blob; filename: string }> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imgData = e.target?.result as string;
-        if (!imgData) {
-          reject(new Error('Failed to read image data'));
-          return;
-        }
-
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              reject(new Error('Failed to create canvas context'));
-              return;
-            }
-
-            ctx.drawImage(img, 0, 0);
-
-            const mimeType = targetFormat === 'jpg' || targetFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
-            const quality = targetFormat === 'jpg' || targetFormat === 'jpeg' ? 0.92 : 1.0;
-
-            canvas.toBlob((blob) => {
-              if (!blob) {
-                reject(new Error('Failed to convert image'));
-                return;
-              }
-              const baseName = imageFile.name.replace(/\.[^.]+$/, '');
-              const ext = targetFormat === 'jpg' || targetFormat === 'jpeg' ? 'jpg' : 'png';
-              resolve({ blob, filename: `${baseName}.${ext}` });
-            }, mimeType, quality);
-          } catch (err) {
-            reject(err);
-          }
-        };
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = imgData;
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(imageFile);
-    });
-  };
-
-  const compressImage = async (imageFile: File): Promise<{ blob: Blob; filename: string }> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imgData = e.target?.result as string;
-        if (!imgData) {
-          reject(new Error('Failed to read image data'));
-          return;
-        }
-
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              reject(new Error('Failed to create canvas context'));
-              return;
-            }
-
-            ctx.drawImage(img, 0, 0);
-
-            const mimeType = imageFile.type === 'image/png' ? 'image/png' : 'image/jpeg';
-            const quality = 0.7;
-
-            canvas.toBlob((blob) => {
-              if (!blob) {
-                reject(new Error('Failed to compress image'));
-                return;
-              }
-              const baseName = imageFile.name.replace(/\.[^.]+$/, '');
-              const ext = imageFile.name.split('.').pop() || 'jpg';
-              resolve({ blob, filename: `${baseName}-compressed.${ext}` });
-            }, mimeType, quality);
-          } catch (err) {
-            reject(err);
-          }
-        };
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = imgData;
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(imageFile);
-    });
-  };
-
   const updateFileProgress = (id: string, progress: number) => {
     setFiles(prev => prev.map(f => f.id === id ? { ...f, progress } : f));
   };
 
-  const updateFileStatus = (id: string, status: FileItem['status'], result?: { blob: Blob; filename: string }, error?: string) => {
-    setFiles(prev => prev.map(f => f.id === id ? { ...f, status, result, error } : f));
+  const updateFileStatus = (
+    id: string,
+    status: FileItem['status'],
+    result?: { blob: Blob; filename: string },
+    pdfResult?: PdfConversionResult,
+    error?: string
+  ) => {
+    setFiles(prev => prev.map(f =>
+      f.id === id ? { ...f, status, result, pdfResult, error } : f
+    ));
   };
 
-  const animateProgress = async (id: string, from: number, to: number, duration: number): Promise<void> => {
-    const steps = 20;
-    const increment = (to - from) / steps;
-    const interval = duration / steps;
-    let current = from;
-
-    for (let i = 0; i < steps; i++) {
-      current += increment;
-      updateFileProgress(id, Math.round(current));
-      await new Promise(resolve => setTimeout(resolve, interval));
-    }
-    updateFileProgress(id, to);
-  };
-
-  const processFile = async (fileItem: FileItem) => {
-    updateFileStatus(fileItem.id, 'converting');
-
-    try {
-      await animateProgress(fileItem.id, 0, 50, 300);
-
-      let result: { blob: Blob; filename: string };
-
-      if (toolId === 'jpg-to-pdf' && fileItem.file.type.startsWith('image/')) {
-        result = await convertImageToPdf(fileItem.file);
-      } else if (toolId === 'pdf-to-jpg' && fileItem.file.type === 'application/pdf') {
-        throw new Error('PDF to JPG conversion is not yet implemented. Use JPG to PDF instead.');
-      } else if (toolId === 'png-to-jpg' && fileItem.file.type.startsWith('image/')) {
-        result = await convertImage(fileItem.file, 'jpg');
-      } else if (toolId === 'word-to-pdf' && (fileItem.file.type === 'application/msword' || fileItem.file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
-        throw new Error('Word to PDF conversion is not yet implemented. Use JPG to PDF instead.');
-      } else if (toolId === 'pdf-compressor' && fileItem.file.type === 'application/pdf') {
-        throw new Error('PDF compression is not yet implemented. Use JPG to PDF instead.');
-      } else if (toolId === 'image-compressor' && fileItem.file.type.startsWith('image/')) {
-        result = await compressImage(fileItem.file);
-      } else {
-        throw new Error(`Conversion from ${fileItem.file.type} is not supported for this tool.`);
-      }
-
-      await animateProgress(fileItem.id, 50, 100, 300);
-      updateFileStatus(fileItem.id, 'done', result);
-      return result;
-    } catch (err: any) {
-      updateFileStatus(fileItem.id, 'error', undefined, err?.message || 'Conversion failed');
-      throw err;
-    }
-  };
-
-  const convertAllFiles = async () => {
+  const processFilesWithCompression = async () => {
     if (files.length === 0) return;
 
     setState('converting');
 
-    for (const fileItem of files) {
-      if (fileItem.status === 'pending') {
-        await processFile(fileItem);
-      }
-    }
+    try {
+      if (toolId === 'jpg-to-pdf') {
+        // JPG to PDF with advanced compression
+        const imageFiles = files.map(f => f.file).filter(f =>
+          f.type.startsWith('image/') && (f.type.includes('jpeg') || f.type.includes('jpg') || f.type.includes('png'))
+        );
 
-    setState('done');
+        if (imageFiles.length === 0) {
+          throw new Error('No valid image files found');
+        }
+
+        // Update all to converting
+        files.forEach(f => updateFileStatus(f.id, 'converting'));
+        files.forEach(f => updateFileProgress(f.id, 10));
+
+        // Convert to PDF
+        const result = await convertImageToPdf(
+          imageFiles,
+          compressionLevel,
+          (fileIndex, progress) => {
+            const fileId = files[fileIndex]?.id;
+            if (fileId) {
+              updateFileProgress(fileId, 10 + progress * 0.8);
+            }
+          }
+        );
+
+        // Mark all as done
+        files.forEach(f => {
+          updateFileProgress(f.id, 100);
+          updateFileStatus(f.id, 'done', { blob: result.blob, filename: result.filename }, result);
+        });
+
+      } else if (toolId === 'png-to-jpg') {
+        // PNG to JPG conversion
+        for (const fileItem of files) {
+          updateFileStatus(fileItem.id, 'converting');
+          updateFileProgress(fileItem.id, 20);
+
+          try {
+            const compressed = await compressImage(fileItem.file, compressionLevel);
+            const baseName = fileItem.file.name.replace(/\.[^.]+$/, '');
+            const filename = `${baseName}.jpg`;
+
+            updateFileProgress(fileItem.id, 100);
+            updateFileStatus(fileItem.id, 'done', {
+              blob: compressed.blob,
+              filename,
+            });
+          } catch (err: any) {
+            updateFileStatus(fileItem.id, 'error', undefined, undefined, err?.message || 'Conversion failed');
+          }
+        }
+
+      } else if (toolId === 'image-compressor') {
+        // Image compression
+        for (const fileItem of files) {
+          updateFileStatus(fileItem.id, 'converting');
+          updateFileProgress(fileItem.id, 20);
+
+          try {
+            const compressed = await compressImage(fileItem.file, compressionLevel);
+            const baseName = fileItem.file.name.replace(/\.[^.]+$/, '');
+            const ext = fileItem.file.name.split('.').pop() || 'jpg';
+            const filename = `${baseName}-compressed.${ext}`;
+
+            updateFileProgress(fileItem.id, 100);
+            updateFileStatus(fileItem.id, 'done', {
+              blob: compressed.blob,
+              filename,
+            });
+          } catch (err: any) {
+            updateFileStatus(fileItem.id, 'error', undefined, undefined, err?.message || 'Compression failed');
+          }
+        }
+
+      } else {
+        // Not yet implemented
+        for (const fileItem of files) {
+          updateFileStatus(
+            fileItem.id,
+            'error',
+            undefined,
+            undefined,
+            'This conversion is not yet implemented. Try JPG to PDF, PNG to JPG, or Image Compressor.'
+          );
+        }
+      }
+
+      setState('done');
+
+    } catch (err: any) {
+      setState('error');
+      files.forEach(f =>
+        updateFileStatus(f.id, 'error', undefined, undefined, err?.message || 'Conversion failed')
+      );
+    }
   };
 
   const downloadFile = (fileItem: FileItem) => {
@@ -349,6 +276,13 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
   const completedCount = files.filter(f => f.status === 'done').length;
   const hasErrors = files.some(f => f.status === 'error');
 
+  // Calculate total PDF savings for JPG to PDF
+  const totalOriginalSize = files.reduce((sum, f) => sum + f.file.size, 0);
+  const totalPdfSize = files.find(f => f.pdfResult)?.pdfResult?.pdfSize || 0;
+  const totalSavings = totalOriginalSize > 0 && totalPdfSize > 0
+    ? calculateCompressionPercentage(totalOriginalSize, totalPdfSize)
+    : 0;
+
   return (
     <div>
       <AnimatePresence mode="wait">
@@ -360,6 +294,26 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
+            {/* Compression Level Selector - only for JPG to PDF */}
+            {toolId === 'jpg-to-pdf' && files.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
+              >
+                <CompressionLevelSelector
+                  value={compressionLevel}
+                  onChange={(level) => {
+                    setCompressionLevel(level);
+                    if (files.length > 0) {
+                      const size = estimatePdfSize(files.map(f => f.file), level);
+                      setEstimatedSize({ min: size.minSize, max: size.maxSize });
+                    }
+                  }}
+                />
+              </motion.div>
+            )}
+
             <div
               onDrop={handleDrop}
               onDragOver={handleDragOver}
@@ -425,6 +379,37 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                   </button>
                 </div>
 
+                {/* Size estimation for JPG to PDF */}
+                {toolId === 'jpg-to-pdf' && estimatedSize && files.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-4 p-4 rounded-xl bg-gradient-to-r from-blue-900/20 to-blue-800/10 border border-blue-500/20"
+                  >
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400 text-sm">Original:</span>
+                          <span className="text-white font-semibold">{formatBytes(totalSize)}</span>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-blue-400" />
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400 text-sm">Estimated PDF:</span>
+                          <span className="text-green-400 font-semibold">
+                            {formatBytes(estimatedSize.min)} - {formatBytes(estimatedSize.max)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 bg-green-500/10 px-3 py-1.5 rounded-lg">
+                        <Zap className="w-4 h-4 text-green-400" />
+                        <span className="text-green-400 text-sm font-medium">
+                          ~{Math.round(70 - (estimatedSize.min / totalSize) * 100)}% smaller
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                   {files.map((fileItem) => (
                     <motion.div
@@ -451,12 +436,13 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                 </div>
 
                 <button
-                  onClick={convertAllFiles}
+                  onClick={processFilesWithCompression}
                   disabled={files.length === 0}
                   className="w-full btn-primary py-4 rounded-2xl text-base font-bold text-white shadow-xl shadow-blue-900/40 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-6"
                 >
                   <FileCheck className="w-5 h-5" />
-                  Convert All to {tool.to}
+                  Convert to {tool.to}
+                  {toolId === 'jpg-to-pdf' && ' with Compression'}
                 </button>
               </motion.div>
             )}
@@ -472,8 +458,13 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
             className="py-8"
           >
             <div className="text-center mb-6">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                className="w-16 h-16 mx-auto mb-4 rounded-full border-4 border-blue-500/30 border-t-blue-500"
+              />
               <p className="text-white font-semibold text-xl mb-2">
-                Converting files...
+                {toolId === 'jpg-to-pdf' ? 'Compressing & Converting...' : 'Converting files...'}
               </p>
               <p className="text-slate-500 text-sm">
                 {completedCount} of {files.length} completed
@@ -498,35 +489,16 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-white text-sm font-medium truncate">{fileItem.file.name}</p>
-                      {fileItem.status === 'converting' && (
-                        <span className="text-blue-400 text-xs font-medium">{fileItem.progress}%</span>
-                      )}
-                      {fileItem.status === 'done' && (
-                        <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
-                      )}
-                      {fileItem.status === 'error' && (
-                        <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                      )}
+                      <span className="text-blue-400 text-xs font-medium">{fileItem.progress}%</span>
                     </div>
-                    {fileItem.status === 'converting' && (
-                      <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                        <motion.div
-                          className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${fileItem.progress}%` }}
-                          transition={{ ease: 'easeOut', duration: 0.2 }}
-                        />
-                      </div>
-                    )}
-                    {fileItem.status === 'pending' && (
-                      <p className="text-slate-600 text-xs">Waiting...</p>
-                    )}
-                    {fileItem.status === 'done' && fileItem.result && (
-                      <p className="text-slate-500 text-xs">{fileItem.result.filename}</p>
-                    )}
-                    {fileItem.status === 'error' && fileItem.error && (
-                      <p className="text-red-400 text-xs">{fileItem.error}</p>
-                    )}
+                    <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${fileItem.progress}%` }}
+                        transition={{ ease: 'easeOut', duration: 0.2 }}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -554,12 +526,34 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
               <h3 className="text-white font-bold text-2xl mb-2">
                 Conversion Complete!
               </h3>
-              <p className="text-slate-500 text-sm mb-2">
-                {completedCount} of {files.length} files converted successfully
-              </p>
-              {hasErrors && (
-                <p className="text-red-400 text-sm">
-                  {files.filter(f => f.status === 'error').length} file(s) failed
+
+              {/* Compression stats for JPG to PDF */}
+              {toolId === 'jpg-to-pdf' && totalPdfSize > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 p-4 rounded-xl bg-gradient-to-r from-green-900/20 to-green-800/10 border border-green-500/20"
+                >
+                  <div className="flex items-center justify-center gap-3 text-sm">
+                    <div className="text-center">
+                      <p className="text-slate-400 text-xs mb-1">Original</p>
+                      <p className="text-white font-semibold">{formatBytes(totalOriginalSize)}</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-green-400" />
+                    <div className="text-center">
+                      <p className="text-slate-400 text-xs mb-1">PDF Size</p>
+                      <p className="text-green-400 font-bold">{formatBytes(totalPdfSize)}</p>
+                    </div>
+                    <div className="ml-3 px-3 py-1.5 bg-green-500/20 rounded-lg">
+                      <p className="text-green-400 font-bold">{totalSavings}% saved</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {!hasErrors && (
+                <p className="text-slate-500 text-sm mt-4">
+                  {completedCount} file{completedCount !== 1 ? 's' : ''} converted successfully
                 </p>
               )}
             </div>
@@ -612,7 +606,7 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                   onClick={downloadAllAsZip}
                   className="flex-1 btn-primary py-3.5 rounded-2xl text-sm font-bold text-white shadow-xl shadow-blue-900/40 flex items-center justify-center gap-2"
                 >
-                  <FileArchive className="w-4 w-4" />
+                  <Download className="w-4 h-4" />
                   Download All as ZIP
                 </button>
               )}
