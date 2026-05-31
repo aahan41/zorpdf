@@ -1,9 +1,16 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Image, FileImage, FileText, FileType, ArrowRight } from 'lucide-react';
+import { Image, FileImage, FileText, FileType, ArrowRight, Minimize2, Layers, File } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-export type ToolId = 'jpg-to-pdf' | 'pdf-to-jpg' | 'word-to-pdf' | 'pdf-to-word';
+export type ToolId =
+  | 'jpg-to-pdf'
+  | 'pdf-to-jpg'
+  | 'png-to-jpg'
+  | 'word-to-pdf'
+  | 'pdf-compressor'
+  | 'image-compressor';
 
 export interface Tool {
   id: ToolId;
@@ -21,7 +28,7 @@ export const tools: Tool[] = [
   {
     id: 'jpg-to-pdf',
     title: 'JPG to PDF',
-    description: 'Convert your JPG images into professional PDF documents instantly.',
+    description: 'Convert JPG images to PDF documents.',
     from: 'JPG',
     to: 'PDF',
     icon: Image,
@@ -32,7 +39,7 @@ export const tools: Tool[] = [
   {
     id: 'pdf-to-jpg',
     title: 'PDF to JPG',
-    description: 'Extract high-quality JPG images from any PDF file in seconds.',
+    description: 'Extract high-quality JPG images from PDF.',
     from: 'PDF',
     to: 'JPG',
     icon: FileImage,
@@ -41,9 +48,20 @@ export const tools: Tool[] = [
     accept: '.pdf',
   },
   {
+    id: 'png-to-jpg',
+    title: 'PNG to JPG',
+    description: 'Convert PNG images to JPG format.',
+    from: 'PNG',
+    to: 'JPG',
+    icon: Image,
+    gradient: 'from-emerald-600/20 to-emerald-900/20',
+    iconBg: 'from-emerald-500 to-emerald-700',
+    accept: '.png',
+  },
+  {
     id: 'word-to-pdf',
     title: 'Word to PDF',
-    description: 'Transform Word documents into perfectly formatted PDF files.',
+    description: 'Convert Word documents to PDF files.',
     from: 'DOCX',
     to: 'PDF',
     icon: FileText,
@@ -52,29 +70,31 @@ export const tools: Tool[] = [
     accept: '.doc,.docx',
   },
   {
-    id: 'pdf-to-word',
-    title: 'PDF to Word',
-    description: 'Convert PDF files into fully editable Word documents.',
+    id: 'pdf-compressor',
+    title: 'PDF Compressor',
+    description: 'Reduce PDF file size while maintaining quality.',
     from: 'PDF',
-    to: 'DOCX',
-    icon: FileType,
+    to: 'PDF',
+    icon: Minimize2,
     gradient: 'from-cyan-600/20 to-blue-900/20',
     iconBg: 'from-cyan-500 to-blue-600',
     accept: '.pdf',
   },
+  {
+    id: 'image-compressor',
+    title: 'Image Compressor',
+    description: 'Compress images without losing quality.',
+    from: 'IMAGE',
+    to: 'IMAGE',
+    icon: Layers,
+    gradient: 'from-teal-600/20 to-blue-900/20',
+    iconBg: 'from-teal-500 to-blue-600',
+    accept: '.jpg,.jpeg,.png,.webp',
+  },
 ];
 
-interface ToolsGridProps {
-  onSelectTool: (tool: Tool) => void;
-}
-
-export default function ToolsGrid({ onSelectTool }: ToolsGridProps) {
-  const scrollToUpload = (tool: Tool) => {
-    onSelectTool(tool);
-    setTimeout(() => {
-      document.querySelector('#upload')?.scrollIntoView({ behavior: 'smooth' });
-    }, 50);
-  };
+export default function ToolsGrid() {
+  const router = useRouter();
 
   return (
     <section id="tools" className="py-24 px-4 sm:px-6 lg:px-8">
@@ -87,19 +107,16 @@ export default function ToolsGrid({ onSelectTool }: ToolsGridProps) {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border-glow mb-5">
-            <span className="text-blue-400 text-sm font-medium">Conversion Tools</span>
-          </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-5">
-            All the Tools You Need
+            Choose Your Tool
           </h2>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Professional-grade file conversion tools, completely free and available 24/7.
+            Select a conversion tool to get started. All conversions are processed locally in your browser.
           </p>
         </motion.div>
 
         {/* Tool cards grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {tools.map((tool, index) => (
             <motion.div
               key={tool.id}
@@ -107,14 +124,15 @@ export default function ToolsGrid({ onSelectTool }: ToolsGridProps) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={{ y: -8, scale: 1.02 }}
             >
               <div
                 className={`group relative card-hover glass-card rounded-2xl p-6 h-full flex flex-col cursor-pointer bg-gradient-to-br ${tool.gradient}`}
-                onClick={() => scrollToUpload(tool)}
+                onClick={() => router.push(`/tool/${tool.id}`)}
               >
                 {/* Glowing border on hover */}
                 <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                  style={{ boxShadow: '0 0 30px rgba(59, 130, 246, 0.25), inset 0 0 30px rgba(59, 130, 246, 0.04)' }}
+                  style={{ boxShadow: '0 0 40px rgba(59, 130, 246, 0.3), inset 0 0 40px rgba(59, 130, 246, 0.05)' }}
                 />
 
                 {/* Format badges */}
@@ -129,8 +147,8 @@ export default function ToolsGrid({ onSelectTool }: ToolsGridProps) {
                 </div>
 
                 {/* Icon */}
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                  <tool.icon className="w-7 h-7 text-white" />
+                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                  <tool.icon className="w-8 h-8 text-white" />
                 </div>
 
                 {/* Content */}
@@ -142,10 +160,13 @@ export default function ToolsGrid({ onSelectTool }: ToolsGridProps) {
                 </p>
 
                 {/* CTA */}
-                <button className="w-full py-3 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 group-hover:shadow-blue-900/50">
-                  Convert Now
+                <motion.div
+                  className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100"
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <span>Open Tool</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
+                </motion.div>
               </div>
             </motion.div>
           ))}
