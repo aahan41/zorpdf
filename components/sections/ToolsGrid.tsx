@@ -8,6 +8,7 @@ export type ToolId =
   | 'jpg-to-pdf'
   | 'pdf-to-jpg'
   | 'png-to-jpg'
+  | 'png-to-pdf'
   | 'word-to-pdf'
   | 'pdf-compressor'
   | 'image-compressor';
@@ -56,6 +57,17 @@ export const tools: Tool[] = [
     icon: Image,
     gradient: 'from-emerald-600/20 to-emerald-900/20',
     iconBg: 'from-emerald-500 to-emerald-700',
+    accept: '.png',
+  },
+  {
+    id: 'png-to-pdf',
+    title: 'PNG to PDF',
+    description: 'Convert PNG images to PDF documents.',
+    from: 'PNG',
+    to: 'PDF',
+    icon: Image,
+    gradient: 'from-teal-600/20 to-teal-900/20',
+    iconBg: 'from-teal-500 to-teal-700',
     accept: '.png',
   },
   {
