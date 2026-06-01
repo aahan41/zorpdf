@@ -21,6 +21,7 @@ const converterTabs: { id: ToolId; label: string; from: string; to: string }[] =
   { id: 'png-to-jpg', label: 'PNG to JPG', from: 'PNG', to: 'JPG' },
   { id: 'png-to-pdf', label: 'PNG to PDF', from: 'PNG', to: 'PDF' },
   { id: 'word-to-pdf', label: 'Word to PDF', from: 'DOCX', to: 'PDF' },
+  { id: 'pdf-to-word', label: 'PDF to Word', from: 'PDF', to: 'DOCX' },
   { id: 'pdf-compressor', label: 'PDF Compressor', from: 'PDF', to: 'PDF' },
 ];
 

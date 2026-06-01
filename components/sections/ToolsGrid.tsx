@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Image, FileImage, FileText, FileType, ArrowRight, Minimize2, Layers, File } from 'lucide-react';
+import { Image, FileImage, FileText, FileType, ArrowRight, Minimize2, Layers, File, FileOutput } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export type ToolId =
@@ -10,6 +10,7 @@ export type ToolId =
   | 'png-to-jpg'
   | 'png-to-pdf'
   | 'word-to-pdf'
+  | 'pdf-to-word'
   | 'pdf-compressor'
   | 'image-compressor';
 
@@ -80,6 +81,17 @@ export const tools: Tool[] = [
     gradient: 'from-blue-700/20 to-slate-900/20',
     iconBg: 'from-blue-600 to-blue-800',
     accept: '.doc,.docx',
+  },
+  {
+    id: 'pdf-to-word',
+    title: 'PDF to Word',
+    description: 'Convert PDF documents into editable Word files (.docx).',
+    from: 'PDF',
+    to: 'DOCX',
+    icon: FileOutput,
+    gradient: 'from-indigo-600/20 to-slate-900/20',
+    iconBg: 'from-blue-500 to-slate-600',
+    accept: '.pdf',
   },
   {
     id: 'pdf-compressor',
