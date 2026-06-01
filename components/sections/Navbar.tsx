@@ -48,7 +48,7 @@ export default function Navbar() {
               <Zap className="w-5 h-5 text-white fill-white" />
             </div>
             <span className="text-xl font-bold text-gradient-white">
-              QuickConvert<span className="text-blue-400">X</span>
+              Zor<span className="text-blue-400">PDF</span>
             </span>
           </motion.button>
 

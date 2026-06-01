@@ -62,7 +62,7 @@ export default function FeaturesSection() {
           className="text-center mb-16"
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border-glow mb-5">
-            <span className="text-blue-400 text-sm font-medium">Why QuickConvertX</span>
+            <span className="text-blue-400 text-sm font-medium">Why ZorPDF</span>
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-5">
             Built for Speed & Privacy

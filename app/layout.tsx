@@ -5,19 +5,19 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'], weight: ['300', '400', '500', '600', '700'] });
 
 export const metadata: Metadata = {
-  title: 'QuickConvertX - Convert Any File in Seconds',
+  title: 'ZorPDF - Convert Any File in Seconds',
   description: 'Fast, secure and free online file converter. Convert JPG to PDF, PDF to JPG, Word to PDF, PDF to Word and more. No signup required.',
   keywords: 'file converter, JPG to PDF, PDF to JPG, Word to PDF, PDF to Word, online converter, free converter',
-  authors: [{ name: 'QuickConvertX' }],
+  authors: [{ name: 'ZorPDF' }],
   openGraph: {
-    title: 'QuickConvertX - Convert Any File in Seconds',
+    title: 'ZorPDF - Convert Any File in Seconds',
     description: 'Fast, secure and free online file converter. No signup required.',
     type: 'website',
     images: [{ url: 'https://bolt.new/static/og_default.png' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'QuickConvertX - Convert Any File in Seconds',
+    title: 'ZorPDF - Convert Any File in Seconds',
     description: 'Fast, secure and free online file converter. No signup required.',
     images: [{ url: 'https://bolt.new/static/og_default.png' }],
   },

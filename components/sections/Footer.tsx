@@ -53,7 +53,7 @@ export default function Footer() {
                 <Zap className="w-5 h-5 text-white fill-white" />
               </div>
               <span className="text-xl font-bold text-white">
-                QuickConvert<span className="text-blue-400">X</span>
+                Zor<span className="text-blue-400">PDF</span>
               </span>
             </div>
             <p className="text-slate-400 text-sm leading-relaxed mb-6 max-w-xs">
@@ -61,11 +61,11 @@ export default function Footer() {
             </p>
             {/* Contact */}
             <a
-              href="mailto:hello@quickconvertx.com"
+              href="mailto:hello@zorpdf.com"
               className="flex items-center gap-2 text-slate-400 hover:text-blue-400 transition-colors text-sm group"
             >
               <Mail className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              hello@quickconvertx.com
+              hello@zorpdf.com
             </a>
             {/* Socials */}
             <div className="flex items-center gap-3 mt-5">
@@ -114,7 +114,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-white/5">
           <p className="text-slate-600 text-sm">
-            &copy; 2025 QuickConvertX. All rights reserved.
+            &copy; 2025 ZorPDF. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
             <span className="text-slate-600 text-sm">Made with care for creators everywhere</span>
