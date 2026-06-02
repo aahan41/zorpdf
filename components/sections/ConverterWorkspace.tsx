@@ -12,7 +12,6 @@ import type { ImageProcessingResult } from '@/lib/pdfMerger';
 import { loadImageInfo, mergeImagesToPdf, type MergeResult } from '@/lib/pdfMerger';
 import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
 import { estimatePdfSize } from '@/lib/pdfEstimator';
-import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
 import { tools, type ToolId, type Tool } from './ToolsGrid';
 
 const converterTabs: { id: ToolId; label: string; from: string; to: string }[] = [
@@ -319,22 +318,6 @@ export default function ConverterWorkspace() {
               {/* Upload / Select State */}
               {(state === 'idle' || state === 'loading' || state === 'selected') && (
                 <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-                  {/* Compression selector for JPG to PDF */}
-                  {activeTab === 'jpg-to-pdf' && files.length > 0 && (
-                    <div className="mb-5">
-                      <CompressionLevelSelector
-                        value={compressionLevel}
-                        onChange={(level) => {
-                          setCompressionLevel(level);
-                          if (readyImages.length > 0) {
-                            const size = estimatePdfSize(readyImages.map(i => i.file), level);
-                            setEstimatedSize({ min: size.minSize, max: size.maxSize });
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
                   {/* Drop Zone */}
                   <div
                     onDrop={handleDrop}
