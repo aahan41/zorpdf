@@ -194,6 +194,68 @@ export default function ConverterWorkspace() {
         updateFileStatus(readyFiles[0].id, 'done', { blob: result.blob, filename: result.filename }, result);
         readyFiles.slice(1).forEach(f => updateFileStatus(f.id, 'done'));
 
+      } else if (activeTab === 'pdf-to-jpg') {
+        const pdfFile = files[0];
+        if (!pdfFile) throw new Error('No PDF file selected');
+        updateFileStatus(pdfFile.id, 'converting');
+
+        try {
+          const { convertPdfToImages, createZipFromImages } = await import('@/lib/pdfToImage');
+          const result = await convertPdfToImages(pdfFile.file, (current, total) => {
+            updateFileProgress(pdfFile.id, Math.round((current / total) * 100));
+          });
+
+          if (result.images.length === 1) {
+            updateFileStatus(pdfFile.id, 'done', { blob: result.images[0].blob, filename: result.images[0].filename });
+          } else {
+            const zipBlob = await createZipFromImages(result.images);
+            const baseName = pdfFile.file.name.replace(/\.[^.]+$/, '');
+            updateFileStatus(pdfFile.id, 'done', { blob: zipBlob, filename: `zorpdf.com-${baseName}.zip` });
+          }
+        } catch (err: any) {
+          updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'PDF to JPG conversion failed');
+        }
+
+      } else if (activeTab === 'pdf-to-word') {
+        const pdfFile = files[0];
+        if (!pdfFile) throw new Error('No PDF file selected');
+        updateFileStatus(pdfFile.id, 'converting');
+
+        try {
+          const { convertPdfToDocx } = await import('@/lib/pdfToDocx');
+          const result = await convertPdfToDocx(pdfFile.file);
+          updateFileStatus(pdfFile.id, 'done', { blob: result.blob, filename: result.filename });
+        } catch (err: any) {
+          updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'PDF to DOCX conversion failed');
+        }
+
+      } else if (activeTab === 'pdf-compressor') {
+        const pdfFile = files[0];
+        if (!pdfFile) throw new Error('No PDF file selected');
+        updateFileStatus(pdfFile.id, 'converting');
+
+        try {
+          const { compressPdf } = await import('@/lib/pdfCompressor');
+          const result = await compressPdf(pdfFile.file, 'medium');
+          updateFileProgress(pdfFile.id, 100);
+          setFiles(prev => prev.map(f =>
+            f.id === pdfFile.id ? {
+              ...f,
+              pdfResult: {
+                blob: result.blob,
+                filename: result.filename,
+                pageCount: 0,
+                originalSize: result.originalSize,
+                pdfSize: result.compressedSize,
+                compressionRatio: result.compressionRatio,
+              }
+            } : f
+          ));
+          updateFileStatus(pdfFile.id, 'done', { blob: result.blob, filename: result.filename });
+        } catch (err: any) {
+          updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'PDF compression failed');
+        }
+
       } else if (activeTab === 'png-to-jpg' || activeTab === 'image-compressor') {
         for (const fileItem of files) {
           updateFileStatus(fileItem.id, 'converting');
@@ -202,8 +264,9 @@ export default function ConverterWorkspace() {
             const baseName = fileItem.file.name.replace(/\.[^.]+$/, '');
             const ext = activeTab === 'png-to-jpg' ? 'jpg' : (fileItem.file.name.split('.').pop() || 'jpg');
             const suffix = activeTab === 'image-compressor' ? '-compressed' : '';
+            const filename = `zorpdf.com-${baseName}${suffix}.${ext}`;
             updateFileProgress(fileItem.id, 100);
-            updateFileStatus(fileItem.id, 'done', { blob: compressed.blob, filename: `${baseName}${suffix}.${ext}` });
+            updateFileStatus(fileItem.id, 'done', { blob: compressed.blob, filename });
           } catch (err: any) {
             updateFileStatus(fileItem.id, 'error', undefined, undefined, err?.message || 'Conversion failed');
           }

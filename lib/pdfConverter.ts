@@ -200,7 +200,7 @@ export async function convertImageToPdf(
 
   // Generate filename
   const baseName = files[0].name.replace(/\.[^.]+$/, '');
-  const filename = files.length === 1 ? `${baseName}.pdf` : `${baseName}-and-${files.length - 1}-more.pdf`;
+  const filename = files.length === 1 ? `zorpdf.com-${baseName}.pdf` : `zorpdf.com-${baseName}-and-${files.length - 1}-more.pdf`;
 
   return {
     blob: pdfBlob,
