@@ -1,4 +1,3 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { getZorPdfFileName } from './fileNaming';
 
 export interface PdfPageImage {
@@ -13,7 +12,7 @@ export interface PdfToImagesResult {
 }
 
 async function getImageFromPdfPage(
-  pdfDoc: pdfjsLib.PDFDocumentProxy,
+  pdfDoc: any,
   pageNumber: number,
   scale: number = 2
 ): Promise<Blob> {
@@ -49,6 +48,14 @@ export async function convertPdfToImages(
   onProgress?: (current: number, total: number) => void
 ): Promise<PdfToImagesResult> {
   try {
+    // Import PDF.js AFTER worker is configured
+    const pdfjsLib = await import('pdfjs-dist');
+
+    // Ensure worker is set up BEFORE loading PDF
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    }
+
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 

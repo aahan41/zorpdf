@@ -16,15 +16,6 @@ import { getZorPdfFileName } from '@/lib/fileNaming';
 import { DownloadButton } from '@/components/ui/DownloadButton';
 import { tools, type ToolId, type Tool } from './ToolsGrid';
 
-// Initialize PDF.js worker on first client render
-let pdfWorkerInitialized = false;
-const initPdfWorker = async () => {
-  if (pdfWorkerInitialized || typeof window === 'undefined') return;
-  pdfWorkerInitialized = true;
-  const { default: pdfjsLib } = await import('pdfjs-dist');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-};
-
 const converterTabs: { id: ToolId; label: string; from: string; to: string }[] = [
   { id: 'jpg-to-pdf', label: 'JPG to PDF', from: 'JPG', to: 'PDF' },
   { id: 'pdf-to-jpg', label: 'PDF to JPG', from: 'PDF', to: 'JPG' },
@@ -182,7 +173,6 @@ export default function ConverterWorkspace() {
 
   const processFiles = async () => {
     if (files.length === 0) return;
-    await initPdfWorker();
     setState('converting');
 
     try {

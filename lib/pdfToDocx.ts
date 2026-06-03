@@ -1,4 +1,3 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { getZorPdfFileName } from './fileNaming';
 
 export interface DocxResult {
@@ -39,6 +38,14 @@ function createDocxBlob(content: string): Blob {
 
 export async function convertPdfToDocx(pdfFile: File): Promise<DocxResult> {
   try {
+    // Import PDF.js AFTER worker is configured
+    const pdfjsLib = await import('pdfjs-dist');
+
+    // Ensure worker is set up BEFORE loading PDF
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    }
+
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
