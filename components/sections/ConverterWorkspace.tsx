@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
-  Upload, Download, X, FileText, Layers, ArrowRight,
+  Upload, X, FileText, Layers, ArrowRight,
   Zap, GripVertical, Image as ImageIcon, Trash2, CheckCircle2,
   RotateCcw, File, AlertCircle
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { loadImageInfo, mergeImagesToPdf, type MergeResult } from '@/lib/pdfMerg
 import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
 import { estimatePdfSize } from '@/lib/pdfEstimator';
 import { getZorPdfFileName } from '@/lib/fileNaming';
+import { DownloadButton } from '@/components/ui/DownloadButton';
 import { tools, type ToolId, type Tool } from './ToolsGrid';
 
 // Initialize PDF.js worker on first client render
@@ -655,13 +656,11 @@ export default function ConverterWorkspace() {
                         <p className="text-white text-sm font-medium truncate">{mergedPdf.filename}</p>
                         <p className="text-slate-500 text-xs">{mergedPdf.pageCount} page{mergedPdf.pageCount !== 1 ? 's' : ''} | {formatBytes(mergedPdf.pdfSize)}</p>
                       </div>
-                      <button
+                      <DownloadButton
                         onClick={() => { const f = files.find(f => f.pdfResult); if (f) downloadFile(f); }}
-                        className="btn-primary px-4 py-2 rounded-lg text-white font-semibold text-xs flex items-center gap-1.5"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download
-                      </button>
+                        size="sm"
+                        text="Download"
+                      />
                     </div>
                   ) : (
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mb-5">
@@ -679,28 +678,29 @@ export default function ConverterWorkspace() {
                             <p className="text-slate-500 text-[11px]">{fileItem.result ? formatBytes(fileItem.result.blob.size) : fileItem.error || 'Failed'}</p>
                           </div>
                           {fileItem.status === 'done' && fileItem.result && (
-                            <button onClick={() => downloadFile(fileItem)} className="p-1.5 text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0">
-                              <Download className="w-3.5 h-3.5" />
-                            </button>
+                            <DownloadButton
+                              onClick={() => downloadFile(fileItem)}
+                              size="sm"
+                              text="Download"
+                            />
                           )}
                         </div>
                       ))}
                     </div>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     {completedCount > 1 && activeTab !== 'jpg-to-pdf' && (
-                      <button
+                      <DownloadButton
                         onClick={downloadAllAsZip}
-                        className="flex-1 btn-primary py-3 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download All as ZIP
-                      </button>
+                        text="Download All as ZIP"
+                        size="md"
+                        fullWidth
+                      />
                     )}
                     <button
                       onClick={clearAllFiles}
-                      className="flex-1 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white glass border border-white/10 flex items-center justify-center gap-1.5 transition-all"
+                      className="w-full py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white glass border border-white/10 flex items-center justify-center gap-1.5 transition-all"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       Convert More

@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Upload, FileCheck, Download, X, AlertCircle,
+  Upload, FileCheck, X, AlertCircle,
   RotateCcw, CheckCircle2, File, Package, Trash2,
   ArrowRight, Zap, FileText, Layers
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import type { ImageProcessingResult } from '@/lib/pdfMerger';
 import { loadImageInfo, mergeImagesToPdf, type MergeResult } from '@/lib/pdfMerger';
 import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
 import { estimatePdfSize } from '@/lib/pdfEstimator';
+import { DownloadButton } from '@/components/ui/DownloadButton';
 import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
 import ImageReorderGrid from '@/components/ui/ImageReorderGrid';
 
@@ -699,16 +700,14 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                       {mergedPdf.pageCount} page{mergedPdf.pageCount !== 1 ? 's' : ''} | {formatBytes(mergedPdf.pdfSize)}
                     </p>
                   </div>
-                  <button
+                  <DownloadButton
                     onClick={() => {
                       const fileItem = files.find(f => f.pdfResult);
                       if (fileItem) downloadFile(fileItem);
                     }}
-                    className="btn-primary px-4 py-2 rounded-lg text-white font-semibold text-sm flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download
-                  </button>
+                    size="md"
+                    text="Download"
+                  />
                 </div>
               </div>
             ) : (
@@ -742,32 +741,29 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                       </p>
                     </div>
                     {fileItem.status === 'done' && fileItem.result && (
-                      <button
+                      <DownloadButton
                         onClick={() => downloadFile(fileItem)}
-                        className="p-2 text-blue-400 hover:text-blue-300 transition-colors flex-shrink-0"
-                        title="Download"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
+                        size="sm"
+                        text="Download"
+                      />
                     )}
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3">
               {completedCount > 1 && toolId !== 'jpg-to-pdf' && (
-                <button
+                <DownloadButton
                   onClick={downloadAllAsZip}
-                  className="flex-1 btn-primary py-3.5 rounded-2xl text-sm font-bold text-white shadow-xl shadow-blue-900/40 flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  Download All as ZIP
-                </button>
+                  text="Download All as ZIP"
+                  size="md"
+                  fullWidth
+                />
               )}
               <button
                 onClick={clearAllFiles}
-                className="flex-1 py-3.5 rounded-2xl text-sm font-semibold text-slate-300 hover:text-white glass border-glow flex items-center justify-center gap-2 transition-all"
+                className="w-full py-3.5 rounded-2xl text-sm font-semibold text-slate-300 hover:text-white glass border-glow flex items-center justify-center gap-2 transition-all"
               >
                 <RotateCcw className="w-4 h-4" />
                 Convert More
