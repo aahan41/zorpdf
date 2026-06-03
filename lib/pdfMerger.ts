@@ -1,6 +1,7 @@
 import { PDFDocument, PDFImage, rgb } from 'pdf-lib';
 import type { CompressionLevel } from './imageCompression';
 import { compressImage, COMPRESSION_PRESETS } from './imageCompression';
+import { getZorPdfFileName } from './fileNaming';
 
 export interface ImageProcessingResult {
   id: string;
@@ -223,8 +224,7 @@ export async function mergeImagesToPdf(
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
 
   // Generate branded filename
-  const baseName = images[0].file.name.replace(/\.[^.]+$/, '');
-  const filename = `zorPDF.com-${baseName}.pdf`;
+  const filename = getZorPdfFileName('pdf');
 
   return {
     blob,

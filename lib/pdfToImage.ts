@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import { getZorPdfFileName } from './fileNaming';
 
 export interface PdfPageImage {
   pageNumber: number;
@@ -9,21 +10,6 @@ export interface PdfPageImage {
 export interface PdfToImagesResult {
   images: PdfPageImage[];
   totalPages: number;
-}
-
-async function initWorker() {
-  if (typeof window === 'undefined') return;
-  if (pdfjsLib.GlobalWorkerOptions.workerSrc) return;
-  
-  try {
-    const pdfWorkerBlob = await fetch(
-      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-    ).then(res => res.blob());
-    const workerUrl = URL.createObjectURL(pdfWorkerBlob);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-  } catch (e) {
-    console.warn('Failed to load PDF worker:', e);
-  }
 }
 
 async function getImageFromPdfPage(
@@ -62,16 +48,12 @@ export async function convertPdfToImages(
   pdfFile: File,
   onProgress?: (current: number, total: number) => void
 ): Promise<PdfToImagesResult> {
-  await initWorker();
-  
   try {
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
     const totalPages = pdfDoc.numPages;
     const images: PdfPageImage[] = [];
-
-    const baseName = pdfFile.name.replace(/\.[^.]+$/, '');
 
     for (let i = 1; i <= totalPages; i++) {
       if (onProgress) {
@@ -80,10 +62,11 @@ export async function convertPdfToImages(
 
       try {
         const blob = await getImageFromPdfPage(pdfDoc, i);
+        const filename = totalPages === 1 ? getZorPdfFileName('jpg') : `page-${i}.jpg`;
         images.push({
           pageNumber: i,
           blob,
-          filename: `zorPDF.com-${baseName}-page-${i}.jpg`,
+          filename,
         });
       } catch (err) {
         throw new Error(`Failed to convert page ${i}: ${err instanceof Error ? err.message : 'Unknown error'}`);

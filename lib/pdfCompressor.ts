@@ -1,4 +1,5 @@
 import { PDFDocument, rgb } from 'pdf-lib';
+import { getZorPdfFileName } from './fileNaming';
 
 export interface CompressionResult {
   blob: Blob;
@@ -36,8 +37,7 @@ export async function compressPdf(
     const compressedPdfBytes = await pdfDoc.save({ useObjectStreams: compressionLevel === 'high' });
     const compressedBlob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
 
-    const baseName = pdfFile.name.replace(/\.[^.]+$/, '');
-    const filename = `zorPDF.com-${baseName}-compressed.pdf`;
+    const filename = getZorPdfFileName('pdf');
 
     return {
       blob: compressedBlob,

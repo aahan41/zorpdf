@@ -1,5 +1,7 @@
 export type CompressionLevel = 'low' | 'balanced' | 'high' | 'ultra';
 
+import { getZorPdfFileName } from './fileNaming';
+
 export interface CompressionSettings {
   quality: number;
   maxWidth: number;

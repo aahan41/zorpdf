@@ -12,7 +12,17 @@ import type { ImageProcessingResult } from '@/lib/pdfMerger';
 import { loadImageInfo, mergeImagesToPdf, type MergeResult } from '@/lib/pdfMerger';
 import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
 import { estimatePdfSize } from '@/lib/pdfEstimator';
+import { getZorPdfFileName } from '@/lib/fileNaming';
 import { tools, type ToolId, type Tool } from './ToolsGrid';
+
+// Initialize PDF.js worker on first client render
+let pdfWorkerInitialized = false;
+const initPdfWorker = async () => {
+  if (pdfWorkerInitialized || typeof window === 'undefined') return;
+  pdfWorkerInitialized = true;
+  const { default: pdfjsLib } = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+};
 
 const converterTabs: { id: ToolId; label: string; from: string; to: string }[] = [
   { id: 'jpg-to-pdf', label: 'JPG to PDF', from: 'JPG', to: 'PDF' },
@@ -171,6 +181,7 @@ export default function ConverterWorkspace() {
 
   const processFiles = async () => {
     if (files.length === 0) return;
+    await initPdfWorker();
     setState('converting');
 
     try {
@@ -206,11 +217,10 @@ export default function ConverterWorkspace() {
           });
 
           if (result.images.length === 1) {
-            updateFileStatus(pdfFile.id, 'done', { blob: result.images[0].blob, filename: result.images[0].filename });
+            updateFileStatus(pdfFile.id, 'done', { blob: result.images[0].blob, filename: getZorPdfFileName('jpg') });
           } else {
             const zipBlob = await createZipFromImages(result.images);
-            const baseName = pdfFile.file.name.replace(/\.[^.]+$/, '');
-            updateFileStatus(pdfFile.id, 'done', { blob: zipBlob, filename: `zorPDF.com-${baseName}.zip` });
+            updateFileStatus(pdfFile.id, 'done', { blob: zipBlob, filename: getZorPdfFileName('zip') });
           }
         } catch (err: any) {
           updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'PDF to JPG conversion failed');
@@ -261,10 +271,8 @@ export default function ConverterWorkspace() {
           updateFileStatus(fileItem.id, 'converting');
           try {
             const compressed = await compressImage(fileItem.file, compressionLevel);
-            const baseName = fileItem.file.name.replace(/\.[^.]+$/, '');
             const ext = activeTab === 'png-to-jpg' ? 'jpg' : (fileItem.file.name.split('.').pop() || 'jpg');
-            const suffix = activeTab === 'image-compressor' ? '-compressed' : '';
-            const filename = `zorPDF.com-${baseName}${suffix}.${ext}`;
+            const filename = getZorPdfFileName(ext);
             updateFileProgress(fileItem.id, 100);
             updateFileStatus(fileItem.id, 'done', { blob: compressed.blob, filename });
           } catch (err: any) {
