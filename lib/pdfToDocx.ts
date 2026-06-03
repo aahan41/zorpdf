@@ -1,16 +1,23 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-  } catch (e) {
-    // Fallback - worker will be loaded from CDN
-  }
-}
-
 export interface DocxResult {
   blob: Blob;
   filename: string;
+}
+
+async function initWorker() {
+  if (typeof window === 'undefined') return;
+  if (pdfjsLib.GlobalWorkerOptions.workerSrc) return;
+  
+  try {
+    const pdfWorkerBlob = await fetch(
+      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+    ).then(res => res.blob());
+    const workerUrl = URL.createObjectURL(pdfWorkerBlob);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+  } catch (e) {
+    console.warn('Failed to load PDF worker:', e);
+  }
 }
 
 function createDocxBlob(content: string): Blob {
@@ -45,6 +52,8 @@ function createDocxBlob(content: string): Blob {
 }
 
 export async function convertPdfToDocx(pdfFile: File): Promise<DocxResult> {
+  await initWorker();
+  
   try {
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -72,7 +81,7 @@ export async function convertPdfToDocx(pdfFile: File): Promise<DocxResult> {
     const docxBlob = createDocxBlob(fullText);
 
     const baseName = pdfFile.name.replace(/\.[^.]+$/, '');
-    const filename = `zorpdf.com-${baseName}.docx`;
+    const filename = `zorPDF.com-${baseName}.docx`;
 
     return {
       blob: docxBlob,

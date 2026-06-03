@@ -1,13 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-  } catch (e) {
-    // Fallback - worker will be loaded from CDN
-  }
-}
-
 export interface PdfPageImage {
   pageNumber: number;
   blob: Blob;
@@ -17,6 +9,21 @@ export interface PdfPageImage {
 export interface PdfToImagesResult {
   images: PdfPageImage[];
   totalPages: number;
+}
+
+async function initWorker() {
+  if (typeof window === 'undefined') return;
+  if (pdfjsLib.GlobalWorkerOptions.workerSrc) return;
+  
+  try {
+    const pdfWorkerBlob = await fetch(
+      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+    ).then(res => res.blob());
+    const workerUrl = URL.createObjectURL(pdfWorkerBlob);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+  } catch (e) {
+    console.warn('Failed to load PDF worker:', e);
+  }
 }
 
 async function getImageFromPdfPage(
@@ -55,6 +62,8 @@ export async function convertPdfToImages(
   pdfFile: File,
   onProgress?: (current: number, total: number) => void
 ): Promise<PdfToImagesResult> {
+  await initWorker();
+  
   try {
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -74,7 +83,7 @@ export async function convertPdfToImages(
         images.push({
           pageNumber: i,
           blob,
-          filename: `zorpdf.com-${baseName}-page-${i}.jpg`,
+          filename: `zorPDF.com-${baseName}-page-${i}.jpg`,
         });
       } catch (err) {
         throw new Error(`Failed to convert page ${i}: ${err instanceof Error ? err.message : 'Unknown error'}`);

@@ -210,7 +210,7 @@ export default function ConverterWorkspace() {
           } else {
             const zipBlob = await createZipFromImages(result.images);
             const baseName = pdfFile.file.name.replace(/\.[^.]+$/, '');
-            updateFileStatus(pdfFile.id, 'done', { blob: zipBlob, filename: `zorpdf.com-${baseName}.zip` });
+            updateFileStatus(pdfFile.id, 'done', { blob: zipBlob, filename: `zorPDF.com-${baseName}.zip` });
           }
         } catch (err: any) {
           updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'PDF to JPG conversion failed');
@@ -264,7 +264,7 @@ export default function ConverterWorkspace() {
             const baseName = fileItem.file.name.replace(/\.[^.]+$/, '');
             const ext = activeTab === 'png-to-jpg' ? 'jpg' : (fileItem.file.name.split('.').pop() || 'jpg');
             const suffix = activeTab === 'image-compressor' ? '-compressed' : '';
-            const filename = `zorpdf.com-${baseName}${suffix}.${ext}`;
+            const filename = `zorPDF.com-${baseName}${suffix}.${ext}`;
             updateFileProgress(fileItem.id, 100);
             updateFileStatus(fileItem.id, 'done', { blob: compressed.blob, filename });
           } catch (err: any) {
