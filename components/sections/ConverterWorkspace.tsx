@@ -257,6 +257,20 @@ export default function ConverterWorkspace() {
           updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'PDF compression failed');
         }
 
+      } else if (activeTab === 'word-to-pdf') {
+        const docxFile = files[0];
+        if (!docxFile) throw new Error('No DOCX file selected');
+        updateFileStatus(docxFile.id, 'converting');
+
+        try {
+          const { convertDocxToPdf } = await import('@/lib/docxToPdf');
+          const result = await convertDocxToPdf(docxFile.file);
+          updateFileProgress(docxFile.id, 100);
+          updateFileStatus(docxFile.id, 'done', { blob: result.blob, filename: result.filename });
+        } catch (err: any) {
+          updateFileStatus(docxFile.id, 'error', undefined, undefined, err?.message || 'DOCX to PDF conversion failed');
+        }
+
       } else if (activeTab === 'png-to-jpg' || activeTab === 'image-compressor') {
         for (const fileItem of files) {
           updateFileStatus(fileItem.id, 'converting');
