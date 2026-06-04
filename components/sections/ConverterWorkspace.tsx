@@ -483,7 +483,7 @@ export default function ConverterWorkspace() {
                               <div className="w-7 h-7 rounded bg-blue-600/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
                                 <span className="text-blue-400 text-xs font-bold">{index + 1}</span>
                               </div>
-                              <div className="w-10 h-10 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
+                              <div className="w-16 h-16 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
                                 <img src={image.thumbnail} alt="" className="w-full h-full object-cover" />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -582,11 +582,11 @@ export default function ConverterWorkspace() {
                     <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                       {files.filter(f => f.status === 'converting' || f.progress > 0).map((fileItem) => (
                         <div key={fileItem.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-white/5">
-                          <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <div className="w-12 h-12 rounded bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
                             {fileItem.thumbnail ? (
                               <img src={fileItem.thumbnail} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <File className="w-4 h-4 text-blue-400" />
+                              <File className="w-5 h-5 text-blue-400" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">

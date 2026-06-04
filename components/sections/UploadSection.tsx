@@ -595,11 +595,11 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
                     key={fileItem.id}
                     className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-700/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-700/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {fileItem.thumbnail ? (
                         <img src={fileItem.thumbnail} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <File className="w-5 h-5 text-blue-400" />
+                        <File className="w-6 h-6 text-blue-400" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
