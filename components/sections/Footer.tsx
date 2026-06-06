@@ -3,24 +3,37 @@
 import { motion } from 'framer-motion';
 import { Zap, Mail, ArrowUp, Github, Twitter, Linkedin } from 'lucide-react';
 
+
+
+ 
+
+ 
+
 const footerLinks = {
+  Product: [
+    { label: 'Home', href: '/' },
+    { label: 'Tools', href: '#tools' },
+    { label: 'Features', href: '#features' },
+    { label: 'Contact', href: '#contact' },
+  ],
   Tools: [
-    { label: 'JPG to PDF', href: '/#tools' },
-    { label: 'PDF to JPG', href: '/#tools' },
-    { label: 'PNG to JPG', href: '/#tools' },
-    { label: 'Word to PDF', href: '/#tools' },
+    { label: 'JPG to PDF', href: '#tools' },
+    { label: 'PDF to JPG', href: '#tools' },
+    { label: 'PNG to JPG', href: '#tools' },
+    { label: 'PNG to PDF', href: '#tools' },
+    { label: 'DOCX to PDF', href: '#tools' },
+    { label: 'PDF to DOCX', href: '#tools' },
   ],
   Company: [
     { label: 'About Us', href: '#' },
-    { label: 'Blog', href: '#' },
-    { label: 'Contact', href: '#contact' },
+    { label: 'Contact Us', href: '#contact' },
   ],
   Legal: [
     { label: 'Privacy Policy', href: '#' },
-    { label: 'Terms of Service', href: '#' },
-    { label: 'Cookie Policy', href: '#' },
+    { label: 'Terms & Conditions', href: '#' },
   ],
 };
+
 
 const socials = [
   { icon: Twitter, label: 'Twitter' },
@@ -84,20 +97,12 @@ export default function Footer() {
           ))}
         </div>
 
-        {/* Trust badges */}
-        <div className="flex flex-wrap items-center gap-3 mb-8 py-4 border-t border-white/5">
-          {['SSL Secured', 'GDPR Compliant', 'Auto-Delete Files', '100% Free'].map((badge) => (
-            <span key={badge} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md glass border border-white/8 text-slate-500 text-[11px] font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-              {badge}
-            </span>
-          ))}
-        </div>
+        
 
         {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-white/5">
           <p className="text-slate-600 text-xs">
-            &copy; 2025 ZorPDF. All rights reserved.
+            &copy; 2026 ZorPDF. All rights reserved.
           </p>
           <div className="flex items-center gap-3">
             {socials.map((s) => (
