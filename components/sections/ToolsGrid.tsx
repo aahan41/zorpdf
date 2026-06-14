@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Image, FileImage, FileText, FileType, ArrowRight, Minimize2, Layers, File, FileOutput } from 'lucide-react';
+import { Image, FileImage, FileText, ArrowRight, Minimize2, FileOutput } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export type ToolId =
@@ -11,8 +11,7 @@ export type ToolId =
   | 'png-to-pdf'
   | 'word-to-pdf'
   | 'pdf-to-word'
-  | 'pdf-compressor'
-  | 'image-compressor';
+  | 'pdf-compressor';
 
 export interface Tool {
   id: ToolId;
@@ -104,17 +103,6 @@ export const tools: Tool[] = [
     iconBg: 'from-cyan-500 to-blue-600',
     accept: '.pdf',
   },
-  {
-    id: 'image-compressor',
-    title: 'Image Compressor',
-    description: 'Compress images without losing quality.',
-    from: 'IMAGE',
-    to: 'IMAGE',
-    icon: Layers,
-    gradient: 'from-teal-600/20 to-blue-900/20',
-    iconBg: 'from-teal-500 to-blue-600',
-    accept: '.jpg,.jpeg,.png,.webp',
-  },
 ];
 
 interface ToolCardProps {
@@ -148,12 +136,10 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
           }
         }}
       >
-        {/* Glowing border on hover */}
         <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
           style={{ boxShadow: '0 0 40px rgba(59, 130, 246, 0.3), inset 0 0 40px rgba(59, 130, 246, 0.05)' }}
         />
 
-        {/* Format badges */}
         <div className="flex items-center gap-2 mb-5">
           <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-slate-300 border border-white/10">
             {tool.from}
@@ -164,12 +150,10 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
           </span>
         </div>
 
-        {/* Icon */}
         <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
           <tool.icon className="w-8 h-8 text-white" />
         </div>
 
-        {/* Content */}
         <h3 className="text-xl font-bold text-white mb-3 group-hover:text-blue-300 transition-colors">
           {tool.title}
         </h3>
@@ -177,10 +161,7 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
           {tool.description}
         </p>
 
-        {/* CTA Button */}
-        <div
-          className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none"
-        >
+        <div className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none">
           <span>Open Tool</span>
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </div>
@@ -199,7 +180,6 @@ export default function ToolsGrid() {
   return (
     <section id="tools" className="py-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -215,9 +195,8 @@ export default function ToolsGrid() {
           </p>
         </motion.div>
 
-        {/* Tool cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tools.map((tool, index) => (
+          {tools.map((tool) => (
             <ToolCard
               key={tool.id}
               tool={tool}
