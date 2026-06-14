@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -27,9 +26,12 @@ export default function SettingsPage() {
           <span className="font-semibold">Zor<span className="text-blue-400">PDF</span></span>
           <span className="ml-2 text-xs bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded-full border border-blue-800">Admin Panel</span>
         </div>
-        <Link href="/admin/dashboard" className="text-sm text-gray-400 hover:text-white transition border border-[#30363d] px-3 py-1.5 rounded-lg">
+        <button
+          onClick={() => router.push("/admin/dashboard")}
+          className="text-sm text-gray-400 hover:text-white transition border border-[#30363d] px-3 py-1.5 rounded-lg"
+        >
           ← Dashboard
-        </Link>
+        </button>
       </nav>
       <div className="max-w-5xl mx-auto px-6 py-8">
         <h1 className="text-2xl font-semibold mb-2">Site Settings</h1>
@@ -41,7 +43,7 @@ export default function SettingsPage() {
             <p className="text-xs text-gray-400 mb-3">Upload limit set karo</p>
             <select className="bg-[#0d1117] border border-[#30363d] text-white text-sm rounded-lg px-3 py-2">
               <option>10 MB</option>
-              <option selected>50 MB</option>
+              <option>50 MB</option>
               <option>100 MB</option>
             </select>
           </div>
