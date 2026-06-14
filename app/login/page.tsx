@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -18,9 +18,28 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (phone.length !== 10) {
+      setError('Valid 10 digit mobile number daalo');
+      return;
+    }
+
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const formattedPhone = `+91${phone}`;
+
+    // Phone number se email dhundo
+    const { data: emailData, error: lookupError } = await supabase.rpc('get_email_by_phone', {
+      phone_input: formattedPhone,
+    });
+
+    if (lookupError || !emailData) {
+      setError('Is mobile number se koi account nahi mila');
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email: emailData, password });
 
     if (error) {
       setError(error.message);
@@ -56,15 +75,21 @@ export default function LoginPage() {
         <div className="glass border border-white/10 rounded-2xl p-8">
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-300">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="w-full h-11 px-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500/50 focus:bg-white/8 transition-all"
-              />
+              <label className="text-sm font-medium text-slate-300">Mobile Number</label>
+              <div className="flex gap-2">
+                <div className="h-11 px-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm flex items-center">
+                  +91
+                </div>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="9876543210"
+                  required
+                  maxLength={10}
+                  className="flex-1 h-11 px-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500/50 focus:bg-white/8 transition-all"
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
