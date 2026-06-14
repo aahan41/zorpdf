@@ -22,15 +22,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchStats();
-
-    // Real-time subscription
     const channel = supabase
       .channel("realtime-dashboard")
       .on("postgres_changes", { event: "*", schema: "public", table: "conversions" }, () => fetchStats())
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => fetchStats())
       .on("postgres_changes", { event: "*", schema: "public", table: "logs" }, () => fetchStats())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -43,7 +40,6 @@ export default function DashboardPage() {
         supabase.from("tools").select("*"),
         supabase.from("logs").select("*").order("created_at", { ascending: false }).limit(5),
       ]);
-
       const tools = toolsRes.data || [];
       setStats({
         totalUsers: usersRes.count || 0,
@@ -52,31 +48,15 @@ export default function DashboardPage() {
         enabledTools: tools.filter((t: any) => t.is_enabled).length,
       });
       setRecentLogs(logsRes.data || []);
-
-      // Chart data — last 7 days conversions
-      <div className="flex items-center justify-between mb-8">
-  <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-  <div className="flex items-center gap-4">
-    <span className="flex items-center gap-2 text-green-400 text-sm">
-      <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-      Live
-    </span>
-    <button
-      onClick={() => {
-        localStorage.removeItem("zorpdf_admin");
-        document.cookie = "zorpdf_admin=; path=/; max-age=0";
-        window.location.href = "/admin";
-      }}
-      className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium transition"
-    >
-      🚪 Logout
-    </button>
-  </div>
-</div>
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return d.toISOString().split("T")[0];
+      });
+      const { data: convData } = await supabase
         .from("conversions")
         .select("created_at")
         .gte("created_at", days[0]);
-
       const grouped = days.map((day) => ({
         day: day.slice(5),
         conversions: (convData || []).filter((c: any) => c.created_at.startsWith(day)).length,
@@ -88,15 +68,29 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("zorpdf_admin");
+    document.cookie = "zorpdf_admin=; path=/; max-age=0";
+    window.location.href = "/admin";
+  };
+
   return (
     <div className="min-h-screen bg-[#0d1117] text-white p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <span className="flex items-center gap-2 text-green-400 text-sm">
-          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-          Live
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-2 text-green-400 text-sm">
+            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+            Live
+          </span>
+          <button
+            onClick={handleLogout}
+            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium transition"
+          >
+            🚪 Logout
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
