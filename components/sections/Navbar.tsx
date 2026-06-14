@@ -48,13 +48,13 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white fill-white" />
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
+              <Zap className="w-6 h-6 text-white fill-white" />
             </div>
-            <span className="text-lg font-bold text-white">
+            <span className="text-2xl font-bold text-white">
               Zor<span className="text-blue-400">PDF</span>
             </span>
           </Link>
