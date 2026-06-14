@@ -26,6 +26,7 @@ export default function AdminLoginPage() {
 
     if (formattedPhone === ADMIN_PHONE && password === ADMIN_PASSWORD) {
       localStorage.setItem("zorpdf_admin", "true");
+      document.cookie = "zorpdf_admin=true; path=/; max-age=86400";
       router.push("/admin/dashboard");
     } else {
       setError("Galat number ya password. Sirf admin access kar sakta hai.");
