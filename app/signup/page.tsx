@@ -41,7 +41,7 @@ export default function SignUpPage() {
 
     const formattedPhone = `+91${phone}`;
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -54,9 +54,23 @@ export default function SignUpPage() {
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      router.push('/');
+      return;
     }
+
+    // Save phone + email in profiles table for phone-based login
+    if (data.user) {
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: data.user.id,
+        phone: formattedPhone,
+        email: email,
+      });
+
+      if (profileError) {
+        console.error('Profile insert error:', profileError);
+      }
+    }
+
+    router.push('/');
   };
 
   return (
