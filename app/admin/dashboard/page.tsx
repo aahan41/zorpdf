@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -62,17 +61,27 @@ export default function AdminDashboard() {
 
         <h2 className="text-lg font-medium mb-4">Admin Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { title: "Users Manage karo", desc: "Sab registered users dekho, block/unblock karo", icon: "👥" },
-            { title: "Conversions Log", desc: "Kaunsi file kab convert hui, details dekho", icon: "📊" },
-            { title: "Site Settings", desc: "File size limits, tools enable/disable karo", icon: "⚙️" },
-          ].map((action) => (
-            <div key={action.title} className="bg-[#161b22] border border-[#30363d] hover:border-blue-700 rounded-xl p-5 cursor-pointer transition group">
-              <div className="text-3xl mb-3">{action.icon}</div>
-              <h3 className="font-medium text-white group-hover:text-blue-400 transition mb-1">{action.title}</h3>
-              <p className="text-xs text-gray-400">{action.desc}</p>
+          <Link href="/admin/dashboard/users">
+            <div className="bg-[#161b22] border border-[#30363d] hover:border-blue-700 rounded-xl p-5 cursor-pointer transition group">
+              <div className="text-3xl mb-3">👥</div>
+              <h3 className="font-medium text-white group-hover:text-blue-400 transition mb-1">Users Manage karo</h3>
+              <p className="text-xs text-gray-400">Sab registered users dekho, block/unblock karo</p>
             </div>
-          ))}
+          </Link>
+          <Link href="/admin/dashboard/logs">
+            <div className="bg-[#161b22] border border-[#30363d] hover:border-blue-700 rounded-xl p-5 cursor-pointer transition group">
+              <div className="text-3xl mb-3">📊</div>
+              <h3 className="font-medium text-white group-hover:text-blue-400 transition mb-1">Conversions Log</h3>
+              <p className="text-xs text-gray-400">Kaunsi file kab convert hui, details dekho</p>
+            </div>
+          </Link>
+          <Link href="/admin/dashboard/settings">
+            <div className="bg-[#161b22] border border-[#30363d] hover:border-blue-700 rounded-xl p-5 cursor-pointer transition group">
+              <div className="text-3xl mb-3">⚙️</div>
+              <h3 className="font-medium text-white group-hover:text-blue-400 transition mb-1">Site Settings</h3>
+              <p className="text-xs text-gray-400">File size limits, tools enable/disable karo</p>
+            </div>
+          </Link>
         </div>
 
         <div className="mt-8 border-t border-[#30363d] pt-6">
