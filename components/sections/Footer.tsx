@@ -32,6 +32,7 @@ export default function Footer() {
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const handleLinkClick = (href: string) => {
+    if (href === '#') return;
     if (href.startsWith('#')) {
       const el = document.querySelector(href);
       if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -44,7 +45,6 @@ export default function Footer() {
     <footer id="contact" className="relative border-t border-white/5 mt-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-          {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
@@ -66,7 +66,6 @@ export default function Footer() {
             </a>
           </div>
 
-          {/* Link columns */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
               <h4 className="text-white font-semibold text-xs uppercase tracking-wider mb-3">{category}</h4>
@@ -86,7 +85,6 @@ export default function Footer() {
           ))}
         </div>
 
-        {/* Trust badges */}
         <div className="flex flex-wrap items-center gap-3 mb-8 py-4 border-t border-white/5">
           {['SSL Secured', 'GDPR Compliant', 'Auto-Delete Files', '100% Free'].map((badge) => (
             <span key={badge} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md glass border border-white/8 text-slate-500 text-[11px] font-medium">
@@ -96,7 +94,6 @@ export default function Footer() {
           ))}
         </div>
 
-        {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-white/5">
           <p className="text-slate-600 text-xs">
             &copy; 2025 ZorPDF. All rights reserved.
