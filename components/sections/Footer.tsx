@@ -11,9 +11,9 @@ const footerLinks = {
     { label: 'Word to PDF', href: '/#tools' },
   ],
   Company: [
-    { label: 'About Us', href: '#' },
-    { label: 'Blog', href: '#' },
-    { label: 'Contact', href: '#contact' },
+    { label: 'About Us', href: '/about' },
+    { label: 'Blog', href: '/blog' },
+    { label: 'Contact', href: '/contact' },
   ],
   Legal: [
     { label: 'Privacy Policy', href: '#' },
@@ -35,6 +35,8 @@ export default function Footer() {
     if (href.startsWith('#')) {
       const el = document.querySelector(href);
       if (el) el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.location.href = href;
     }
   };
 
@@ -55,7 +57,7 @@ export default function Footer() {
             <p className="text-slate-500 text-xs leading-relaxed mb-3 max-w-[200px]">
               Fast, secure online file converter. Free, forever.
             </p>
-            <a
+            
               href="mailto:hello@zorpdf.com"
               className="flex items-center gap-1.5 text-slate-500 hover:text-blue-400 transition-colors text-xs"
             >
