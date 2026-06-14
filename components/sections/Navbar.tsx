@@ -6,12 +6,6 @@ import { Zap, Menu, X, LogOut, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/authContext';
 
-const navLinks = [
-  { label: 'Tools', href: '/#tools' },
-  { label: 'Features', href: '/#features' },
-  { label: 'Contact', href: '/#contact' },
-];
-
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -34,14 +28,6 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleNavClick = (href: string) => {
-    setMobileOpen(false);
-    if (href.startsWith('/#')) {
-      const el = document.querySelector(href.slice(1));
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   const handleSignOut = async () => {
     setUserMenuOpen(false);
@@ -72,19 +58,6 @@ export default function Navbar() {
               Zor<span className="text-blue-400">PDF</span>
             </span>
           </Link>
-
-          {/* Desktop nav links */}
-          <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <button
-                key={link.label}
-                onClick={() => handleNavClick(link.href)}
-                className="px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all"
-              >
-                {link.label}
-              </button>
-            ))}
-          </div>
 
           {/* Desktop auth buttons */}
           <div className="hidden md:flex items-center gap-2">
@@ -181,18 +154,8 @@ export default function Navbar() {
             className="md:hidden glass-nav border-t border-white/5 overflow-hidden"
           >
             <div className="px-4 py-3 flex flex-col gap-1">
-              {navLinks.map((link) => (
-                <button
-                  key={link.label}
-                  onClick={() => handleNavClick(link.href)}
-                  className="text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all"
-                >
-                  {link.label}
-                </button>
-              ))}
-
               {!loading && (
-                <div className="mt-2 pt-2 border-t border-white/8 flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                   {user ? (
                     <>
                       <div className="px-3 py-2">
