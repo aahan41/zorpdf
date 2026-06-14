@@ -4,12 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const ADMIN_EMAIL = "admin@zorpdf.com";
-const ADMIN_PASSWORD = "ZorAdmin@2024";
+const ADMIN_PHONE = "+919415066641";
+const ADMIN_PASSWORD = "Irshad@2026";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -22,11 +22,13 @@ export default function AdminLoginPage() {
 
     await new Promise((r) => setTimeout(r, 600));
 
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    const formattedPhone = `+91${phone}`;
+
+    if (formattedPhone === ADMIN_PHONE && password === ADMIN_PASSWORD) {
       localStorage.setItem("zorpdf_admin", "true");
       router.push("/admin/dashboard");
     } else {
-      setError("Galat email ya password. Sirf admin access kar sakta hai.");
+      setError("Galat number ya password. Sirf admin access kar sakta hai.");
     }
 
     setLoading(false);
@@ -56,15 +58,21 @@ export default function AdminLoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Admin Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@zorpdf.com"
-              required
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition"
-            />
+            <label className="block text-sm text-gray-400 mb-1.5">Admin Mobile Number</label>
+            <div className="flex gap-2">
+              <div className="bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5 text-white text-sm flex items-center">
+                +91
+              </div>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="9876543210"
+                required
+                maxLength={10}
+                className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition"
+              />
+            </div>
           </div>
 
           <div>
