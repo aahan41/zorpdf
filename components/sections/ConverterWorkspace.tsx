@@ -366,7 +366,7 @@ export default function ConverterWorkspace() {
   };
 
   // JPG to PDF tab ke liye accept
-  const jpgToPdfAccept = '.jpg,.jpeg,.png,.pdf';
+  const jpgToPdfAccept = '.jpg,.jpeg,.png,.pdf,application/pdf';
 
   return (
     <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
