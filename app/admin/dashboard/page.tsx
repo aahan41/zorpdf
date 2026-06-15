@@ -84,6 +84,12 @@ export default function DashboardPage() {
             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
             Live
           </span>
+          <Link
+            href="/"
+            className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition"
+          >
+            🏠 Home
+          </Link>
           <button
             onClick={handleLogout}
             className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-medium transition"
