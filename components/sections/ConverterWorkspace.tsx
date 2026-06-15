@@ -205,7 +205,7 @@ export default function ConverterWorkspace() {
             const result = await convertPdfToImages(pdfFile.file, () => {});
             // Har PDF page ko image ki tarah treat karo
             for (const img of result.images) {
-              const imgFile = new File([img.blob], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
+              const imgFile = new File([img.blob as BlobPart], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
               const info = await loadImageInfo(imgFile);
               allImageData.push({
                 id: generateId(),
