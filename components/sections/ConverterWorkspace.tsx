@@ -270,8 +270,7 @@ export default function ConverterWorkspace() {
         } catch (err: any) {
           updateFileStatus(docxFile.id, 'error', undefined, undefined, err?.message || 'DOCX to PDF conversion failed');
         }
-
-      } else if (activeTab === 'png-to-jpg' || activeTab === 'image-compressor') {
+} else if (activeTab === 'png-to-jpg') {
         for (const fileItem of files) {
           updateFileStatus(fileItem.id, 'converting');
           try {
