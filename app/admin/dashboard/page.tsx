@@ -85,7 +85,7 @@ export default function DashboardPage() {
             Live
           </span>
           <Link
-            href="/"
+            href="/admin/dashboard"
             className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition"
           >
             🏠 Home
