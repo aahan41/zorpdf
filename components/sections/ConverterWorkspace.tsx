@@ -200,10 +200,10 @@ export default function ConverterWorkspace() {
 
         // PDF files ko images mein convert karo pehle
         if (pdfFiles.length > 0) {
-          const { convertPdfToImages } = await import('@/lib/pdfToImage');
+          const pdfToImageModule = await import('@/lib/pdfToImage');
+          const convertPdfToImages = pdfToImageModule.convertPdfToImages as (file: File, cb: () => void) => Promise<{ images: Array<{ blob: Blob; data: Uint8Array; pageNumber: number; filename: string }>; totalPages: number }>;
           for (const pdfFile of pdfFiles) {
             const result = await convertPdfToImages(pdfFile.file, () => {});
-            // Har PDF page ko image ki tarah treat karo
             for (const img of result.images) {
               const imgFile = new File([img.data], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
               const info = await loadImageInfo(imgFile);
