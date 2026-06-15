@@ -3,6 +3,7 @@ import { getZorPdfFileName } from './fileNaming';
 export interface PdfPageImage {
   pageNumber: number;
   blob: Blob;
+  data: Uint8Array;
   filename: string;
 }
 
@@ -58,10 +59,12 @@ export async function convertPdfToImages(
       }
       try {
         const blob = await getImageFromPdfPage(pdfDoc, i);
+        const data = new Uint8Array(await blob.arrayBuffer());
         const filename = totalPages === 1 ? getZorPdfFileName('jpg') : `page-${i}.jpg`;
         images.push({
           pageNumber: i,
           blob,
+          data,
           filename,
         });
       } catch (err) {
