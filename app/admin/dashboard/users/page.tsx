@@ -1,13 +1,13 @@
-1  "use client";
-2  import { useEffect, useState } from "react";
-3  import { useRouter } from "next/navigation";
-4  import { createClient } from "@supabase/supabase-js";
-5  import AdminHeader from "@/components/admin/AdminHeader";
-6  import AdminNavbar from "../../components/AdminNavbar";
-7  const supabase = createClient(
-8    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-9    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-10 );
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+import AdminNavbar from "@/components/admin/AdminNavbar";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function UsersPage() {
   const router = useRouter();
@@ -61,7 +61,6 @@ export default function UsersPage() {
             <h1 className="text-2xl font-semibold mb-1">Users Manage karo</h1>
             <p className="text-gray-400 text-sm">Total: {users.length} users</p>
           </div>
-          {/* Search */}
           <input
             type="text"
             placeholder="Search by name or email..."
