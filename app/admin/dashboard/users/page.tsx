@@ -1,12 +1,13 @@
-"use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-import AdminHeader from "@/components/admin/AdminHeader";
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+1  "use client";
+2  import { useEffect, useState } from "react";
+3  import { useRouter } from "next/navigation";
+4  import { createClient } from "@supabase/supabase-js";
+5  import AdminHeader from "@/components/admin/AdminHeader";
+6  import AdminNavbar from "../../components/AdminNavbar";
+7  const supabase = createClient(
+8    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+9    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+10 );
 
 export default function UsersPage() {
   const router = useRouter();
@@ -53,25 +54,7 @@ export default function UsersPage() {
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-white">
-      {/* Navbar */}
-      <nav className="border-b border-[#30363d] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <span className="font-semibold">Zor<span className="text-blue-400">PDF</span></span>
-          <span className="ml-2 text-xs bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded-full border border-blue-800">Admin Panel</span>
-        </div>
-        <button
-          onClick={() => router.push("/admin/dashboard")}
-          className="text-sm text-gray-400 hover:text-white transition border border-[#30363d] px-3 py-1.5 rounded-lg"
-        >
-          ← Dashboard
-        </button>
-      </nav>
-
+      <AdminNavbar />
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
