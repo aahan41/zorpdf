@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import AdminNavbar from "@/components/admin/AdminNavbar";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,27 +55,9 @@ export default function LogsPage() {
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-white">
-      {/* Navbar */}
-      <nav className="border-b border-[#30363d] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <span className="font-semibold">Zor<span className="text-blue-400">PDF</span></span>
-          <span className="ml-2 text-xs bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded-full border border-blue-800">Admin Panel</span>
-        </div>
-        <button
-          onClick={() => router.push("/admin/dashboard")}
-          className="text-sm text-gray-400 hover:text-white transition border border-[#30363d] px-3 py-1.5 rounded-lg"
-        >
-          ← Dashboard
-        </button>
-      </nav>
+      <AdminNavbar />
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-semibold mb-1">Activity Logs</h1>
@@ -97,7 +80,6 @@ export default function LogsPage() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 mb-6">
           {(["conversions", "logs"] as const).map((tab) => (
             <button
@@ -153,34 +135,32 @@ export default function LogsPage() {
               </table>
             </div>
           )
+        ) : filteredLogs.length === 0 ? (
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-8 text-center">
+            <div className="text-4xl mb-4">📋</div>
+            <p className="text-gray-400 text-sm">Koi admin logs nahi hain.</p>
+          </div>
         ) : (
-          filteredLogs.length === 0 ? (
-            <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-8 text-center">
-              <div className="text-4xl mb-4">📋</div>
-              <p className="text-gray-400 text-sm">Koi admin logs nahi hain.</p>
-            </div>
-          ) : (
-            <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[#30363d] text-gray-400 text-left">
-                    <th className="px-5 py-3">Action</th>
-                    <th className="px-5 py-3">Date & Time</th>
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#30363d] text-gray-400 text-left">
+                  <th className="px-5 py-3">Action</th>
+                  <th className="px-5 py-3">Date & Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLogs.map((log) => (
+                  <tr key={log.id} className="border-b border-[#30363d] hover:bg-[#1c2128] transition">
+                    <td className="px-5 py-4 text-gray-300">{log.action}</td>
+                    <td className="px-5 py-4 text-gray-400">
+                      {new Date(log.created_at).toLocaleString()}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredLogs.map((log) => (
-                    <tr key={log.id} className="border-b border-[#30363d] hover:bg-[#1c2128] transition">
-                      <td className="px-5 py-4 text-gray-300">{log.action}</td>
-                      <td className="px-5 py-4 text-gray-400">
-                        {new Date(log.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
