@@ -509,7 +509,7 @@ export default function ConverterWorkspace() {
                                 <div className="w-7 h-7 rounded bg-blue-600/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
                                   <span className="text-blue-400 text-xs font-bold">{index + 1}</span>
                                 </div>
-                                <div className="w-16 h-16 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
+                                <div className="w-24 h-24 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
                                   <img src={f.thumbnail} alt="" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -528,7 +528,7 @@ export default function ConverterWorkspace() {
                                 <div className="w-7 h-7 rounded bg-red-600/15 border border-red-500/20 flex items-center justify-center flex-shrink-0">
                                   <span className="text-red-400 text-xs font-bold">{index + 1}</span>
                                 </div>
-                                <div className="w-16 h-16 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                <div className="w-24 h-24 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
                                   <FileText className="w-6 h-6 text-red-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
