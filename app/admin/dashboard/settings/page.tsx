@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import AdminNavbar from "@/components/admin/AdminNavbar";
+
 const DEFAULT_TOOLS = [
   "JPG to PDF",
   "PDF to JPG",
@@ -28,9 +30,7 @@ export default function SettingsPage() {
   async function fetchTools() {
     setLoading(true);
     const { data } = await supabase.from("tools").select("*").order("name");
-
     if (!data || data.length === 0) {
-      // Pehli baar — default tools insert karo
       const inserts = DEFAULT_TOOLS.map((name) => ({ name, is_enabled: true }));
       await supabase.from("tools").insert(inserts);
       const { data: fresh } = await supabase.from("tools").select("*").order("name");
@@ -79,30 +79,12 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Navbar */}
-      <nav className="border-b border-[#30363d] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <span className="font-semibold">Zor<span className="text-blue-400">PDF</span></span>
-          <span className="ml-2 text-xs bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded-full border border-blue-800">Admin Panel</span>
-        </div>
-        <button
-          onClick={() => router.push("/admin/dashboard")}
-          className="text-sm text-gray-400 hover:text-white transition border border-[#30363d] px-3 py-1.5 rounded-lg"
-        >
-          ← Dashboard
-        </button>
-      </nav>
+      <AdminNavbar />
 
       <div className="max-w-3xl mx-auto px-6 py-8">
         <h1 className="text-2xl font-semibold mb-1">Site Settings</h1>
         <p className="text-gray-400 text-sm mb-8">Tools enable/disable karo — changes live ho jaate hain</p>
 
-        {/* Tools Card */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -110,16 +92,10 @@ export default function SettingsPage() {
               <p className="text-xs text-gray-400 mt-0.5">{enabledCount}/{tools.length} tools active</p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => toggleAll(true)}
-                className="px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 rounded-lg transition"
-              >
+              <button onClick={() => toggleAll(true)} className="px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 rounded-lg transition">
                 Enable All
               </button>
-              <button
-                onClick={() => toggleAll(false)}
-                className="px-3 py-1.5 text-xs bg-red-800 hover:bg-red-700 rounded-lg transition"
-              >
+              <button onClick={() => toggleAll(false)} className="px-3 py-1.5 text-xs bg-red-800 hover:bg-red-700 rounded-lg transition">
                 Disable All
               </button>
             </div>
@@ -130,10 +106,7 @@ export default function SettingsPage() {
           ) : (
             <div className="space-y-1">
               {tools.map((tool) => (
-                <div
-                  key={tool.id}
-                  className="flex items-center justify-between py-3 px-2 border-b border-[#30363d] last:border-0 hover:bg-[#1c2128] rounded-lg transition"
-                >
+                <div key={tool.id} className="flex items-center justify-between py-3 px-2 border-b border-[#30363d] last:border-0 hover:bg-[#1c2128] rounded-lg transition">
                   <div className="flex items-center gap-3">
                     <span className={`w-2 h-2 rounded-full ${tool.is_enabled ? "bg-green-400" : "bg-red-400"}`}></span>
                     <span className="text-sm text-gray-200">{tool.name}</span>
@@ -141,15 +114,9 @@ export default function SettingsPage() {
                   <button
                     onClick={() => toggleTool(tool.id, tool.is_enabled)}
                     disabled={saving === tool.id}
-                    className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                      tool.is_enabled ? "bg-blue-600" : "bg-gray-600"
-                    }`}
+                    className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${tool.is_enabled ? "bg-blue-600" : "bg-gray-600"}`}
                   >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                        tool.is_enabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${tool.is_enabled ? "translate-x-5" : "translate-x-0"}`} />
                   </button>
                 </div>
               ))}
