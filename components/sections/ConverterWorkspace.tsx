@@ -205,6 +205,8 @@ export default function ConverterWorkspace() {
           for (const pdfFile of pdfFiles) {
             const result = await convertPdfToImages(pdfFile.file, () => {});
             for (const img of result.images) {
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-ignore
               const imgFile = new File([img.data], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
               const info = await loadImageInfo(imgFile);
               allImageData.push({
