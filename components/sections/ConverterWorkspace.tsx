@@ -442,8 +442,8 @@ export default function ConverterWorkspace() {
           </div>
 
           {/* Card Body */}
-          <div className="p-6">
-            <AnimatePresence mode="wait">
+          <div className="p-6 min-h-[320px]">
+            <AnimatePresence mode="wait" initial={false}>
               {(state === 'idle' || state === 'loading' || state === 'selected') && (
                 <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
 
@@ -455,7 +455,7 @@ export default function ConverterWorkspace() {
                     onClick={() => fileInputRef.current?.click()}
                     className={`relative rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer
                       ${isDragging ? 'border-blue-400 bg-blue-600/10' : 'border-white/10 hover:border-blue-500/40 hover:bg-blue-900/5'}
-                      ${files.length > 0 ? 'py-6' : 'py-14'}
+                      ${files.length > 0 ? 'py-6' : 'py-16'}
                     `}
                   >
                     <div className="flex flex-col items-center justify-center text-center px-4">
