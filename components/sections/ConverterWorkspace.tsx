@@ -228,8 +228,7 @@ export default function ConverterWorkspace() {
             try {
               const result = await convertPdfToImages(pdfFile.file, () => {});
               for (const img of result.images) {
-                // @ts-ignore
-                const imgFile = new File([img.data], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
+                const imgFile = new File([img.blob], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
                 const info = await loadImageInfo(imgFile);
                 allImageData.push({ id: generateId(), file: imgFile, thumbnail: info.thumbnail, width: info.width, height: info.height });
               }
@@ -769,3 +768,5 @@ export default function ConverterWorkspace() {
     </section>
   );
 }
+
+                
