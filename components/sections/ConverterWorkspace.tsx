@@ -50,6 +50,42 @@ const getFileType = (file: File): 'image' | 'pdf' => {
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   return isPdf ? 'pdf' : 'image';
 };
+const A4_WIDTH = 595.28;
+const A4_HEIGHT = 841.89;
+const A4_RATIO = A4_WIDTH / A4_HEIGHT;
+const LARGE_IMAGE_LIMIT = 2200;
+
+const fitCover = (srcWidth: number, srcHeight: number, boxWidth: number, boxHeight: number) => {
+  const scale = Math.max(boxWidth / srcWidth, boxHeight / srcHeight);
+  const width = srcWidth * scale;
+  const height = srcHeight * scale;
+  return {
+    width,
+    height,
+    x: (boxWidth - width) / 2,
+    y: (boxHeight - height) / 2,
+  };
+};
+
+const fitContain = (srcWidth: number, srcHeight: number, boxWidth: number, boxHeight: number) => {
+  const scale = Math.min(boxWidth / srcWidth, boxHeight / srcHeight);
+  const width = srcWidth * scale;
+  const height = srcHeight * scale;
+  return {
+    width,
+    height,
+    x: (boxWidth - width) / 2,
+    y: (boxHeight - height) / 2,
+  };
+};
+
+const shouldKeepOriginalImageSize = (width: number, height: number) => {
+  const ratio = width / height;
+  const veryLarge = Math.max(width, height) > LARGE_IMAGE_LIMIT;
+  const notDocumentLike = ratio < 0.45 || ratio > 1.55;
+  return veryLarge && notDocumentLike;
+};
+
 const mergePdfAndImagesToPdf = async (
   orderedFiles: FileItem[],
   onProgress?: (current: number, total: number, fileId: string) => void
@@ -64,33 +100,57 @@ const mergePdfAndImagesToPdf = async (
 
     if (item.fileType === 'pdf') {
       const sourcePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-      const copiedPages = await mergedPdf.copyPages(
-        sourcePdf,
-        sourcePdf.getPageIndices()
-      );
+      const sourcePages = sourcePdf.getPages();
 
-      copiedPages.forEach((page) => {
-        mergedPdf.addPage(page);
+      for (const sourcePage of sourcePages) {
+        const embeddedPage = await mergedPdf.embedPage(sourcePage);
+        const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
+        const fitted = fitContain(embeddedPage.width, embeddedPage.height, A4_WIDTH, A4_HEIGHT);
+
+        page.drawPage(embeddedPage, {
+          x: fitted.x,
+          y: fitted.y,
+          width: fitted.width,
+          height: fitted.height,
+        });
+
         pageCount += 1;
-      });
+      }
     } else {
       const fileName = item.file.name.toLowerCase();
-      const isPng = item.file.type === 'image/png' || fileName.endsWith('.png');
+      const pngFile = item.file.type === 'image/png' || fileName.endsWith('.png');
+      const jpgFile = item.file.type === 'image/jpeg' || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg');
 
-      const embeddedImage = isPng
+      if (!pngFile && !jpgFile) {
+        throw new Error(`${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`);
+      }
+
+      const embeddedImage = pngFile
         ? await mergedPdf.embedPng(bytes)
         : await mergedPdf.embedJpg(bytes);
 
       const imgWidth = embeddedImage.width;
       const imgHeight = embeddedImage.height;
 
-      const page = mergedPdf.addPage([imgWidth, imgHeight]);
-      page.drawImage(embeddedImage, {
-        x: 0,
-        y: 0,
-        width: imgWidth,
-        height: imgHeight,
-      });
+      if (shouldKeepOriginalImageSize(imgWidth, imgHeight)) {
+        const page = mergedPdf.addPage([imgWidth, imgHeight]);
+        page.drawImage(embeddedImage, {
+          x: 0,
+          y: 0,
+          width: imgWidth,
+          height: imgHeight,
+        });
+      } else {
+        const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
+        const fitted = fitCover(imgWidth, imgHeight, A4_WIDTH, A4_HEIGHT);
+
+        page.drawImage(embeddedImage, {
+          x: fitted.x,
+          y: fitted.y,
+          width: fitted.width,
+          height: fitted.height,
+        });
+      }
 
       pageCount += 1;
     }
@@ -110,7 +170,6 @@ const mergePdfAndImagesToPdf = async (
     compressionRatio: originalSize > 0 ? Math.round(((originalSize - blob.size) / originalSize) * 100) : 0,
   };
 };
-
 
 export default function ConverterWorkspace() {
   const [activeTab, setActiveTab] = useState<ToolId>('jpg-to-pdf');
