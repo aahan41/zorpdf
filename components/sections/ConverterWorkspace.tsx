@@ -225,14 +225,23 @@ export default function ConverterWorkspace() {
           ) => Promise<{ images: Array<{ blob: Blob; data: Uint8Array; pageNumber: number; filename: string }>; totalPages: number }>;
 
           for (const pdfFile of pdfFiles) {
-            const result = await convertPdfToImages(pdfFile.file, () => {});
-            for (const img of result.images) {
-              // @ts-ignore
-              const imgFile = new File([img.data], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
-              const info = await loadImageInfo(imgFile);
-              allImageData.push({ id: generateId(), file: imgFile, thumbnail: info.thumbnail, width: info.width, height: info.height });
+            try {
+              const result = await convertPdfToImages(pdfFile.file, () => {});
+              for (const img of result.images) {
+                // @ts-ignore
+                const imgFile = new File([img.data], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
+                const info = await loadImageInfo(imgFile);
+                allImageData.push({ id: generateId(), file: imgFile, thumbnail: info.thumbnail, width: info.width, height: info.height });
+              }
+            } catch (err: any) {
+              console.error('PDF page conversion failed:', pdfFile.file.name, err);
+              updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'Yeh PDF read nahi ho payi');
             }
           }
+        }
+
+        if (allImageData.length === 0) {
+          throw new Error('Koi page convert nahi ho paya. Files check karke phir try karein.');
         }
 
         const result = await mergeImagesToPdf(allImageData, compressionLevel, (current, total, imageId) => {
@@ -731,6 +740,26 @@ export default function ConverterWorkspace() {
                       Convert More
                     </button>
                   </div>
+                </motion.div>
+              )}
+
+              {/* Error State */}
+              {state === 'error' && (
+                <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-10 text-center">
+                  <div className="w-14 h-14 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mb-4 mx-auto">
+                    <AlertCircle className="w-7 h-7 text-red-400" />
+                  </div>
+                  <h3 className="text-white font-bold text-lg mb-1">Conversion failed</h3>
+                  <p className="text-slate-500 text-xs mb-5">
+                    {files.find(f => f.error)?.error || 'Kuch gadbad ho gayi files convert karte waqt.'}
+                  </p>
+                  <button
+                    onClick={clearAllFiles}
+                    className="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white glass border border-white/10 inline-flex items-center gap-1.5 mx-auto"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Try Again
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
