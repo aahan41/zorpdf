@@ -1,6 +1,6 @@
 'use client';
 import { useState, useCallback, useRef } from 'react';
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
@@ -50,21 +50,6 @@ const getFileType = (file: File): 'image' | 'pdf' => {
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   return isPdf ? 'pdf' : 'image';
 };
-const A4_WIDTH = 595.28;
-const A4_HEIGHT = 841.89;
-const PAGE_MARGIN = 24;
-
-function fitInsideA4(srcWidth: number, srcHeight: number) {
-  const boxWidth = A4_WIDTH - PAGE_MARGIN * 2;
-  const boxHeight = A4_HEIGHT - PAGE_MARGIN * 2;
-  const scale = Math.min(boxWidth / srcWidth, boxHeight / srcHeight);
-
-  return {
-    width: srcWidth * scale,
-    height: srcHeight * scale,
-  };
-}
-
 const mergePdfAndImagesToPdf = async (
   orderedFiles: FileItem[],
   onProgress?: (current: number, total: number, fileId: string) => void
@@ -79,74 +64,38 @@ const mergePdfAndImagesToPdf = async (
 
     if (item.fileType === 'pdf') {
       const sourcePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-      const sourcePages = sourcePdf.getPages();
+      const copiedPages = await mergedPdf.copyPages(
+        sourcePdf,
+        sourcePdf.getPageIndices()
+      );
 
-      for (const sourcePage of sourcePages) {
-        const embeddedPage = await mergedPdf.embedPage(sourcePage);
-        const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
-
-        page.drawRectangle({
-          x: 0,
-          y: 0,
-          width: A4_WIDTH,
-          height: A4_HEIGHT,
-          color: rgb(1, 1, 1),
-        });
-
-        const fitted = fitInsideA4(embeddedPage.width, embeddedPage.height);
-
-        page.drawPage(embeddedPage, {
-          x: (A4_WIDTH - fitted.width) / 2,
-          y: (A4_HEIGHT - fitted.height) / 2,
-          width: fitted.width,
-          height: fitted.height,
-        });
-
+      copiedPages.forEach((page) => {
+        mergedPdf.addPage(page);
         pageCount += 1;
-      }
+      });
     } else {
       const fileName = item.file.name.toLowerCase();
       const isPng = item.file.type === 'image/png' || fileName.endsWith('.png');
-      const isJpg =
-        item.file.type === 'image/jpeg' ||
-        fileName.endsWith('.jpg') ||
-        fileName.endsWith('.jpeg');
-
-      if (!isPng && !isJpg) {
-        throw new Error(`${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`);
-      }
 
       const embeddedImage = isPng
         ? await mergedPdf.embedPng(bytes)
         : await mergedPdf.embedJpg(bytes);
 
-      const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
+      const imgWidth = embeddedImage.width;
+      const imgHeight = embeddedImage.height;
 
-      page.drawRectangle({
+      const page = mergedPdf.addPage([imgWidth, imgHeight]);
+      page.drawImage(embeddedImage, {
         x: 0,
         y: 0,
-        width: A4_WIDTH,
-        height: A4_HEIGHT,
-        color: rgb(1, 1, 1),
-      });
-
-      const fitted = fitInsideA4(embeddedImage.width, embeddedImage.height);
-
-      page.drawImage(embeddedImage, {
-        x: (A4_WIDTH - fitted.width) / 2,
-        y: (A4_HEIGHT - fitted.height) / 2,
-        width: fitted.width,
-        height: fitted.height,
+        width: imgWidth,
+        height: imgHeight,
       });
 
       pageCount += 1;
     }
 
     onProgress?.(i + 1, orderedFiles.length, item.id);
-  }
-
-  if (pageCount === 0) {
-    throw new Error('Koi valid PDF page create nahi ho paya. Files check karke phir try karein.');
   }
 
   const pdfBytes = await mergedPdf.save();
@@ -161,6 +110,7 @@ const mergePdfAndImagesToPdf = async (
     compressionRatio: originalSize > 0 ? Math.round(((originalSize - blob.size) / originalSize) * 100) : 0,
   };
 };
+
 
 export default function ConverterWorkspace() {
   const [activeTab, setActiveTab] = useState<ToolId>('jpg-to-pdf');
