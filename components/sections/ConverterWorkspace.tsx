@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
@@ -42,10 +42,9 @@ interface FileItem {
 const MAX_FILES = 100;
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-// ✅ FIX 1: Sahi accept types — JPG to PDF mein PNG aur PDF dono allow
 const JPG_TO_PDF_ACCEPT = '.jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf';
+const PNG_TO_PDF_ACCEPT = '.png,image/png';
 
-// Helper: file image hai ya PDF
 const getFileType = (file: File): 'image' | 'pdf' => {
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   return isPdf ? 'pdf' : 'image';
@@ -56,59 +55,52 @@ export default function ConverterWorkspace() {
   const [state, setState] = useState<'idle' | 'loading' | 'selected' | 'converting' | 'done' | 'error'>('idle');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('balanced');
+  const [compressionLevel] = useState<CompressionLevel>('balanced');
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
 
-  // ✅ FIX 2: useEffect mein files ko ref se track karo — stale closure avoid
-  const filesRef = useRef(files);
-  useEffect(() => { filesRef.current = files; }, [files]);
-
-  useEffect(() => {
-    if (activeTab === 'jpg-to-pdf' && state === 'loading') {
-      loadPendingThumbnails();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, activeTab]);
-
-  const loadPendingThumbnails = async () => {
-    const currentFiles = filesRef.current;
-    const pendingImages = currentFiles.filter(f => f.status === 'pending' && f.fileType === 'image');
-    const pendingPdfs = currentFiles.filter(f => f.status === 'pending' && f.fileType === 'pdf');
-
-    if (pendingImages.length === 0 && pendingPdfs.length === 0) {
-      setState('selected');
-      return;
-    }
+  // Thumbnails load karo — directly file array pass karo (no stale closure)
+  const loadThumbnails = async (newItems: FileItem[], existingFiles: FileItem[]) => {
+    const pendingImages = newItems.filter(f => f.fileType === 'image');
+    const pendingPdfs = newItems.filter(f => f.fileType === 'pdf');
 
     setLoadingProgress({ loaded: 0, total: pendingImages.length });
 
     // Image thumbnails load karo
+    const updatedItems = [...newItems];
     for (let i = 0; i < pendingImages.length; i++) {
       const fileItem = pendingImages[i];
       try {
         const info = await loadImageInfo(fileItem.file);
-        setFiles(prev => prev.map(f =>
-          f.id === fileItem.id
-            ? { ...f, status: 'ready', thumbnail: info.thumbnail, width: info.width, height: info.height }
-            : f
-        ));
+        const idx = updatedItems.findIndex(f => f.id === fileItem.id);
+        if (idx !== -1) {
+          updatedItems[idx] = { ...updatedItems[idx], status: 'ready', thumbnail: info.thumbnail, width: info.width, height: info.height };
+        }
         setLoadingProgress({ loaded: i + 1, total: pendingImages.length });
       } catch (err) {
         console.error('Failed to load thumbnail:', err);
-        setFiles(prev => prev.map(f =>
-          f.id === fileItem.id ? { ...f, status: 'error', error: 'Failed to load image' } : f
-        ));
+        const idx = updatedItems.findIndex(f => f.id === fileItem.id);
+        if (idx !== -1) updatedItems[idx] = { ...updatedItems[idx], status: 'error', error: 'Failed to load image' };
       }
     }
 
-    // ✅ FIX 3: PDF files ko bhi ready mark karo (yahi miss ho raha tha)
-    if (pendingPdfs.length > 0) {
-      setFiles(prev => prev.map(f =>
-        f.fileType === 'pdf' && f.status === 'pending' ? { ...f, status: 'ready' } : f
-      ));
+    // PDF files ready mark karo
+    for (let i = 0; i < pendingPdfs.length; i++) {
+      const idx = updatedItems.findIndex(f => f.id === pendingPdfs[i].id);
+      if (idx !== -1) updatedItems[idx] = { ...updatedItems[idx], status: 'ready' };
+    }
+
+    // Final state update — existing + new updated items
+    const finalFiles = [...existingFiles, ...updatedItems];
+    setFiles(finalFiles);
+
+    // Size estimate
+    const allImageFiles = finalFiles.filter(f => f.fileType === 'image' && f.status === 'ready').map(f => f.file);
+    if (allImageFiles.length > 0) {
+      const size = estimatePdfSize(allImageFiles, compressionLevel);
+      setEstimatedSize({ min: size.minSize, max: size.maxSize });
     }
 
     setState('selected');
@@ -118,18 +110,16 @@ export default function ConverterWorkspace() {
     const fileArray = Array.from(newFiles);
     const maxSize = 50 * 1024 * 1024;
 
-    if (filesRef.current.length + fileArray.length > MAX_FILES) {
+    if (files.length + fileArray.length > MAX_FILES) {
       alert(`Maximum ${MAX_FILES} files allowed.`);
       return;
     }
-
     const oversizedFiles = fileArray.filter(f => f.size > maxSize);
     if (oversizedFiles.length > 0) {
       alert(`Some files exceed 50MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`);
       return;
     }
 
-    // ✅ FIX 4: Har file ka type sahi detect karo
     const newFileItems: FileItem[] = fileArray.map(file => ({
       id: generateId(),
       file,
@@ -138,24 +128,14 @@ export default function ConverterWorkspace() {
       progress: 0,
     }));
 
-    setFiles(prev => {
-      const updated = [...prev, ...newFileItems];
-      filesRef.current = updated;
-      return updated;
-    });
-
-    if (activeTab === 'jpg-to-pdf') {
-      // Size estimate — sirf image files ke liye
-      const allImageFiles = [
-        ...filesRef.current.filter(f => f.fileType === 'image' && f.status === 'ready').map(f => f.file),
-        ...fileArray.filter(f => getFileType(f) === 'image'),
-      ];
-      if (allImageFiles.length > 0) {
-        const size = estimatePdfSize(allImageFiles, compressionLevel);
-        setEstimatedSize({ min: size.minSize, max: size.maxSize });
-      }
+    if (activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') {
       setState('loading');
+      // Existing ready files rakhne ke liye — naye items alag pass karo
+      const existingReady = files.filter(f => f.status === 'ready');
+      setFiles([...existingReady, ...newFileItems]);
+      await loadThumbnails(newFileItems, existingReady);
     } else {
+      setFiles(prev => [...prev, ...newFileItems]);
       setState('selected');
     }
   };
@@ -163,16 +143,13 @@ export default function ConverterWorkspace() {
   const removeFile = (id: string) => {
     setFiles(prev => {
       const updated = prev.filter(f => f.id !== id);
-      filesRef.current = updated;
       if (updated.length === 0) {
         setState('idle');
         setEstimatedSize(null);
-      } else if (activeTab === 'jpg-to-pdf') {
-        const remainingImageFiles = updated
-          .filter(f => f.status === 'ready' && f.fileType === 'image')
-          .map(f => f.file);
-        if (remainingImageFiles.length > 0) {
-          const size = estimatePdfSize(remainingImageFiles, compressionLevel);
+      } else if (activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') {
+        const imageFiles = updated.filter(f => f.status === 'ready' && f.fileType === 'image').map(f => f.file);
+        if (imageFiles.length > 0) {
+          const size = estimatePdfSize(imageFiles, compressionLevel);
           setEstimatedSize({ min: size.minSize, max: size.maxSize });
         } else {
           setEstimatedSize(null);
@@ -184,20 +161,18 @@ export default function ConverterWorkspace() {
 
   const clearAllFiles = () => {
     setFiles([]);
-    filesRef.current = [];
     setState('idle');
     setEstimatedSize(null);
     setLoadingProgress({ loaded: 0, total: 0 });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // ✅ FIX 5: handleDrop mein sahi dependencies
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, compressionLevel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, compressionLevel, files]);
 
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
@@ -205,7 +180,6 @@ export default function ConverterWorkspace() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       addFiles(e.target.files);
-      // ✅ FIX 6: Input reset karo taaki same file dobara upload ho sake
       e.target.value = '';
     }
   };
@@ -227,12 +201,12 @@ export default function ConverterWorkspace() {
   };
 
   const processFiles = async () => {
-    const currentFiles = filesRef.current;
-    if (currentFiles.length === 0) return;
+    if (files.length === 0) return;
+    const currentFiles = [...files]; // snapshot lelo
     setState('converting');
 
     try {
-      if (activeTab === 'jpg-to-pdf') {
+      if (activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') {
         const imageFiles = currentFiles.filter(f => f.fileType === 'image' && f.status === 'ready' && f.thumbnail);
         const pdfFiles = currentFiles.filter(f => f.fileType === 'pdf' && f.status === 'ready');
 
@@ -256,40 +230,10 @@ export default function ConverterWorkspace() {
               // @ts-ignore
               const imgFile = new File([img.data], `pdf-page-${img.pageNumber}.jpg`, { type: 'image/jpeg' });
               const info = await loadImageInfo(imgFile);
-              allImageData.push({
-                id: generateId(),
-                file: imgFile,
-                thumbnail: info.thumbnail,
-                width: info.width,
-                height: info.height,
-              });
+              allImageData.push({ id: generateId(), file: imgFile, thumbnail: info.thumbnail, width: info.width, height: info.height });
             }
           }
         }
-
-        const result = await mergeImagesToPdf(allImageData, compressionLevel, (current, total, imageId) => {
-          updateFileProgress(imageId, Math.round((current / total) * 100));
-        });
-
-        updateFileStatus(currentFiles[0].id, 'done', { blob: result.blob, filename: result.filename }, result);
-        currentFiles.slice(1).forEach(f => updateFileStatus(f.id, 'done'));
-
-      } else if (activeTab === 'png-to-pdf') {
-        // ✅ FIX 7: png-to-pdf implement kiya — same as jpg-to-pdf but sirf PNG files
-        const imageFiles = currentFiles.filter(f => f.fileType === 'image' && f.status === 'ready');
-        if (imageFiles.length === 0) throw new Error('No valid PNG files ready');
-
-        currentFiles.forEach(f => updateFileStatus(f.id, 'converting'));
-
-        const allImageData: ImageProcessingResult[] = await Promise.all(
-          imageFiles.map(async f => {
-            if (f.thumbnail) {
-              return { id: f.id, file: f.file, thumbnail: f.thumbnail, width: f.width!, height: f.height! };
-            }
-            const info = await loadImageInfo(f.file);
-            return { id: f.id, file: f.file, thumbnail: info.thumbnail, width: info.width, height: info.height };
-          })
-        );
 
         const result = await mergeImagesToPdf(allImageData, compressionLevel, (current, total, imageId) => {
           updateFileProgress(imageId, Math.round((current / total) * 100));
@@ -304,7 +248,7 @@ export default function ConverterWorkspace() {
         updateFileStatus(pdfFile.id, 'converting');
         try {
           const { convertPdfToImages, createZipFromImages } = await import('@/lib/pdfToImage');
-          const result = await convertPdfToImages(pdfFile.file, (current, total) => {
+          const result = await convertPdfToImages(pdfFile.file, (current: number, total: number) => {
             updateFileProgress(pdfFile.id, Math.round((current / total) * 100));
           });
           if (result.images.length === 1) {
@@ -390,7 +334,7 @@ export default function ConverterWorkspace() {
       setState('done');
     } catch (err: any) {
       setState('error');
-      filesRef.current.forEach(f => updateFileStatus(f.id, 'error', undefined, undefined, err?.message || 'Conversion failed'));
+      files.forEach(f => updateFileStatus(f.id, 'error', undefined, undefined, err?.message || 'Conversion failed'));
     }
   };
 
@@ -425,16 +369,15 @@ export default function ConverterWorkspace() {
 
   const totalSize = files.reduce((sum, f) => sum + f.file.size, 0);
   const completedCount = files.filter(f => f.status === 'done').length;
-  const hasErrors = files.some(f => f.status === 'error');
   const mergedPdf = files.find(f => f.pdfResult)?.pdfResult;
   const totalSavings = mergedPdf ? calculateCompressionPercentage(mergedPdf.originalSize, mergedPdf.pdfSize) : 0;
 
-  // ✅ FIX 8: readyImages aur readyPdfs dono properly derive karo
   const readyImages: ImageProcessingResult[] = files
     .filter(f => f.status === 'ready' && f.fileType === 'image' && f.thumbnail)
     .map(f => ({ id: f.id, file: f.file, thumbnail: f.thumbnail!, width: f.width!, height: f.height! }));
 
   const readyPdfs = files.filter(f => f.status === 'ready' && f.fileType === 'pdf');
+  const readyFilesCount = readyImages.length + readyPdfs.length;
 
   const handleTabChange = (tabId: ToolId) => {
     if (tabId !== activeTab) {
@@ -443,15 +386,13 @@ export default function ConverterWorkspace() {
     }
   };
 
-  // ✅ FIX 9: JPG to PDF ke liye accept string — MIME types bhi include kiye
   const getAcceptString = () => {
     if (activeTab === 'jpg-to-pdf') return JPG_TO_PDF_ACCEPT;
-    if (activeTab === 'png-to-pdf') return '.png,image/png';
+    if (activeTab === 'png-to-pdf') return PNG_TO_PDF_ACCEPT;
     return tool?.accept ?? '*';
   };
 
-  // Convert button ke liye ready files count
-  const readyFilesCount = readyImages.length + readyPdfs.length;
+  const isMultiFile = ['jpg-to-pdf', 'png-to-pdf', 'png-to-jpg'].includes(activeTab);
 
   return (
     <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
@@ -488,7 +429,8 @@ export default function ConverterWorkspace() {
                 <p className="text-slate-500 text-xs">{tool?.description}</p>
               </div>
             </div>
-            {files.length > 0 && state !== 'converting' && state !== 'done' && (
+            {/* Clear all — sirf tab dikhao jab files hon AND state idle/loading/selected ho */}
+            {files.length > 0 && (state === 'idle' || state === 'loading' || state === 'selected') && (
               <button
                 onClick={clearAllFiles}
                 className="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1.5 text-xs"
@@ -504,6 +446,7 @@ export default function ConverterWorkspace() {
             <AnimatePresence mode="wait">
               {(state === 'idle' || state === 'loading' || state === 'selected') && (
                 <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+
                   {/* Drop Zone */}
                   <div
                     onDrop={handleDrop}
@@ -524,9 +467,8 @@ export default function ConverterWorkspace() {
                       </p>
                       <p className="text-slate-500 text-xs mb-3">
                         {activeTab === 'jpg-to-pdf'
-                          ? `Up to ${MAX_FILES} JPG, PNG or PDF files merged into one PDF`
-                          : 'or click to browse'
-                        }
+                          ? `Up to ${MAX_FILES} JPG, PNG or PDF files`
+                          : 'or click to browse'}
                       </p>
                       <button
                         onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
@@ -535,35 +477,31 @@ export default function ConverterWorkspace() {
                         Upload Files
                       </button>
                       <p className="text-slate-600 text-[11px] mt-2">
-                        {activeTab === 'jpg-to-pdf'
-                          ? '.jpg, .jpeg, .png, .pdf'
-                          : activeTab === 'png-to-pdf'
-                          ? '.png'
-                          : tool?.accept
-                        } | Max 50MB per file
+                        {activeTab === 'jpg-to-pdf' ? '.jpg, .jpeg, .png, .pdf'
+                          : activeTab === 'png-to-pdf' ? '.png'
+                          : tool?.accept} | Max 50MB per file
                       </p>
                     </div>
-                    {/* ✅ FIX 10: Input accept sahi type se */}
                     <input
                       ref={fileInputRef}
                       type="file"
-                      multiple={activeTab === 'jpg-to-pdf' || activeTab === 'png-to-jpg' || activeTab === 'png-to-pdf'}
+                      multiple={isMultiFile}
                       accept={getAcceptString()}
                       className="hidden"
                       onChange={handleInputChange}
                     />
                   </div>
 
-                  {/* Loading */}
-                  {state === 'loading' && activeTab === 'jpg-to-pdf' && (
+                  {/* Loading indicator */}
+                  {state === 'loading' && (
                     <div className="mt-4 flex items-center gap-2 text-slate-400 text-xs">
                       <div className="w-4 h-4 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
                       Loading thumbnails... {loadingProgress.loaded}/{loadingProgress.total}
                     </div>
                   )}
 
-                  {/* Image + PDF file list for JPG to PDF */}
-                  {activeTab === 'jpg-to-pdf' && (readyImages.length > 0 || readyPdfs.length > 0) && (
+                  {/* File list — jpg-to-pdf aur png-to-pdf */}
+                  {(activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') && readyFilesCount > 0 && (
                     <div className="mt-5">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -578,25 +516,19 @@ export default function ConverterWorkspace() {
                         <span className="text-slate-600 text-xs">Drag to reorder</span>
                       </div>
 
-                      {/* ✅ FIX 11: Reorder.Group — PDF ke liye bhi sahi value prop */}
                       <Reorder.Group
                         axis="y"
                         values={files.filter(f => f.status === 'ready')}
                         onReorder={(reordered) => {
-                          const reorderedIds = reordered.map(f => f.id);
                           setFiles(prev => {
-                            const readyReordered = reorderedIds
-                              .map(id => prev.find(f => f.id === id))
-                              .filter(Boolean) as FileItem[];
                             const nonReady = prev.filter(f => f.status !== 'ready');
-                            return [...readyReordered, ...nonReady];
+                            return [...reordered, ...nonReady];
                           });
                         }}
                         className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1"
                       >
                         {files.filter(f => f.status === 'ready').map((f, index) => (
                           f.fileType === 'image' ? (
-                            // ✅ FIX 12: value prop — directly FileItem use karo, ImageProcessingResult nahi
                             <Reorder.Item key={f.id} value={f} className="cursor-grab active:cursor-grabbing">
                               <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-white/5 hover:border-white/10 transition-colors">
                                 <div className="w-7 h-7 rounded bg-blue-600/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
@@ -610,16 +542,12 @@ export default function ConverterWorkspace() {
                                   <p className="text-slate-500 text-[11px]">{f.width}×{f.height} | {formatBytes(f.file.size)}</p>
                                 </div>
                                 <GripVertical className="w-4 h-4 text-slate-600 flex-shrink-0" />
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
-                                  className="p-1 text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"
-                                >
+                                <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="p-1 text-slate-600 hover:text-red-400 transition-colors flex-shrink-0">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </Reorder.Item>
                           ) : (
-                            // ✅ FIX 13: PDF Reorder.Item — value prop fix (no fallback to readyImages[0])
                             <Reorder.Item key={f.id} value={f} className="cursor-grab active:cursor-grabbing">
                               <div className="flex items-center gap-2.5 p-2 rounded-lg bg-red-900/10 border border-red-500/20 hover:border-red-500/30 transition-colors">
                                 <div className="w-7 h-7 rounded bg-red-600/15 border border-red-500/20 flex items-center justify-center flex-shrink-0">
@@ -633,10 +561,7 @@ export default function ConverterWorkspace() {
                                   <p className="text-red-400 text-[11px]">PDF • {formatBytes(f.file.size)}</p>
                                 </div>
                                 <GripVertical className="w-4 h-4 text-slate-600 flex-shrink-0" />
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
-                                  className="p-1 text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"
-                                >
+                                <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="p-1 text-slate-600 hover:text-red-400 transition-colors flex-shrink-0">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
@@ -647,64 +572,7 @@ export default function ConverterWorkspace() {
                     </div>
                   )}
 
-                  {/* PNG to PDF file list */}
-                  {activeTab === 'png-to-pdf' && readyImages.length > 0 && (
-                    <div className="mt-5">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <ImageIcon className="w-4 h-4 text-blue-400" />
-                          <span className="text-white text-sm font-medium">
-                            {readyImages.length} PNG{readyImages.length !== 1 ? 's' : ''}
-                          </span>
-                          <span className="text-slate-500 text-xs">({formatBytes(totalSize)})</span>
-                        </div>
-                        <span className="text-slate-600 text-xs">Drag to reorder</span>
-                      </div>
-                      <Reorder.Group
-                        axis="y"
-                        values={files.filter(f => f.status === 'ready')}
-                        onReorder={(reordered) => {
-                          const reorderedIds = reordered.map(f => f.id);
-                          setFiles(prev => {
-                            const readyReordered = reorderedIds
-                              .map(id => prev.find(f => f.id === id))
-                              .filter(Boolean) as FileItem[];
-                            const nonReady = prev.filter(f => f.status !== 'ready');
-                            return [...readyReordered, ...nonReady];
-                          });
-                        }}
-                        className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1"
-                      >
-                        {files.filter(f => f.status === 'ready').map((f, index) => (
-                          <Reorder.Item key={f.id} value={f} className="cursor-grab active:cursor-grabbing">
-                            <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-white/5 hover:border-white/10 transition-colors">
-                              <div className="w-7 h-7 rounded bg-blue-600/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
-                                <span className="text-blue-400 text-xs font-bold">{index + 1}</span>
-                              </div>
-                              {f.thumbnail && (
-                                <div className="w-24 h-24 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
-                                  <img src={f.thumbnail} alt="" className="w-full h-full object-cover" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-white text-xs font-medium truncate">{f.file.name}</p>
-                                <p className="text-slate-500 text-[11px]">{f.width}×{f.height} | {formatBytes(f.file.size)}</p>
-                              </div>
-                              <GripVertical className="w-4 h-4 text-slate-600 flex-shrink-0" />
-                              <button
-                                onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
-                                className="p-1 text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </Reorder.Item>
-                        ))}
-                      </Reorder.Group>
-                    </div>
-                  )}
-
-                  {/* Simple file list for other tools */}
+                  {/* Simple file list — other tools */}
                   {activeTab !== 'jpg-to-pdf' && activeTab !== 'png-to-pdf' && files.length > 0 && (
                     <div className="mt-4 space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
                       {files.map((f) => (
@@ -730,7 +598,7 @@ export default function ConverterWorkspace() {
                       <div className="flex items-center gap-3 text-xs">
                         <span className="text-slate-400">Original: <span className="text-white font-medium">{formatBytes(totalSize)}</span></span>
                         <ArrowRight className="w-3 h-3 text-blue-400" />
-                        <span className="text-slate-400">Est. PDF: <span className="text-green-400 font-medium">{formatBytes(estimatedSize.min)} - {formatBytes(estimatedSize.max)}</span></span>
+                        <span className="text-slate-400">Est. PDF: <span className="text-green-400 font-medium">{formatBytes(estimatedSize.min)} – {formatBytes(estimatedSize.max)}</span></span>
                       </div>
                       <div className="flex items-center gap-1.5 bg-green-500/10 px-2.5 py-1 rounded-md">
                         <Zap className="w-3 h-3 text-green-400" />
@@ -744,27 +612,21 @@ export default function ConverterWorkspace() {
                     <button
                       onClick={processFiles}
                       disabled={
-                        files.length === 0 ||
                         state === 'loading' ||
                         ((activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') && readyFilesCount === 0)
                       }
                       className="w-full mt-5 btn-primary py-3.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-blue-900/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {activeTab === 'jpg-to-pdf' ? (
-                        <>
-                          <Layers className="w-4 h-4" />
-                          Merge {readyFilesCount} File{readyFilesCount !== 1 ? 's' : ''} to PDF
-                        </>
+                        <><Layers className="w-4 h-4" />Merge {readyFilesCount} File{readyFilesCount !== 1 ? 's' : ''} to PDF</>
                       ) : activeTab === 'png-to-pdf' ? (
-                        <>
-                          <Layers className="w-4 h-4" />
-                          Convert {readyImages.length} PNG{readyImages.length !== 1 ? 's' : ''} to PDF
-                        </>
+                        <><Layers className="w-4 h-4" />Convert {readyImages.length} PNG{readyImages.length !== 1 ? 's' : ''} to PDF</>
                       ) : (
                         <>Convert to {tool?.to}</>
                       )}
                     </button>
                   )}
+
                 </motion.div>
               )}
 
@@ -774,9 +636,7 @@ export default function ConverterWorkspace() {
                   <div className="text-center mb-6">
                     <div className="w-12 h-12 mx-auto mb-4 rounded-full border-3 border-blue-500/30 border-t-blue-500 animate-spin" />
                     <p className="text-white font-semibold text-base mb-1">
-                      {activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf'
-                        ? 'Merging files into PDF...'
-                        : 'Converting files...'}
+                      {activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf' ? 'Merging files into PDF...' : 'Converting files...'}
                     </p>
                   </div>
                 </motion.div>
@@ -843,8 +703,7 @@ export default function ConverterWorkspace() {
                           }`}>
                             {fileItem.status === 'done'
                               ? <CheckCircle2 className="w-4 h-4 text-green-400" />
-                              : <AlertCircle className="w-4 h-4 text-red-400" />
-                            }
+                              : <AlertCircle className="w-4 h-4 text-red-400" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-white text-xs font-medium truncate">{fileItem.result?.filename || fileItem.file.name}</p>
