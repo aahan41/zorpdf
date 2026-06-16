@@ -218,6 +218,8 @@ export default function ConverterWorkspace() {
           id: f.id, file: f.file, thumbnail: f.thumbnail!, width: f.width!, height: f.height!,
         }));
 
+        const failedPdfIds = new Set<string>();
+
         if (pdfFiles.length > 0) {
           const pdfToImageModule = await import('@/lib/pdfToImage');
           const convertPdfToImages = pdfToImageModule.convertPdfToImages as (
@@ -236,6 +238,7 @@ export default function ConverterWorkspace() {
             } catch (err: any) {
               console.error('PDF page conversion failed:', pdfFile.file.name, err);
               updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'Yeh PDF read nahi ho payi');
+              failedPdfIds.add(pdfFile.id);
             }
           }
         }
@@ -248,8 +251,9 @@ export default function ConverterWorkspace() {
           updateFileProgress(imageId, Math.round((current / total) * 100));
         });
 
-        updateFileStatus(currentFiles[0].id, 'done', { blob: result.blob, filename: result.filename }, result);
-        currentFiles.slice(1).forEach(f => updateFileStatus(f.id, 'done'));
+        const successfulFiles = currentFiles.filter(f => !failedPdfIds.has(f.id));
+        updateFileStatus(successfulFiles[0].id, 'done', { blob: result.blob, filename: result.filename }, result);
+        successfulFiles.slice(1).forEach(f => updateFileStatus(f.id, 'done'));
 
       } else if (activeTab === 'pdf-to-jpg') {
         const pdfFile = currentFiles[0];
@@ -687,20 +691,33 @@ export default function ConverterWorkspace() {
                   </div>
 
                   {(activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') && mergedPdf ? (
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/40 border border-white/5 mb-5">
-                      <div className="w-10 h-10 rounded-lg bg-red-500/15 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-red-400" />
+                    <>
+                      {files.some(f => f.status === 'error') && (
+                        <div className="mb-4 p-3 rounded-lg bg-amber-900/15 border border-amber-500/20 flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                          <div className="text-xs">
+                            <p className="text-amber-300 font-medium mb-0.5">Kuch files PDF mein shaamil nahi ho payi:</p>
+                            {files.filter(f => f.status === 'error').map(f => (
+                              <p key={f.id} className="text-amber-400/80">{f.file.name} — {f.error || 'Failed'}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/40 border border-white/5 mb-5">
+                        <div className="w-10 h-10 rounded-lg bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-5 h-5 text-red-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{mergedPdf.filename}</p>
+                          <p className="text-slate-500 text-xs">{mergedPdf.pageCount} pages | {formatBytes(mergedPdf.pdfSize)}</p>
+                        </div>
+                        <DownloadButton
+                          onClick={() => { const f = files.find(f => f.pdfResult); if (f) downloadFile(f); }}
+                          size="sm"
+                          text="Download"
+                        />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{mergedPdf.filename}</p>
-                        <p className="text-slate-500 text-xs">{mergedPdf.pageCount} pages | {formatBytes(mergedPdf.pdfSize)}</p>
-                      </div>
-                      <DownloadButton
-                        onClick={() => { const f = files.find(f => f.pdfResult); if (f) downloadFile(f); }}
-                        size="sm"
-                        text="Download"
-                      />
-                    </div>
+                    </>
                   ) : (
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mb-5">
                       {files.map((fileItem) => (
