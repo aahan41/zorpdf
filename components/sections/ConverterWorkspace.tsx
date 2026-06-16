@@ -1,6 +1,5 @@
 'use client';
 import { useState, useCallback, useRef } from 'react';
-import { PDFDocument } from 'pdf-lib';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
@@ -9,7 +8,7 @@ import {
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
 import type { ImageProcessingResult } from '@/lib/pdfMerger';
-import { loadImageInfo, type MergeResult } from '@/lib/pdfMerger';
+import { loadImageInfo, mergeImagesToPdf, type MergeResult } from '@/lib/pdfMerger';
 import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
 import { estimatePdfSize } from '@/lib/pdfEstimator';
 import { getZorPdfFileName } from '@/lib/fileNaming';
@@ -50,67 +49,6 @@ const getFileType = (file: File): 'image' | 'pdf' => {
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   return isPdf ? 'pdf' : 'image';
 };
-const mergePdfAndImagesToPdf = async (
-  orderedFiles: FileItem[],
-  onProgress?: (current: number, total: number, fileId: string) => void
-): Promise<MergeResult> => {
-  const mergedPdf = await PDFDocument.create();
-  let pageCount = 0;
-  const originalSize = orderedFiles.reduce((sum, item) => sum + item.file.size, 0);
-
-  for (let i = 0; i < orderedFiles.length; i++) {
-    const item = orderedFiles[i];
-    const bytes = await item.file.arrayBuffer();
-
-    if (item.fileType === 'pdf') {
-      const sourcePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-      const copiedPages = await mergedPdf.copyPages(
-        sourcePdf,
-        sourcePdf.getPageIndices()
-      );
-
-      copiedPages.forEach((page) => {
-        mergedPdf.addPage(page);
-        pageCount += 1;
-      });
-    } else {
-      const fileName = item.file.name.toLowerCase();
-      const isPng = item.file.type === 'image/png' || fileName.endsWith('.png');
-
-      const embeddedImage = isPng
-        ? await mergedPdf.embedPng(bytes)
-        : await mergedPdf.embedJpg(bytes);
-
-      const imgWidth = embeddedImage.width;
-      const imgHeight = embeddedImage.height;
-
-      const page = mergedPdf.addPage([imgWidth, imgHeight]);
-      page.drawImage(embeddedImage, {
-        x: 0,
-        y: 0,
-        width: imgWidth,
-        height: imgHeight,
-      });
-
-      pageCount += 1;
-    }
-
-    onProgress?.(i + 1, orderedFiles.length, item.id);
-  }
-
-  const pdfBytes = await mergedPdf.save();
-  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-
-  return {
-    blob,
-    filename: getZorPdfFileName('pdf'),
-    pageCount,
-    originalSize,
-    pdfSize: blob.size,
-    compressionRatio: originalSize > 0 ? Math.round(((originalSize - blob.size) / originalSize) * 100) : 0,
-  };
-};
-
 
 export default function ConverterWorkspace() {
   const [activeTab, setActiveTab] = useState<ToolId>('jpg-to-pdf');
@@ -123,14 +61,13 @@ export default function ConverterWorkspace() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
 
-  // Thumbnails load karo — directly file array pass karo (no stale closure)
+  // Thumbnails load karo
   const loadThumbnails = async (newItems: FileItem[], existingFiles: FileItem[]) => {
     const pendingImages = newItems.filter(f => f.fileType === 'image');
     const pendingPdfs = newItems.filter(f => f.fileType === 'pdf');
 
     setLoadingProgress({ loaded: 0, total: pendingImages.length });
 
-    // Image thumbnails load karo
     const updatedItems = [...newItems];
     for (let i = 0; i < pendingImages.length; i++) {
       const fileItem = pendingImages[i];
@@ -148,17 +85,14 @@ export default function ConverterWorkspace() {
       }
     }
 
-    // PDF files ready mark karo
     for (let i = 0; i < pendingPdfs.length; i++) {
       const idx = updatedItems.findIndex(f => f.id === pendingPdfs[i].id);
       if (idx !== -1) updatedItems[idx] = { ...updatedItems[idx], status: 'ready' };
     }
 
-    // Final state update — existing + new updated items
     const finalFiles = [...existingFiles, ...updatedItems];
     setFiles(finalFiles);
 
-    // Size estimate
     const allImageFiles = finalFiles.filter(f => f.fileType === 'image' && f.status === 'ready').map(f => f.file);
     if (allImageFiles.length > 0) {
       const size = estimatePdfSize(allImageFiles, compressionLevel);
@@ -192,7 +126,6 @@ export default function ConverterWorkspace() {
 
     if (activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') {
       setState('loading');
-      // Existing ready files rakhne ke liye — naye items alag pass karo
       const existingReady = files.filter(f => f.status === 'ready');
       setFiles([...existingReady, ...newFileItems]);
       await loadThumbnails(newFileItems, existingReady);
@@ -262,36 +195,120 @@ export default function ConverterWorkspace() {
     ));
   };
 
+  // ======================= FIXED processFiles FUNCTION =======================
   const processFiles = async () => {
     if (files.length === 0) return;
-    const currentFiles = [...files]; // snapshot lelo
+    const currentFiles = [...files];
     setState('converting');
 
     try {
       if (activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') {
-        const readyFiles = currentFiles.filter(
-          f => f.status === 'ready' && (f.fileType === 'image' || f.fileType === 'pdf')
-        );
+        const imageFiles = currentFiles.filter(f => f.fileType === 'image' && f.status === 'ready' && f.thumbnail);
+        const pdfFiles = currentFiles.filter(f => f.fileType === 'pdf' && f.status === 'ready');
 
-        if (readyFiles.length === 0) throw new Error('No valid files ready');
+        if (imageFiles.length === 0 && pdfFiles.length === 0) throw new Error('No valid files ready');
 
+        // Mark all as converting
         currentFiles.forEach(f => updateFileStatus(f.id, 'converting'));
 
-        const result = await mergePdfAndImagesToPdf(
-          readyFiles,
-          (current, total, fileId) => {
-            updateFileProgress(fileId, Math.round((current / total) * 100));
+        const allImageData: ImageProcessingResult[] = [];
+        const failedPdfIds = new Set<string>();
+
+        // 1. Add original image files
+        for (const imgFile of imageFiles) {
+          allImageData.push({
+            id: imgFile.id,
+            file: imgFile.file,
+            thumbnail: imgFile.thumbnail!,
+            width: imgFile.width!,
+            height: imgFile.height!,
+          });
+        }
+
+        // 2. Convert PDF files to images (with per-file & per-page error handling)
+        if (pdfFiles.length > 0) {
+          try {
+            const { convertPdfToImages } = await import('@/lib/pdfToImage');
+            for (const pdfFile of pdfFiles) {
+              try {
+                const result = await convertPdfToImages(pdfFile.file, () => {});
+                for (const img of result.images) {
+                  try {
+                    // Proper File creation without @ts-ignore
+                    const imgFile = new File(
+                      [img.blob],
+                      `pdf-page-${img.pageNumber}.jpg`,
+                      { type: 'image/jpeg' }
+                    );
+                    const info = await loadImageInfo(imgFile);
+                    allImageData.push({
+                      id: generateId(),
+                      file: imgFile,
+                      thumbnail: info.thumbnail,
+                      width: info.width,
+                      height: info.height,
+                    });
+                  } catch (pageErr) {
+                    console.error('Skipping a page due to error:', pageErr);
+                    // Skip this page, continue with next
+                  }
+                }
+              } catch (pdfErr: any) {
+                console.error('PDF conversion failed for:', pdfFile.file.name, pdfErr);
+                updateFileStatus(
+                  pdfFile.id,
+                  'error',
+                  undefined,
+                  undefined,
+                  pdfErr?.message || 'Yeh PDF read nahi ho payi'
+                );
+                failedPdfIds.add(pdfFile.id);
+              }
+            }
+          } catch (importErr) {
+            console.error('PDF library import failed:', importErr);
+            pdfFiles.forEach(f => {
+              updateFileStatus(f.id, 'error', undefined, undefined, 'PDF library not available');
+              failedPdfIds.add(f.id);
+            });
           }
-        );
+        }
 
-        updateFileStatus(
-          readyFiles[0].id,
-          'done',
-          { blob: result.blob, filename: result.filename },
-          result
-        );
+        // 3. Check if we have anything to merge
+        if (allImageData.length === 0) {
+          throw new Error('Koi page convert nahi ho paya. Files check karke phir try karein.');
+        }
 
-        readyFiles.slice(1).forEach(f => updateFileStatus(f.id, 'done'));
+        // 4. Merge
+        const result = await mergeImagesToPdf(allImageData, compressionLevel, (current, total, imageId) => {
+          updateFileProgress(imageId, Math.round((current / total) * 100));
+        });
+
+        // 5. Mark successful files
+        const successfulFiles = currentFiles.filter(f => !failedPdfIds.has(f.id));
+        if (successfulFiles.length > 0) {
+          updateFileStatus(
+            successfulFiles[0].id,
+            'done',
+            { blob: result.blob, filename: result.filename },
+            result
+          );
+          successfulFiles.slice(1).forEach(f => updateFileStatus(f.id, 'done'));
+        } else {
+          // Edge case: if successfulFiles is empty but allImageData had generated IDs
+          // We'll just attach the result to the first imageData entry
+          const firstImageId = allImageData[0]?.id;
+          if (firstImageId) {
+            updateFileStatus(
+              firstImageId,
+              'done',
+              { blob: result.blob, filename: result.filename },
+              result
+            );
+          } else {
+            throw new Error('Could not assign merged PDF to any file');
+          }
+        }
 
       } else if (activeTab === 'pdf-to-jpg') {
         const pdfFile = currentFiles[0];
@@ -388,6 +405,7 @@ export default function ConverterWorkspace() {
       files.forEach(f => updateFileStatus(f.id, 'error', undefined, undefined, err?.message || 'Conversion failed'));
     }
   };
+  // ======================= END OF FIXED processFiles =======================
 
   const downloadFile = (fileItem: FileItem) => {
     if (!fileItem.result) return;
@@ -480,7 +498,6 @@ export default function ConverterWorkspace() {
                 <p className="text-slate-500 text-xs">{tool?.description}</p>
               </div>
             </div>
-            {/* Clear all — sirf tab dikhao jab files hon AND state idle/loading/selected ho */}
             {files.length > 0 && (state === 'idle' || state === 'loading' || state === 'selected') && (
               <button
                 onClick={clearAllFiles}
@@ -729,20 +746,33 @@ export default function ConverterWorkspace() {
                   </div>
 
                   {(activeTab === 'jpg-to-pdf' || activeTab === 'png-to-pdf') && mergedPdf ? (
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/40 border border-white/5 mb-5">
-                      <div className="w-10 h-10 rounded-lg bg-red-500/15 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-red-400" />
+                    <>
+                      {files.some(f => f.status === 'error') && (
+                        <div className="mb-4 p-3 rounded-lg bg-amber-900/15 border border-amber-500/20 flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                          <div className="text-xs">
+                            <p className="text-amber-300 font-medium mb-0.5">Kuch files PDF mein shaamil nahi ho payi:</p>
+                            {files.filter(f => f.status === 'error').map(f => (
+                              <p key={f.id} className="text-amber-400/80">{f.file.name} — {f.error || 'Failed'}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/40 border border-white/5 mb-5">
+                        <div className="w-10 h-10 rounded-lg bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-5 h-5 text-red-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{mergedPdf.filename}</p>
+                          <p className="text-slate-500 text-xs">{mergedPdf.pageCount} pages | {formatBytes(mergedPdf.pdfSize)}</p>
+                        </div>
+                        <DownloadButton
+                          onClick={() => { const f = files.find(f => f.pdfResult); if (f) downloadFile(f); }}
+                          size="sm"
+                          text="Download"
+                        />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{mergedPdf.filename}</p>
-                        <p className="text-slate-500 text-xs">{mergedPdf.pageCount} pages | {formatBytes(mergedPdf.pdfSize)}</p>
-                      </div>
-                      <DownloadButton
-                        onClick={() => { const f = files.find(f => f.pdfResult); if (f) downloadFile(f); }}
-                        size="sm"
-                        text="Download"
-                      />
-                    </div>
+                    </>
                   ) : (
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mb-5">
                       {files.map((fileItem) => (
