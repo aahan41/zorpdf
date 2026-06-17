@@ -10,10 +10,15 @@ export async function convertDocxToPdf(docxFile: File): Promise<DocxToPdfResult>
     const mammoth = await import('mammoth');
     const htmlToPdfmake = (await import('html-to-pdfmake')).default;
     const pdfMakeModule = await import('pdfmake/build/pdfmake');
-    const pdfFonts = await import('pdfmake/build/vfs_fonts');
+    const pdfFonts = await import('pdfmake/build/vfs_fonts.js');
 
     const pdfMake: any = pdfMakeModule.default || pdfMakeModule;
-    pdfMake.vfs = (pdfFonts as any).default?.pdfMake?.vfs || (pdfFonts as any).pdfMake?.vfs;
+
+    pdfMake.vfs =
+      (pdfFonts as any).default?.vfs ||
+      (pdfFonts as any).vfs ||
+      (pdfFonts as any).default?.pdfMake?.vfs ||
+      (pdfFonts as any).pdfMake?.vfs;
 
     const arrayBuffer = await docxFile.arrayBuffer();
 
@@ -45,29 +50,12 @@ export async function convertDocxToPdf(docxFile: File): Promise<DocxToPdfResult>
     const pdfContent = htmlToPdfmake(styledHtml, {
       tableAutoSize: true,
       defaultStyles: {
-        p: {
-          margin: [0, 2, 0, 2],
-        },
-        h1: {
-          fontSize: 16,
-          bold: true,
-          margin: [0, 6, 0, 6],
-        },
-        h2: {
-          fontSize: 14,
-          bold: true,
-          margin: [0, 5, 0, 5],
-        },
-        table: {
-          margin: [0, 6, 0, 8],
-        },
-        th: {
-          bold: true,
-          fillColor: '#f2f2f2',
-        },
-        td: {
-          margin: [3, 3, 3, 3],
-        },
+        p: { margin: [0, 2, 0, 2] },
+        h1: { fontSize: 16, bold: true, margin: [0, 6, 0, 6] },
+        h2: { fontSize: 14, bold: true, margin: [0, 5, 0, 5] },
+        table: { margin: [0, 6, 0, 8] },
+        th: { bold: true, fillColor: '#f2f2f2' },
+        td: { margin: [3, 3, 3, 3] },
       },
     });
 
@@ -75,20 +63,15 @@ export async function convertDocxToPdf(docxFile: File): Promise<DocxToPdfResult>
       pageSize: 'A4',
       pageOrientation: 'portrait',
       pageMargins: [40, 40, 40, 40],
-
       defaultStyle: {
         font: 'Roboto',
         fontSize: 10,
         lineHeight: 1.25,
         color: '#000000',
       },
-
       content: pdfContent,
-
       styles: {
-        strong: {
-          bold: true,
-        },
+        strong: { bold: true },
       },
     };
 
@@ -104,10 +87,7 @@ export async function convertDocxToPdf(docxFile: File): Promise<DocxToPdfResult>
 
     const filename = getZorPdfFileName('pdf');
 
-    return {
-      blob: pdfBlob,
-      filename,
-    };
+    return { blob: pdfBlob, filename };
   } catch (err) {
     throw new Error(
       `Failed to convert DOCX to PDF: ${
