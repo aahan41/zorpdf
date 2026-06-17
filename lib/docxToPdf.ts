@@ -8,79 +8,111 @@ export interface DocxToPdfResult {
 export async function convertDocxToPdf(docxFile: File): Promise<DocxToPdfResult> {
   try {
     const mammoth = await import('mammoth');
+    const htmlToPdfmake = (await import('html-to-pdfmake')).default;
+    const pdfMakeModule = await import('pdfmake/build/pdfmake');
+    const pdfFonts = await import('pdfmake/build/vfs_fonts');
+
+    const pdfMake: any = pdfMakeModule.default || pdfMakeModule;
+    pdfMake.vfs = (pdfFonts as any).default?.pdfMake?.vfs || (pdfFonts as any).pdfMake?.vfs;
+
     const arrayBuffer = await docxFile.arrayBuffer();
-    const result = await mammoth.convertToHtml({ arrayBuffer });
+
+    const result = await mammoth.convertToHtml(
+      { arrayBuffer },
+      {
+        styleMap: [
+          "p[style-name='Title'] => h1:fresh",
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "b => strong",
+          "i => em",
+        ],
+      }
+    );
+
     const html = result.value;
 
     if (!html || html.trim().length === 0) {
       throw new Error('No content found in DOCX file');
     }
 
-    // Create styled container
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0px';
-    container.style.width = '794px';
-    container.style.padding = '60px';
-    container.style.background = 'white';
-    container.style.fontFamily = 'Arial, sans-serif';
-    container.style.fontSize = '13px';
-    container.style.lineHeight = '1.6';
-    container.style.color = '#000';
-    container.innerHTML = `
-      <style>
-        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        td, th { border: 1px solid #000; padding: 4px 8px; font-size: 12px; }
-        p { margin: 4px 0; }
-        h1, h2, h3 { margin: 8px 0 4px 0; }
-        b, strong { font-weight: bold; }
-      </style>
-      ${html}
+    const styledHtml = `
+      <div style="font-family: Arial; font-size: 11px; color: #000;">
+        ${html}
+      </div>
     `;
-    document.body.appendChild(container);
 
-    // Wait for render
-    await new Promise(resolve => setTimeout(resolve, 300));
+    const pdfContent = htmlToPdfmake(styledHtml, {
+      tableAutoSize: true,
+      defaultStyles: {
+        p: {
+          margin: [0, 2, 0, 2],
+        },
+        h1: {
+          fontSize: 16,
+          bold: true,
+          margin: [0, 6, 0, 6],
+        },
+        h2: {
+          fontSize: 14,
+          bold: true,
+          margin: [0, 5, 0, 5],
+        },
+        table: {
+          margin: [0, 6, 0, 8],
+        },
+        th: {
+          bold: true,
+          fillColor: '#f2f2f2',
+        },
+        td: {
+          margin: [3, 3, 3, 3],
+        },
+      },
+    });
 
-    const html2canvas = (await import('html2canvas')).default;
-    const { jsPDF } = await import('jspdf');
+    const docDefinition: any = {
+      pageSize: 'A4',
+      pageOrientation: 'portrait',
+      pageMargins: [40, 40, 40, 40],
 
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
+      defaultStyle: {
+        font: 'Roboto',
+        fontSize: 10,
+        lineHeight: 1.25,
+        color: '#000000',
+      },
 
-    const totalHeight = container.scrollHeight;
-    let yOffset = 0;
-    let isFirstPage = true;
+      content: pdfContent,
 
-    while (yOffset < totalHeight) {
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        y: yOffset,
-        height: Math.min(1122, totalHeight - yOffset),
-        windowWidth: 794,
-        backgroundColor: '#ffffff',
-      });
+      styles: {
+        strong: {
+          bold: true,
+        },
+      },
+    };
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+    const pdfBlob: Blob = await new Promise((resolve, reject) => {
+      try {
+        pdfMake.createPdf(docDefinition).getBlob((blob: Blob) => {
+          resolve(blob);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
 
-      if (!isFirstPage) pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, imgHeight);
-
-      yOffset += 1122;
-      isFirstPage = false;
-    }
-
-    document.body.removeChild(container);
-
-    const pdfBlob = pdf.output('blob');
     const filename = getZorPdfFileName('pdf');
-    return { blob: pdfBlob, filename };
 
+    return {
+      blob: pdfBlob,
+      filename,
+    };
   } catch (err) {
-    throw new Error(`Failed to convert DOCX to PDF: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to convert DOCX to PDF: ${
+        err instanceof Error ? err.message : 'Unknown error'
+      }`
+    );
   }
 }
