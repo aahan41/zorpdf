@@ -8,83 +8,60 @@ export interface DocxToPdfResult {
 export async function convertDocxToPdf(docxFile: File): Promise<DocxToPdfResult> {
   try {
     const mammoth = await import('mammoth');
-    const htmlToPdfmake = (await import('html-to-pdfmake')).default;
-    const pdfMakeModule = await import('pdfmake/build/pdfmake');
-    const pdfFonts = await import('pdfmake/build/vfs_fonts.js');
-
-    const pdfMake: any = pdfMakeModule.default || pdfMakeModule;
-
-    pdfMake.vfs =
-      (pdfFonts as any).default?.vfs ||
-      (pdfFonts as any).vfs ||
-      (pdfFonts as any).default?.pdfMake?.vfs ||
-      (pdfFonts as any).pdfMake?.vfs;
+    const { jsPDF } = await import('jspdf');
 
     const arrayBuffer = await docxFile.arrayBuffer();
-
-    const result = await mammoth.convertToHtml(
-      { arrayBuffer },
-      {
-        styleMap: [
-          "p[style-name='Title'] => h1:fresh",
-          "p[style-name='Heading 1'] => h1:fresh",
-          "p[style-name='Heading 2'] => h2:fresh",
-          "b => strong",
-          "i => em",
-        ],
-      }
-    );
-
+    const result = await mammoth.convertToHtml({ arrayBuffer });
     const html = result.value;
 
     if (!html || html.trim().length === 0) {
       throw new Error('No content found in DOCX file');
     }
 
-    const styledHtml = `
-      <div style="font-family: Arial; font-size: 11px; color: #000;">
-        ${html}
-      </div>
+    const container = document.createElement('div');
+    container.style.width = '720px';
+    container.style.padding = '40px';
+    container.style.background = '#ffffff';
+    container.style.color = '#000000';
+    container.style.fontFamily = 'Arial, sans-serif';
+    container.style.fontSize = '12px';
+    container.style.lineHeight = '1.35';
+
+    container.innerHTML = `
+      <style>
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+        td, th { border: 1px solid #000; padding: 5px 7px; vertical-align: top; }
+        p { margin: 4px 0; }
+        h1, h2, h3 { margin: 8px 0 6px; }
+        img { max-width: 100%; height: auto; }
+      </style>
+      ${html}
     `;
 
-    const pdfContent = htmlToPdfmake(styledHtml, {
-      tableAutoSize: true,
-      defaultStyles: {
-        p: { margin: [0, 2, 0, 2] },
-        h1: { fontSize: 16, bold: true, margin: [0, 6, 0, 6] },
-        h2: { fontSize: 14, bold: true, margin: [0, 5, 0, 5] },
-        table: { margin: [0, 6, 0, 8] },
-        th: { bold: true, fillColor: '#f2f2f2' },
-        td: { margin: [3, 3, 3, 3] },
+    document.body.appendChild(container);
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'pt',
+      format: 'a4',
+    });
+
+    await pdf.html(container, {
+      x: 30,
+      y: 30,
+      width: 535,
+      windowWidth: 720,
+      autoPaging: 'text',
+      html2canvas: {
+        scale: 0.75,
+        useCORS: true,
+        backgroundColor: '#ffffff',
       },
     });
 
-    const docDefinition: any = {
-      pageSize: 'A4',
-      pageOrientation: 'portrait',
-      pageMargins: [40, 40, 40, 40],
-      defaultStyle: {
-        font: 'Roboto',
-        fontSize: 10,
-        lineHeight: 1.25,
-        color: '#000000',
-      },
-      content: pdfContent,
-      styles: {
-        strong: { bold: true },
-      },
-    };
+    document.body.removeChild(container);
 
-    const pdfBlob: Blob = await new Promise((resolve, reject) => {
-      try {
-        pdfMake.createPdf(docDefinition).getBlob((blob: Blob) => {
-          resolve(blob);
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
-
+    const pdfBlob = pdf.output('blob');
     const filename = getZorPdfFileName('pdf');
 
     return { blob: pdfBlob, filename };
