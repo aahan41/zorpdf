@@ -12,25 +12,35 @@ import {
   FileSignature,
   ArrowRight,
   Lock,
+  Unlock,
+  FileText,
+  Scissors,
+  Minimize2,
+  Files,
 } from "lucide-react";
 
 export default function PremiumSection() {
+  const editorFeatures = [
+    { icon: PenLine, title: "PDF Editor", desc: "Add text, signature, image and highlight." },
+    { icon: Files, title: "PDF Merge", desc: "Multiple PDFs ko ek file me combine karo." },
+    { icon: Scissors, title: "PDF Split", desc: "PDF pages ko alag-alag file me nikalo." },
+    { icon: Minimize2, title: "PDF Compress", desc: "PDF ka size reduce karo." },
+    { icon: Lock, title: "PDF Protect", desc: "PDF me password protection add karo." },
+    { icon: Unlock, title: "PDF Unlock", desc: "Unlocked PDF ko edit/download karo." },
+  ];
+
   return (
     <section className="bg-[#050913] px-4 sm:px-6 py-20">
       <div className="max-w-7xl mx-auto space-y-12">
-        {/* PDF Editor Pro Highlight */}
         <div className="relative overflow-hidden rounded-[30px] border border-blue-500/30 bg-gradient-to-br from-[#081225] via-[#0b1b3a] to-[#050913] shadow-2xl shadow-blue-950/40">
           <div className="absolute -top-20 -left-20 w-80 h-80 bg-blue-500/20 blur-[120px]" />
           <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-cyan-400/15 blur-[130px]" />
-          <div className="absolute top-8 right-8 hidden sm:flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-cyan-300 text-xs font-black">
-            FREE BASIC EDITOR
-          </div>
 
           <div className="relative grid lg:grid-cols-2 gap-12 items-center px-6 sm:px-10 lg:px-14 py-14 lg:py-16">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-400/10 px-4 py-2 text-blue-300 text-xs sm:text-sm font-bold mb-7">
-                <Sparkles className="w-4 h-4" />
-                New Premium Highlight Tool
+              <div className="inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-2 text-yellow-300 text-xs sm:text-sm font-bold mb-7">
+                <Crown className="w-4 h-4" />
+                NEW PREMIUM FEATURE
               </div>
 
               <h2 className="text-3xl sm:text-5xl font-extrabold text-white leading-tight mb-5">
@@ -40,43 +50,19 @@ export default function PremiumSection() {
                 </span>
               </h2>
 
-              <p className="text-slate-300 text-base sm:text-lg leading-relaxed max-w-xl mb-9">
-                Upload your PDF and edit it online. Add text, signature, images
-                and highlights without installing any software.
+              <p className="text-slate-300 text-base sm:text-lg leading-relaxed max-w-xl mb-8">
+                Edit, merge, split, compress, protect and unlock PDF files online without installing any software.
               </p>
 
               <div className="grid sm:grid-cols-2 gap-4 mb-9">
-                {[
-                  {
-                    icon: PenLine,
-                    title: "Add Text",
-                    desc: "PDF ke upar custom text add karo.",
-                  },
-                  {
-                    icon: FileSignature,
-                    title: "Add Signature",
-                    desc: "Signature image upload karke PDF me lagao.",
-                  },
-                  {
-                    icon: Highlighter,
-                    title: "Highlight PDF",
-                    desc: "Important line ya area ko highlight karo.",
-                  },
-                  {
-                    icon: ImagePlus,
-                    title: "Add Image",
-                    desc: "Logo, photo ya stamp PDF me add karo.",
-                  },
-                ].map((item) => (
+                {editorFeatures.slice(0, 4).map((item) => (
                   <div
                     key={item.title}
                     className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 hover:border-blue-400/50 hover:bg-white/[0.06] transition-all"
                   >
                     <item.icon className="w-6 h-6 text-blue-300 mb-3" />
                     <h3 className="text-white font-bold mb-1">{item.title}</h3>
-                    <p className="text-slate-400 text-sm leading-relaxed">
-                      {item.desc}
-                    </p>
+                    <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
                   </div>
                 ))}
               </div>
@@ -106,67 +92,26 @@ export default function PremiumSection() {
                 </div>
 
                 <div className="rounded-[22px] border border-blue-400/30 bg-[#0b1120] p-6 sm:p-7">
-                  <div className="flex items-center justify-between mb-7">
-                    <div>
-                      <p className="text-slate-400 text-sm mb-1">Live Editor</p>
-                      <h3 className="text-white text-2xl font-bold">
-                        Edit PDF Online
-                      </h3>
-                    </div>
+                  <p className="text-slate-400 text-sm mb-1">All PDF Tools</p>
+                  <h3 className="text-white text-2xl font-bold mb-6">
+                    Pro Toolkit
+                  </h3>
 
-                    <div className="w-14 h-14 rounded-2xl bg-blue-500/15 border border-blue-400/30 flex items-center justify-center">
-                      <PenLine className="w-8 h-8 text-blue-300" />
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-white p-5 min-h-[240px] shadow-inner">
-                    <div className="h-3 w-32 rounded bg-slate-300 mb-4" />
-                    <div className="space-y-2 mb-5">
-                      <div className="h-2 w-full rounded bg-slate-200" />
-                      <div className="h-2 w-11/12 rounded bg-slate-200" />
-                      <div className="h-2 w-4/5 rounded bg-slate-200" />
-                    </div>
-
-                    <div className="h-10 w-44 rounded bg-yellow-200/90 border border-yellow-400 mb-5 flex items-center px-3">
-                      <span className="text-[10px] font-bold text-yellow-700">
-                        Highlighted Text Area
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="h-12 w-28 rounded-xl border-2 border-blue-500/70 flex items-center justify-center">
-                        <span className="text-[11px] font-black text-blue-600">
-                          SIGNATURE
-                        </span>
-                      </div>
-
-                      <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                        <ImagePlus className="w-7 h-7 text-slate-500" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-4 gap-2 text-center">
-                    {[
-                      ["Text", PenLine],
-                      ["Sign", FileSignature],
-                      ["Mark", Highlighter],
-                      ["Image", ImagePlus],
-                    ].map(([title, Icon]) => (
+                  <div className="grid grid-cols-2 gap-3">
+                    {editorFeatures.map((item) => (
                       <div
-                        key={String(title)}
-                        className="rounded-xl border border-white/10 bg-white/[0.04] p-3"
+                        key={item.title}
+                        className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 hover:border-cyan-400/40 transition"
                       >
-                        <Icon className="w-4 h-4 text-cyan-300 mx-auto mb-1" />
-                        <p className="text-white text-xs font-bold">
-                          {String(title)}
-                        </p>
+                        <item.icon className="w-6 h-6 text-cyan-300 mb-3" />
+                        <p className="text-white font-bold text-sm">{item.title}</p>
+                        <p className="text-slate-500 text-xs mt-1">{item.desc}</p>
                       </div>
                     ))}
                   </div>
 
                   <div className="mt-5 flex items-center gap-2 rounded-xl border border-green-400/20 bg-green-400/10 px-4 py-3">
-                    <Lock className="w-4 h-4 text-green-300" />
+                    <ShieldCheck className="w-4 h-4 text-green-300" />
                     <p className="text-green-300 text-sm font-semibold">
                       Browser-side private editing
                     </p>
@@ -195,33 +140,15 @@ export default function PremiumSection() {
               </h2>
 
               <p className="text-slate-400 text-base sm:text-lg leading-relaxed max-w-xl mb-9">
-                Abhi ZorPDF free hai. Jaldi hi premium users ke liye zyada file
-                limit, faster conversion, priority support aur advanced PDF tools
-                available honge.
+                Abhi ZorPDF free hai. Jaldi hi premium users ke liye zyada file limit, faster conversion, priority support aur advanced PDF tools available honge.
               </p>
 
               <div className="grid sm:grid-cols-2 gap-4 mb-9">
                 {[
-                  {
-                    icon: UploadCloud,
-                    title: "More File Limit",
-                    desc: "Free se zyada files ek saath convert karo.",
-                  },
-                  {
-                    icon: Zap,
-                    title: "Faster Conversion",
-                    desc: "Premium users ke liye priority speed.",
-                  },
-                  {
-                    icon: ShieldCheck,
-                    title: "Secure Processing",
-                    desc: "Safe aur private document handling.",
-                  },
-                  {
-                    icon: Sparkles,
-                    title: "Advanced Tools",
-                    desc: "Future mein aur powerful PDF tools.",
-                  },
+                  { icon: UploadCloud, title: "More File Limit", desc: "Free se zyada files ek saath convert karo." },
+                  { icon: Zap, title: "Faster Conversion", desc: "Premium users ke liye priority speed." },
+                  { icon: ShieldCheck, title: "Secure Processing", desc: "Safe aur private document handling." },
+                  { icon: Sparkles, title: "Advanced Tools", desc: "Future mein aur powerful PDF tools." },
                 ].map((item) => (
                   <div
                     key={item.title}
@@ -229,9 +156,7 @@ export default function PremiumSection() {
                   >
                     <item.icon className="w-6 h-6 text-yellow-300 mb-3" />
                     <h3 className="text-white font-bold mb-1">{item.title}</h3>
-                    <p className="text-slate-400 text-sm leading-relaxed">
-                      {item.desc}
-                    </p>
+                    <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
                   </div>
                 ))}
               </div>
@@ -258,12 +183,8 @@ export default function PremiumSection() {
                 <div className="rounded-[22px] border border-yellow-400/40 bg-[#101827] p-6 sm:p-7">
                   <div className="flex items-center justify-between mb-7">
                     <div>
-                      <p className="text-slate-400 text-sm mb-1">
-                        Premium Plan
-                      </p>
-                      <h3 className="text-white text-2xl font-bold">
-                        ZorPDF Pro
-                      </h3>
+                      <p className="text-slate-400 text-sm mb-1">Premium Plan</p>
+                      <h3 className="text-white text-2xl font-bold">ZorPDF Pro</h3>
                     </div>
 
                     <div className="w-14 h-14 rounded-2xl bg-yellow-400 flex items-center justify-center shadow-lg shadow-yellow-500/20">
@@ -279,10 +200,7 @@ export default function PremiumSection() {
                       "No waiting queue",
                       "Premium support",
                     ].map((text) => (
-                      <div
-                        key={text}
-                        className="flex items-center gap-3 text-slate-300"
-                      >
+                      <div key={text} className="flex items-center gap-3 text-slate-300">
                         <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
                         <span>{text}</span>
                       </div>
@@ -290,13 +208,9 @@ export default function PremiumSection() {
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                    <p className="text-slate-400 text-sm mb-1">
-                      Starting soon
-                    </p>
+                    <p className="text-slate-400 text-sm mb-1">Starting soon</p>
                     <div className="flex items-end gap-2">
-                      <span className="text-4xl font-extrabold text-white">
-                        ₹99
-                      </span>
+                      <span className="text-4xl font-extrabold text-white">₹99</span>
                       <span className="text-slate-400 mb-1">/ month</span>
                     </div>
                     <p className="text-yellow-300 text-sm mt-3">
