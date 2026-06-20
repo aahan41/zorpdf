@@ -106,10 +106,7 @@ export default function PdfEditorPage() {
     <div className="min-h-screen bg-[#050913] text-white px-4 py-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-blue-400 font-bold hover:text-blue-300"
-          >
+          <Link href="/" className="inline-flex items-center gap-2 text-blue-400 font-bold hover:text-blue-300">
             <ArrowLeft className="w-4 h-4" />
             Back Home
           </Link>
@@ -133,12 +130,12 @@ export default function PdfEditorPage() {
           </h1>
 
           <p className="text-slate-400">
-            Upload PDF, preview it, then edit and download.
+            PDF upload karo, signature/image add karo, phir download edited PDF.
           </p>
         </div>
 
-        {/* TOP HEADER UPLOAD SECTION */}
-        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-5 mb-6">
+        {/* TOP: PDF Upload */}
+        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-5 mb-5">
           <label className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border-2 border-dashed border-slate-700 px-5 py-5 cursor-pointer hover:border-blue-500/50 transition">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center">
@@ -147,9 +144,7 @@ export default function PdfEditorPage() {
 
               <div>
                 <p className="font-bold text-white">Upload PDF</p>
-                <p className="text-slate-400 text-sm">
-                  PDF upload karo, preview niche open hoga
-                </p>
+                <p className="text-slate-400 text-sm">Choose PDF file</p>
                 {pdfFile && (
                   <p className="text-green-400 text-xs font-semibold mt-1 break-all">
                     Selected: {pdfFile.name}
@@ -171,38 +166,22 @@ export default function PdfEditorPage() {
           </label>
         </div>
 
-        {/* PDF PREVIEW BELOW UPLOAD */}
-        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-4 min-h-[620px] mb-6">
-          {pdfUrl ? (
-            <iframe
-              src={pdfUrl}
-              className="w-full h-[620px] rounded-2xl bg-white"
-            />
-          ) : (
-            <div className="h-[620px] flex items-center justify-center text-center">
-              <div>
-                <Upload className="w-14 h-14 mx-auto mb-4 text-slate-600" />
-                <h2 className="text-2xl font-bold mb-2">PDF Preview</h2>
-                <p className="text-slate-500">
-                  Upload PDF karne ke baad yahan open hoga.
-                </p>
-              </div>
+        {/* SECOND: Signature/Image Upload */}
+        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-5 mb-6">
+          <div className="grid md:grid-cols-3 gap-5">
+            <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
+              <label className="flex items-center gap-2 text-sm font-bold mb-3">
+                <ImagePlus className="w-4 h-4 text-cyan-400" />
+                Signature / Image Upload
+              </label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                className="w-full text-sm text-slate-300"
+              />
             </div>
-          )}
-        </div>
 
-        {/* EDIT OPTIONS BELOW PDF */}
-        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-6">
-          <div className="mb-5">
-            <h2 className="text-2xl font-extrabold text-white">
-              Edit Options
-            </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Text, signature/image, highlight aur download yahin se hoga.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
             <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
               <label className="flex items-center gap-2 text-sm font-bold mb-3">
                 <PenLine className="w-4 h-4 text-blue-400" />
@@ -216,39 +195,81 @@ export default function PdfEditorPage() {
               />
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
-              <label className="flex items-center gap-2 text-sm font-bold mb-3">
-                <ImagePlus className="w-4 h-4 text-cyan-400" />
-                Add Signature / Image
-              </label>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,.png,.jpg,.jpeg"
-                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                className="w-full text-sm text-slate-300"
-              />
-            </div>
-
-            <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-5">
-              <div className="flex items-center gap-2 text-yellow-300 font-bold mb-2">
-                <Highlighter className="w-4 h-4" />
-                Highlight
-              </div>
-              <p className="text-slate-400 text-sm">
-                Yellow highlight automatically first page par add hoga.
-              </p>
-            </div>
-
             <button
               onClick={downloadEditedPdf}
-              className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-5 font-bold text-white shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2 disabled:opacity-40"
               disabled={!pdfFile}
+              className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-5 font-bold text-white shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2 disabled:opacity-40"
             >
               <Download className="w-5 h-5" />
               Download Edited PDF
             </button>
           </div>
         </div>
+
+        {/* PDF PREVIEW */}
+        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-4 min-h-[620px] mb-6">
+          {pdfUrl ? (
+            <iframe src={pdfUrl} className="w-full h-[620px] rounded-2xl bg-white" />
+          ) : (
+            <div className="h-[620px] flex items-center justify-center text-center">
+              <div>
+                <Upload className="w-14 h-14 mx-auto mb-4 text-slate-600" />
+                <h2 className="text-2xl font-bold mb-2">PDF Preview</h2>
+                <p className="text-slate-500">PDF upload karne ke baad yahan open hoga.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* EDIT OPTIONS AFTER PDF UPLOAD */}
+        {pdfFile && (
+          <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-6">
+            <div className="mb-5">
+              <h2 className="text-2xl font-extrabold text-white">Edit Options</h2>
+              <p className="text-slate-400 text-sm mt-1">
+                Ye options PDF ke first page par apply honge.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
+              <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
+                <div className="flex items-center gap-2 text-blue-300 font-bold mb-2">
+                  <PenLine className="w-4 h-4" />
+                  Text Added
+                </div>
+                <p className="text-slate-400 text-sm break-all">{text}</p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
+                <div className="flex items-center gap-2 text-cyan-300 font-bold mb-2">
+                  <ImagePlus className="w-4 h-4" />
+                  Signature / Image
+                </div>
+                <p className="text-slate-400 text-sm">
+                  {imageFile ? imageFile.name : 'No image selected'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-5">
+                <div className="flex items-center gap-2 text-yellow-300 font-bold mb-2">
+                  <Highlighter className="w-4 h-4" />
+                  Highlight
+                </div>
+                <p className="text-slate-400 text-sm">
+                  Yellow highlight first page par add hoga.
+                </p>
+              </div>
+
+              <button
+                onClick={downloadEditedPdf}
+                className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-5 font-bold text-white shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                Download Edited PDF
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
