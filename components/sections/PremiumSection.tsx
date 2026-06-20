@@ -180,4 +180,58 @@ export default function PremiumSection() {
                   <div className="flex items-center justify-between mb-7">
                     <div>
                       <p className="text-slate-400 text-sm mb-1">Premium Plan</p>
-                      <
+                      <h3 className="text-white text-2xl font-bold">ZorPDF Pro</h3>
+                    </div>
+
+                    <div className="w-14 h-14 rounded-2xl bg-yellow-400 flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                      <Crown className="w-8 h-8 text-black" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 mb-7">
+                    {[
+                      "100+ files conversion",
+                      "PDF + JPG + PNG mixed merge",
+                      "Priority conversion speed",
+                      "No waiting queue",
+                      "Premium support",
+                    ].map((text) => (
+                      <div key={text} className="flex items-center gap-3 text-slate-300">
+                        <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
+                        <span>{text}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                    <p className="text-slate-400 text-sm mb-1">Starting soon</p>
+                    <div className="flex items-end gap-2">
+                      <span className="text-4xl font-extrabold text-white">₹99</span>
+                      <span className="text-slate-400 mb-1">/ month</span>
+                    </div>
+                    <p className="text-yellow-300 text-sm mt-3">
+                      Payment system coming soon.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+                  {[
+                    ["Fast", "Speed"],
+                    ["Safe", "Files"],
+                    ["Pro", "Tools"],
+                  ].map(([title, sub]) => (
+                    <div key={title} className="rounded-xl bg-white/[0.04] p-3">
+                      <p className="text-white font-bold">{title}</p>
+                      <p className="text-slate-500 text-xs">{sub}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
