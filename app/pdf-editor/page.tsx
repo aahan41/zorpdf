@@ -103,9 +103,9 @@ export default function PdfEditorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050913] text-white px-4 py-10">
+    <div className="min-h-screen bg-[#050913] text-white px-4 py-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8 flex items-center justify-between gap-4">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <Link
             href="/"
             className="inline-flex items-center gap-2 text-blue-400 font-bold hover:text-blue-300"
@@ -123,86 +123,86 @@ export default function PdfEditorPage() {
           </button>
         </div>
 
-        <div className="text-center mb-10">
-          <div className="inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-blue-300 text-sm font-bold mb-5">
+        <div className="text-center mb-8">
+          <div className="inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-blue-300 text-sm font-bold mb-4">
             PDF EDITOR PRO
           </div>
 
-          <h1 className="text-4xl sm:text-5xl font-extrabold mb-4">
+          <h1 className="text-4xl sm:text-5xl font-extrabold mb-3">
             Edit PDF Online
           </h1>
 
           <p className="text-slate-400">
-            Upload PDF first, preview it, then use editing options below.
+            Upload PDF, preview it, then edit and download.
           </p>
         </div>
 
-        {/* UPPER SECTION: Upload + Preview */}
-        <div className="grid lg:grid-cols-[360px_1fr] gap-6 mb-8">
-          <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-6">
-            <label className="block rounded-2xl border-2 border-dashed border-slate-700 p-8 text-center cursor-pointer hover:border-blue-500/50 transition">
-              <Upload className="w-10 h-10 mx-auto mb-4 text-blue-400" />
-              <p className="font-bold mb-2">Upload PDF</p>
-              <p className="text-slate-400 text-sm mb-4">
-                Choose PDF file to preview
-              </p>
-
-              <input
-                type="file"
-                accept="application/pdf,.pdf"
-                className="hidden"
-                onChange={(e) => handlePdfUpload(e.target.files?.[0] || null)}
-              />
-
-              <span className="inline-flex rounded-xl bg-blue-600 px-5 py-2 font-bold">
-                Choose File
-              </span>
-            </label>
-
-            {pdfFile && (
-              <div className="mt-4 rounded-xl border border-green-400/20 bg-green-400/10 p-4">
-                <p className="text-sm text-green-400 font-semibold">
-                  PDF Selected
-                </p>
-                <p className="text-xs text-slate-300 mt-1 break-all">
-                  {pdfFile.name}
-                </p>
+        {/* TOP HEADER UPLOAD SECTION */}
+        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-5 mb-6">
+          <label className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border-2 border-dashed border-slate-700 px-5 py-5 cursor-pointer hover:border-blue-500/50 transition">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center">
+                <Upload className="w-7 h-7 text-blue-400" />
               </div>
-            )}
-          </div>
 
-          <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-4 min-h-[560px]">
-            {pdfUrl ? (
-              <iframe
-                src={pdfUrl}
-                className="w-full h-[560px] rounded-2xl bg-white"
-              />
-            ) : (
-              <div className="h-[560px] flex items-center justify-center text-center">
-                <div>
-                  <Upload className="w-14 h-14 mx-auto mb-4 text-slate-600" />
-                  <h2 className="text-2xl font-bold mb-2">PDF Preview</h2>
-                  <p className="text-slate-500">
-                    Upload PDF to preview here.
+              <div>
+                <p className="font-bold text-white">Upload PDF</p>
+                <p className="text-slate-400 text-sm">
+                  PDF upload karo, preview niche open hoga
+                </p>
+                {pdfFile && (
+                  <p className="text-green-400 text-xs font-semibold mt-1 break-all">
+                    Selected: {pdfFile.name}
                   </p>
-                </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => handlePdfUpload(e.target.files?.[0] || null)}
+            />
+
+            <span className="inline-flex rounded-xl bg-blue-600 px-5 py-2.5 font-bold whitespace-nowrap">
+              Choose File
+            </span>
+          </label>
         </div>
 
-        {/* LOWER SECTION: Editing Options */}
+        {/* PDF PREVIEW BELOW UPLOAD */}
+        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-4 min-h-[620px] mb-6">
+          {pdfUrl ? (
+            <iframe
+              src={pdfUrl}
+              className="w-full h-[620px] rounded-2xl bg-white"
+            />
+          ) : (
+            <div className="h-[620px] flex items-center justify-center text-center">
+              <div>
+                <Upload className="w-14 h-14 mx-auto mb-4 text-slate-600" />
+                <h2 className="text-2xl font-bold mb-2">PDF Preview</h2>
+                <p className="text-slate-500">
+                  Upload PDF karne ke baad yahan open hoga.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* EDIT OPTIONS BELOW PDF */}
         <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-6">
-          <div className="mb-6">
+          <div className="mb-5">
             <h2 className="text-2xl font-extrabold text-white">
               Edit Options
             </h2>
             <p className="text-slate-400 text-sm mt-1">
-              Ye options PDF ke first page par apply honge.
+              Text, signature/image, highlight aur download yahin se hoga.
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-4 gap-5">
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
             <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
               <label className="flex items-center gap-2 text-sm font-bold mb-3">
                 <PenLine className="w-4 h-4 text-blue-400" />
