@@ -7,13 +7,8 @@ import {
   Sparkles,
   CheckCircle2,
   PenLine,
-  Highlighter,
-  ImagePlus,
-  FileSignature,
-  ArrowRight,
   Lock,
   Unlock,
-  FileText,
   Scissors,
   Minimize2,
   Files,
@@ -21,12 +16,12 @@ import {
 
 export default function PremiumSection() {
   const editorFeatures = [
-    { icon: PenLine, title: "PDF Editor", desc: "Add text, signature, image and highlight." },
-    { icon: Files, title: "PDF Merge", desc: "Multiple PDFs ko ek file me combine karo." },
-    { icon: Scissors, title: "PDF Split", desc: "PDF pages ko alag-alag file me nikalo." },
-    { icon: Minimize2, title: "PDF Compress", desc: "PDF ka size reduce karo." },
-    { icon: Lock, title: "PDF Protect", desc: "PDF me password protection add karo." },
-    { icon: Unlock, title: "PDF Unlock", desc: "Unlocked PDF ko edit/download karo." },
+    { icon: PenLine, title: "PDF Editor", desc: "Add text, signature, image and highlight.", href: "/pdf-editor" },
+    { icon: Files, title: "PDF Merge", desc: "Multiple PDFs ko ek file me combine karo.", href: "/#tools" },
+    { icon: Scissors, title: "PDF Split", desc: "PDF pages ko alag-alag file me nikalo.", href: "/#tools" },
+    { icon: Minimize2, title: "PDF Compress", desc: "PDF ka size reduce karo.", href: "/#tools" },
+    { icon: Lock, title: "PDF Protect", desc: "PDF me password protection add karo.", href: "/#tools" },
+    { icon: Unlock, title: "PDF Unlock", desc: "Unlocked PDF ko edit/download karo.", href: "/#tools" },
   ];
 
   return (
@@ -69,11 +64,11 @@ export default function PremiumSection() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
-                  href="/pdf-editor"
+                  href="/#pdf-tools"
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-bold text-white hover:scale-[1.02] transition shadow-lg shadow-blue-500/20"
                 >
                   Start Editing PDF
-                  <ArrowRight className="w-4 h-4" />
+                  →
                 </Link>
 
                 <Link
@@ -85,7 +80,7 @@ export default function PremiumSection() {
               </div>
             </div>
 
-            <div className="relative">
+            <div id="pdf-tools" className="relative scroll-mt-28">
               <div className="relative rounded-[26px] border border-blue-400/25 bg-[#071225]/95 p-5 sm:p-6 shadow-2xl shadow-blue-950/40">
                 <div className="absolute -top-5 -right-4 w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-300 to-cyan-400 flex items-center justify-center shadow-lg shadow-cyan-500/20 rotate-6">
                   <Crown className="w-8 h-8 text-black" />
@@ -99,14 +94,15 @@ export default function PremiumSection() {
 
                   <div className="grid grid-cols-2 gap-3">
                     {editorFeatures.map((item) => (
-                      <div
+                      <Link
                         key={item.title}
-                        className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 hover:border-cyan-400/40 transition"
+                        href={item.href}
+                        className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 hover:border-cyan-400/40 hover:bg-white/[0.06] transition"
                       >
                         <item.icon className="w-6 h-6 text-cyan-300 mb-3" />
                         <p className="text-white font-bold text-sm">{item.title}</p>
                         <p className="text-slate-500 text-xs mt-1">{item.desc}</p>
-                      </div>
+                      </Link>
                     ))}
                   </div>
 
@@ -184,58 +180,4 @@ export default function PremiumSection() {
                   <div className="flex items-center justify-between mb-7">
                     <div>
                       <p className="text-slate-400 text-sm mb-1">Premium Plan</p>
-                      <h3 className="text-white text-2xl font-bold">ZorPDF Pro</h3>
-                    </div>
-
-                    <div className="w-14 h-14 rounded-2xl bg-yellow-400 flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                      <Crown className="w-8 h-8 text-black" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 mb-7">
-                    {[
-                      "100+ files conversion",
-                      "PDF + JPG + PNG mixed merge",
-                      "Priority conversion speed",
-                      "No waiting queue",
-                      "Premium support",
-                    ].map((text) => (
-                      <div key={text} className="flex items-center gap-3 text-slate-300">
-                        <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
-                        <span>{text}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                    <p className="text-slate-400 text-sm mb-1">Starting soon</p>
-                    <div className="flex items-end gap-2">
-                      <span className="text-4xl font-extrabold text-white">₹99</span>
-                      <span className="text-slate-400 mb-1">/ month</span>
-                    </div>
-                    <p className="text-yellow-300 text-sm mt-3">
-                      Payment system coming soon.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-                  {[
-                    ["Fast", "Speed"],
-                    ["Safe", "Files"],
-                    ["Pro", "Tools"],
-                  ].map(([title, sub]) => (
-                    <div key={title} className="rounded-xl bg-white/[0.04] p-3">
-                      <p className="text-white font-bold">{title}</p>
-                      <p className="text-slate-500 text-xs">{sub}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
+                      <
