@@ -7,7 +7,6 @@ import {
   Upload,
   Download,
   PenLine,
-  Highlighter,
   ImagePlus,
   RotateCcw,
   ArrowLeft,
@@ -28,7 +27,6 @@ export default function PdfEditorPage() {
     }
 
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-
     setPdfFile(file);
     setPdfUrl(URL.createObjectURL(file));
   };
@@ -50,21 +48,14 @@ export default function PdfEditorPage() {
 
     const firstPage = pages[0];
 
-    firstPage.drawText(text || 'ZorPDF Edited', {
-      x: 50,
-      y: firstPage.getHeight() - 80,
-      size: 18,
-      color: rgb(0, 0.25, 0.9),
-    });
-
-    firstPage.drawRectangle({
-      x: 45,
-      y: firstPage.getHeight() - 125,
-      width: 220,
-      height: 28,
-      color: rgb(1, 0.9, 0.2),
-      opacity: 0.45,
-    });
+    if (text.trim()) {
+      firstPage.drawText(text, {
+        x: 50,
+        y: firstPage.getHeight() - 80,
+        size: 18,
+        color: rgb(0, 0.25, 0.9),
+      });
+    }
 
     if (imageFile) {
       const imgBytes = await imageFile.arrayBuffer();
@@ -103,10 +94,13 @@ export default function PdfEditorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050913] text-white px-4 py-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-blue-400 font-bold hover:text-blue-300">
+    <div className="min-h-screen bg-[#050913] text-white px-4 py-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-blue-400 font-bold hover:text-blue-300"
+          >
             <ArrowLeft className="w-4 h-4" />
             Back Home
           </Link>
@@ -120,33 +114,32 @@ export default function PdfEditorPage() {
           </button>
         </div>
 
-        <div className="text-center mb-8">
-          <div className="inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-blue-300 text-sm font-bold mb-4">
+        <div className="text-center mb-6">
+          <div className="inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-blue-300 text-sm font-bold mb-3">
             PDF EDITOR PRO
           </div>
 
-          <h1 className="text-4xl sm:text-5xl font-extrabold mb-3">
+          <h1 className="text-3xl sm:text-5xl font-extrabold mb-2">
             Edit PDF Online
           </h1>
 
-          <p className="text-slate-400">
-            PDF upload karo, signature/image add karo, phir download edited PDF.
+          <p className="text-slate-400 text-sm">
+            Upload PDF, add text/signature, then download edited PDF.
           </p>
         </div>
 
-        {/* TOP: PDF Upload */}
-        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-5 mb-5">
-          <label className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border-2 border-dashed border-slate-700 px-5 py-5 cursor-pointer hover:border-blue-500/50 transition">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center">
-                <Upload className="w-7 h-7 text-blue-400" />
+        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-4 mb-4">
+          <label className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-dashed border-slate-700 px-4 py-3 cursor-pointer hover:border-blue-500/50 transition">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center">
+                <Upload className="w-5 h-5 text-blue-400" />
               </div>
 
               <div>
-                <p className="font-bold text-white">Upload PDF</p>
-                <p className="text-slate-400 text-sm">Choose PDF file</p>
+                <p className="font-bold text-white text-sm">Upload PDF</p>
+                <p className="text-slate-400 text-xs">Choose PDF file</p>
                 {pdfFile && (
-                  <p className="text-green-400 text-xs font-semibold mt-1 break-all">
+                  <p className="text-green-400 text-[11px] font-semibold mt-1 break-all">
                     Selected: {pdfFile.name}
                   </p>
                 )}
@@ -160,17 +153,16 @@ export default function PdfEditorPage() {
               onChange={(e) => handlePdfUpload(e.target.files?.[0] || null)}
             />
 
-            <span className="inline-flex rounded-xl bg-blue-600 px-5 py-2.5 font-bold whitespace-nowrap">
+            <span className="inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold whitespace-nowrap">
               Choose File
             </span>
           </label>
         </div>
 
-        {/* SECOND: Signature/Image Upload */}
-        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-5 mb-6">
-          <div className="grid md:grid-cols-3 gap-5">
-            <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
-              <label className="flex items-center gap-2 text-sm font-bold mb-3">
+        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-4 mb-4">
+          <div className="grid md:grid-cols-[1fr_1fr_220px] gap-4">
+            <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-4">
+              <label className="flex items-center gap-2 text-sm font-bold mb-2">
                 <ImagePlus className="w-4 h-4 text-cyan-400" />
                 Signature / Image Upload
               </label>
@@ -182,8 +174,8 @@ export default function PdfEditorPage() {
               />
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
-              <label className="flex items-center gap-2 text-sm font-bold mb-3">
+            <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-4">
+              <label className="flex items-center gap-2 text-sm font-bold mb-2">
                 <PenLine className="w-4 h-4 text-blue-400" />
                 Add Text
               </label>
@@ -198,7 +190,7 @@ export default function PdfEditorPage() {
             <button
               onClick={downloadEditedPdf}
               disabled={!pdfFile}
-              className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-5 font-bold text-white shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2 disabled:opacity-40"
+              className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-5 font-bold text-white shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2 disabled:opacity-40"
             >
               <Download className="w-5 h-5" />
               Download Edited PDF
@@ -206,70 +198,24 @@ export default function PdfEditorPage() {
           </div>
         </div>
 
-        {/* PDF PREVIEW */}
-        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-4 min-h-[620px] mb-6">
+        <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-3 min-h-[620px]">
           {pdfUrl ? (
-            <iframe src={pdfUrl} className="w-full h-[620px] rounded-2xl bg-white" />
+            <iframe
+              src={pdfUrl}
+              className="w-full h-[620px] rounded-2xl bg-white"
+            />
           ) : (
             <div className="h-[620px] flex items-center justify-center text-center">
               <div>
                 <Upload className="w-14 h-14 mx-auto mb-4 text-slate-600" />
                 <h2 className="text-2xl font-bold mb-2">PDF Preview</h2>
-                <p className="text-slate-500">PDF upload karne ke baad yahan open hoga.</p>
+                <p className="text-slate-500">
+                  PDF upload karne ke baad yahan open hoga.
+                </p>
               </div>
             </div>
           )}
         </div>
-
-        {/* EDIT OPTIONS AFTER PDF UPLOAD */}
-        {pdfFile && (
-          <div className="rounded-3xl border border-blue-500/20 bg-slate-900/60 p-6">
-            <div className="mb-5">
-              <h2 className="text-2xl font-extrabold text-white">Edit Options</h2>
-              <p className="text-slate-400 text-sm mt-1">
-                Ye options PDF ke first page par apply honge.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-              <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
-                <div className="flex items-center gap-2 text-blue-300 font-bold mb-2">
-                  <PenLine className="w-4 h-4" />
-                  Text Added
-                </div>
-                <p className="text-slate-400 text-sm break-all">{text}</p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-[#050913]/70 p-5">
-                <div className="flex items-center gap-2 text-cyan-300 font-bold mb-2">
-                  <ImagePlus className="w-4 h-4" />
-                  Signature / Image
-                </div>
-                <p className="text-slate-400 text-sm">
-                  {imageFile ? imageFile.name : 'No image selected'}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-5">
-                <div className="flex items-center gap-2 text-yellow-300 font-bold mb-2">
-                  <Highlighter className="w-4 h-4" />
-                  Highlight
-                </div>
-                <p className="text-slate-400 text-sm">
-                  Yellow highlight first page par add hoga.
-                </p>
-              </div>
-
-              <button
-                onClick={downloadEditedPdf}
-                className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-5 font-bold text-white shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2"
-              >
-                <Download className="w-5 h-5" />
-                Download Edited PDF
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
