@@ -92,6 +92,7 @@ function splitLongLine(text: string): string[] {
 
 function isHeading(line: string): boolean {
   const upper = line.toUpperCase();
+
   return (
     upper.includes('CARRICULAM-VITAE') ||
     upper.includes('DOCUMENTS DETAILS') ||
@@ -211,7 +212,6 @@ export async function convertPdfToDocx(pdfFile: File): Promise<DocxResult> {
     const pdfDoc = await pdfjsLib.getDocument({
       data: arrayBuffer,
       useWorkerFetch: false,
-      isEvalSupported: false,
       useSystemFonts: true,
     }).promise;
 
