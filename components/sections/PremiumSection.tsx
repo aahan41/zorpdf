@@ -51,20 +51,21 @@ export default function PremiumSection() {
 
               <div className="grid sm:grid-cols-2 gap-4 mb-9">
                 {editorFeatures.slice(0, 4).map((item) => (
-                  <div
+                  <Link
                     key={item.title}
+                    href={item.href}
                     className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 hover:border-blue-400/50 hover:bg-white/[0.06] transition-all"
                   >
                     <item.icon className="w-6 h-6 text-blue-300 mb-3" />
                     <h3 className="text-white font-bold mb-1">{item.title}</h3>
                     <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
-                  </div>
+                  </Link>
                 ))}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
-                  href="#pdf-tools"
+                  href="/pdf-editor"
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-bold text-white hover:scale-[1.02] transition shadow-lg shadow-blue-500/20"
                 >
                   Start Editing PDF →
