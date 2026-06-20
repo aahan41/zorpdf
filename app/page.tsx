@@ -14,9 +14,13 @@ export default function Home() {
 
       <main>
         <ConverterWorkspace />
+
         <PremiumSection />
+
         <WorkYourWaySection />
+
         <FeaturesSection />
+
         <Footer />
       </main>
     </div>
