@@ -5,7 +5,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
   Zap, GripVertical, Image as ImageIcon, Trash2, CheckCircle2,
-  RotateCcw, File, AlertCircle, Sparkles, Crown, PenLine, Highlighter, ImagePlus, ShieldCheck
+  RotateCcw, File, AlertCircle
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
 import type { ImageProcessingResult } from '@/lib/pdfMerger';
@@ -52,7 +52,6 @@ const getFileType = (file: File): 'image' | 'pdf' => {
 };
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
-const A4_RATIO = A4_WIDTH / A4_HEIGHT;
 const LARGE_IMAGE_LIMIT = 2200;
 
 const fitCover = (srcWidth: number, srcHeight: number, boxWidth: number, boxHeight: number) => {
@@ -864,89 +863,6 @@ export default function ConverterWorkspace() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Premium PDF Editor Pro Banner */}
-        <div className="mt-10 relative overflow-hidden rounded-3xl border border-blue-500/25 bg-gradient-to-br from-slate-950 via-blue-950/40 to-slate-950 p-1 shadow-2xl shadow-blue-950/40">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.35),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(234,179,8,0.18),transparent_35%)]" />
-          <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-blue-500/20 blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
-
-          <div className="relative rounded-[22px] border border-white/10 bg-slate-950/75 p-6 sm:p-8">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
-              <div className="max-w-xl">
-                <div className="inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-2 text-xs font-bold text-yellow-300 mb-5">
-                  <Crown className="w-4 h-4" />
-                  NEW PREMIUM FEATURE
-                </div>
-
-                <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight mb-4">
-                  PDF Editor <span className="text-blue-400">Pro</span>
-                </h2>
-
-                <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
-                  Edit PDF online without software. Add text, signature, images and highlights directly inside your PDF.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-7">
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <PenLine className="w-4 h-4 text-blue-400" />
-                    Add Text
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <Highlighter className="w-4 h-4 text-yellow-300" />
-                    Highlight PDF
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <ImagePlus className="w-4 h-4 text-green-400" />
-                    Add Image / Signature
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                    Private Browser Editing
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => window.location.href = '/pdf-editor'}
-                  className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/40 hover:scale-[1.02] transition-all"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Start Editing PDF
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-
-              <div className="w-full lg:w-[320px]">
-                <div className="relative rounded-2xl border border-blue-500/25 bg-slate-900/80 p-5 shadow-xl shadow-blue-950/30">
-                  <div className="absolute -top-4 -right-4 w-16 h-16 rounded-2xl bg-yellow-400 flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                    <Crown className="w-8 h-8 text-slate-950" />
-                  </div>
-
-                  <div className="mb-4">
-                    <p className="text-xs text-slate-500 mb-1">Live Preview</p>
-                    <h3 className="text-white font-bold">Edit your PDF</h3>
-                  </div>
-
-                  <div className="rounded-xl bg-white p-4 min-h-[190px]">
-                    <div className="h-3 w-24 rounded bg-slate-300 mb-3" />
-                    <div className="h-2 w-full rounded bg-slate-200 mb-2" />
-                    <div className="h-2 w-5/6 rounded bg-slate-200 mb-4" />
-                    <div className="h-8 w-36 rounded bg-yellow-200/80 border border-yellow-400/60 mb-4" />
-                    <div className="h-10 w-28 rounded border-2 border-blue-500/60 flex items-center justify-center text-[10px] font-bold text-blue-600">
-                      SIGNATURE
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 py-2 text-center text-[10px] text-blue-300 font-bold">TEXT</div>
-                    <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 py-2 text-center text-[10px] text-yellow-300 font-bold">SIGN</div>
-                    <div className="rounded-lg bg-green-500/10 border border-green-500/20 py-2 text-center text-[10px] text-green-300 font-bold">IMAGE</div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
