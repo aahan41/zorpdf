@@ -64,11 +64,10 @@ export default function PremiumSection() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
-                  href="/#pdf-tools"
+                  href="#pdf-tools"
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-bold text-white hover:scale-[1.02] transition shadow-lg shadow-blue-500/20"
                 >
-                  Start Editing PDF
-                  →
+                  Start Editing PDF →
                 </Link>
 
                 <Link
@@ -88,9 +87,7 @@ export default function PremiumSection() {
 
                 <div className="rounded-[22px] border border-blue-400/30 bg-[#0b1120] p-6 sm:p-7">
                   <p className="text-slate-400 text-sm mb-1">All PDF Tools</p>
-                  <h3 className="text-white text-2xl font-bold mb-6">
-                    Pro Toolkit
-                  </h3>
+                  <h3 className="text-white text-2xl font-bold mb-6">Pro Toolkit</h3>
 
                   <div className="grid grid-cols-2 gap-3">
                     {editorFeatures.map((item) => (
@@ -127,7 +124,7 @@ export default function PremiumSection() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-2 text-yellow-300 text-xs sm:text-sm font-bold mb-7">
                 <Crown className="w-4 h-4" />
-                Premium Coming Soon
+                ZorPDF Premium
               </div>
 
               <h2 className="text-3xl sm:text-5xl font-extrabold text-white leading-tight mb-5">
@@ -136,7 +133,7 @@ export default function PremiumSection() {
               </h2>
 
               <p className="text-slate-400 text-base sm:text-lg leading-relaxed max-w-xl mb-9">
-                Abhi ZorPDF free hai. Jaldi hi premium users ke liye zyada file limit, faster conversion, priority support aur advanced PDF tools available honge.
+                Zyada file limit, faster conversion, priority support aur advanced PDF tools ke liye premium plan launch hoga.
               </p>
 
               <div className="grid sm:grid-cols-2 gap-4 mb-9">
@@ -210,7 +207,7 @@ export default function PremiumSection() {
                       <span className="text-slate-400 mb-1">/ month</span>
                     </div>
                     <p className="text-yellow-300 text-sm mt-3">
-                      Payment system coming soon.
+                      Premium features launching soon.
                     </p>
                   </div>
                 </div>
