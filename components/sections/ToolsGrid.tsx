@@ -1,7 +1,16 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Image, FileImage, FileText, ArrowRight, Minimize2, FileOutput } from 'lucide-react';
+import {
+  Image,
+  FileImage,
+  FileText,
+  ArrowRight,
+  Minimize2,
+  FileOutput,
+  PenLine,
+  Sparkles,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export type ToolId =
@@ -11,7 +20,8 @@ export type ToolId =
   | 'png-to-pdf'
   | 'word-to-pdf'
   | 'pdf-to-word'
-  | 'pdf-compressor';
+  | 'pdf-compressor'
+  | 'pdf-editor';
 
 export interface Tool {
   id: ToolId;
@@ -23,6 +33,7 @@ export interface Tool {
   gradient: string;
   iconBg: string;
   accept: string;
+  isPremium?: boolean;
 }
 
 export const tools: Tool[] = [
@@ -103,6 +114,18 @@ export const tools: Tool[] = [
     iconBg: 'from-cyan-500 to-blue-600',
     accept: '.pdf',
   },
+  {
+    id: 'pdf-editor',
+    title: 'PDF Editor Pro',
+    description: 'Add text, signature, images and highlights to your PDF online.',
+    from: 'PDF',
+    to: 'EDIT',
+    icon: PenLine,
+    gradient: 'from-yellow-500/20 via-blue-700/20 to-cyan-900/20',
+    iconBg: 'from-yellow-400 via-blue-500 to-cyan-500',
+    accept: '.pdf',
+    isPremium: true,
+  },
 ];
 
 interface ToolCardProps {
@@ -122,10 +145,12 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
       viewport={{ once: true }}
       transition={{ duration: 0.5 }}
       whileHover={{ y: -8, scale: 1.02 }}
-      className="h-full"
+      className={tool.isPremium ? 'h-full sm:col-span-2 lg:col-span-3' : 'h-full'}
     >
       <div
-        className={`group relative card-hover glass-card rounded-2xl p-6 h-full flex flex-col cursor-pointer bg-gradient-to-br ${tool.gradient}`}
+        className={`group relative card-hover glass-card rounded-2xl p-6 h-full flex flex-col cursor-pointer bg-gradient-to-br ${tool.gradient} ${
+          tool.isPremium ? 'border border-yellow-400/30 shadow-2xl shadow-blue-950/40' : ''
+        }`}
         onClick={handleClick}
         role="button"
         tabIndex={0}
@@ -136,34 +161,55 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
           }
         }}
       >
-        <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-          style={{ boxShadow: '0 0 40px rgba(59, 130, 246, 0.3), inset 0 0 40px rgba(59, 130, 246, 0.05)' }}
-        />
+        {tool.isPremium && (
+          <>
+            <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.22),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.3),transparent_35%)] pointer-events-none" />
+            <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-[11px] font-black text-yellow-300">
+              <Sparkles className="w-3.5 h-3.5" />
+              NEW FEATURE
+            </div>
+          </>
+        )}
 
-        <div className="flex items-center gap-2 mb-5">
-          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-slate-300 border border-white/10">
-            {tool.from}
-          </span>
-          <ArrowRight className="w-4 h-4 text-blue-400" />
-          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600/20 text-blue-300 border border-blue-500/30">
-            {tool.to}
-          </span>
-        </div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-5">
+            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-slate-300 border border-white/10">
+              {tool.from}
+            </span>
+            <ArrowRight className="w-4 h-4 text-blue-400" />
+            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600/20 text-blue-300 border border-blue-500/30">
+              {tool.to}
+            </span>
+          </div>
 
-        <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-          <tool.icon className="w-8 h-8 text-white" />
-        </div>
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+            <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+              <tool.icon className="w-8 h-8 text-white" />
+            </div>
 
-        <h3 className="text-xl font-bold text-white mb-3 group-hover:text-blue-300 transition-colors">
-          {tool.title}
-        </h3>
-        <p className="text-slate-400 text-sm leading-relaxed flex-1 mb-6">
-          {tool.description}
-        </p>
+            <div className="flex-1">
+              <h3 className={`${tool.isPremium ? 'text-3xl' : 'text-xl'} font-bold text-white mb-3 group-hover:text-blue-300 transition-colors`}>
+                {tool.title}
+              </h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                {tool.description}
+              </p>
 
-        <div className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <span>Open Tool</span>
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              {tool.isPremium && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold">Add Text</span>
+                  <span className="px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs font-bold">Signature</span>
+                  <span className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-300 text-xs font-bold">Highlight</span>
+                  <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-bold">Images</span>
+                </div>
+              )}
+            </div>
+
+            <div className={`${tool.isPremium ? 'lg:w-56' : 'w-full'} py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none`}>
+              <span>{tool.isPremium ? 'Open PDF Editor' : 'Open Tool'}</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -174,6 +220,11 @@ export default function ToolsGrid() {
   const router = useRouter();
 
   const handleNavigate = (toolId: ToolId) => {
+    if (toolId === 'pdf-editor') {
+      router.push('/pdf-editor');
+      return;
+    }
+
     router.push(`/tool/${toolId}`);
   };
 
