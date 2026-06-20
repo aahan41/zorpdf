@@ -909,7 +909,7 @@ export default function ConverterWorkspace() {
                 </div>
 
                 <button
-                  onClick={() => alert('PDF Editor coming soon')}
+                  onClick={() => window.location.href = '/pdf-editor'}
                   className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/40 hover:scale-[1.02] transition-all"
                 >
                   <Sparkles className="w-4 h-4" />
