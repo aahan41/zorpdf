@@ -104,7 +104,7 @@ const mergePdfAndImagesToPdf = async (
       for (const sourcePage of sourcePages) {
         const embeddedPage = await mergedPdf.embedPage(sourcePage);
         const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
-        const fitted = fitContain(embeddedPage.width, embeddedPage.height, A4_WIDTH, A4_HEIGHT);
+        const fitted = fitCover(embeddedPage.width, embeddedPage.height, A4_WIDTH, A4_HEIGHT);
 
         page.drawPage(embeddedPage, {
           x: fitted.x,
