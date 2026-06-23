@@ -99,22 +99,18 @@ const mergePdfAndImagesToPdf = async (
 
     if (item.fileType === 'pdf') {
       const sourcePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-      const sourcePages = sourcePdf.getPages();
 
-      for (const sourcePage of sourcePages) {
-        const embeddedPage = await mergedPdf.embedPage(sourcePage);
-        const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
-        const fitted = fitContain(embeddedPage.width, embeddedPage.height, A4_WIDTH, A4_HEIGHT);
+      // PDF ko image ki tarah draw nahi karna hai.
+      // Original PDF page direct copy hoga, isse zoom/border/size change nahi hota.
+      const copiedPages = await mergedPdf.copyPages(
+        sourcePdf,
+        sourcePdf.getPageIndices()
+      );
 
-        page.drawPage(embeddedPage, {
-          x: fitted.x,
-          y: fitted.y,
-          width: fitted.width,
-          height: fitted.height,
-        });
-
+      copiedPages.forEach((page) => {
+        mergedPdf.addPage(page);
         pageCount += 1;
-      }
+      });
     } else {
       const fileName = item.file.name.toLowerCase();
       const pngFile = item.file.type === 'image/png' || fileName.endsWith('.png');
