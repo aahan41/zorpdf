@@ -1,4 +1,4 @@
-import { PDFDocument, PDFImage, rgb } from 'pdf-lib';
+import { PDFDocument, PDFImage } from 'pdf-lib';
 import type { CompressionLevel } from './imageCompression';
 import { compressImage, COMPRESSION_PRESETS } from './imageCompression';
 import { getZorPdfFileName } from './fileNaming';
@@ -106,7 +106,7 @@ export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; wi
   sourceCanvas.width = img.naturalWidth || img.width;
   sourceCanvas.height = img.naturalHeight || img.height;
 
-  const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+  const sourceCtx = sourceCanvas.getContext('2d');
   if (!sourceCtx) throw new Error('Failed to create canvas context');
 
   sourceCtx.fillStyle = '#ffffff';
@@ -114,9 +114,6 @@ export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; wi
   sourceCtx.imageSmoothingEnabled = true;
   sourceCtx.imageSmoothingQuality = 'high';
   sourceCtx.drawImage(img, 0, 0);
-
-  // White border detect karo aur crop karo
-  const box = findContentBox(sourceCtx, sourceCanvas.width, sourceCanvas.height);
 
   const pageCanvas = document.createElement('canvas');
   pageCanvas.width = Math.round(A4_WIDTH * 2);
@@ -130,22 +127,21 @@ export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; wi
   pageCtx.imageSmoothingEnabled = true;
   pageCtx.imageSmoothingQuality = 'high';
 
-  // ✅ FINAL FIX:
-  // White extra border crop hoga, lekin document stretch/cut nahi hoga.
-  // Content A4 ke top se start hoga; ratio safe rahega.
+  // Original image ratio preserve karo. Crop/stretch nahi hoga.
+  // Image ko page ke top par fit karo, center me latkao mat.
   const fitted = fitContain(
-    box.width,
-    box.height,
+    sourceCanvas.width,
+    sourceCanvas.height,
     pageCanvas.width,
     pageCanvas.height
   );
 
   pageCtx.drawImage(
     sourceCanvas,
-    box.x,
-    box.y,
-    box.width,
-    box.height,
+    0,
+    0,
+    sourceCanvas.width,
+    sourceCanvas.height,
     fitted.x,
     0,
     fitted.width,
@@ -264,7 +260,7 @@ export async function processImageForPdf(
       img.src = e.target?.result as string;
     };
     reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
+    reader.readAsArrayBuffer(file);
   });
 }
 
@@ -324,6 +320,6 @@ export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
     const reader = new FileReader();
     reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
     reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
+    reader.readAsArrayBuffer(file);
   });
 }
