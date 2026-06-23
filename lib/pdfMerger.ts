@@ -98,6 +98,7 @@ async function loadImageElement(file: File): Promise<HTMLImageElement> {
   });
 }
 
+// ✅ FIXED: Image poora A4 fill karta hai, koi white space nahi
 export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; width: number; height: number }> {
   const img = await loadImageElement(file);
 
@@ -114,6 +115,7 @@ export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; wi
   sourceCtx.imageSmoothingQuality = 'high';
   sourceCtx.drawImage(img, 0, 0);
 
+  // White border detect karo aur crop karo
   const box = findContentBox(sourceCtx, sourceCanvas.width, sourceCanvas.height);
 
   const pageCanvas = document.createElement('canvas');
@@ -128,18 +130,18 @@ export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; wi
   pageCtx.imageSmoothingEnabled = true;
   pageCtx.imageSmoothingQuality = 'high';
 
-  const fitted = fitContain(box.width, box.height, pageCanvas.width, pageCanvas.height);
-
+  // ✅ FIX: Cropped content ko POORA A4 fill karo - x:0, y:0, full width & height
+  // Purana code fitContain use karta tha jisse white space aata tha
   pageCtx.drawImage(
     sourceCanvas,
-    box.x,
-    box.y,
-    box.width,
-    box.height,
-    fitted.x,
-    fitted.y,
-    fitted.width,
-    fitted.height
+    box.x,      // source crop start X
+    box.y,      // source crop start Y
+    box.width,  // source crop width
+    box.height, // source crop height
+    0,                    // ✅ destination X = 0 (no left/right padding)
+    0,                    // ✅ destination Y = 0 (no top/bottom padding)
+    pageCanvas.width,     // ✅ full A4 width
+    pageCanvas.height     // ✅ full A4 height
   );
 
   const blob = await new Promise<Blob>((resolve, reject) => {
@@ -254,7 +256,7 @@ export async function processImageForPdf(
       img.src = e.target?.result as string;
     };
     reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
+    reader.readAsArrayBuffer(file);
   });
 }
 
