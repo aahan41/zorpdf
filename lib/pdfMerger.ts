@@ -1,4 +1,4 @@
-import { PDFDocument, PDFImage } from 'pdf-lib';
+import { PDFDocument, PDFImage, rgb } from 'pdf-lib';
 import type { CompressionLevel } from './imageCompression';
 import { compressImage, COMPRESSION_PRESETS } from './imageCompression';
 import { getZorPdfFileName } from './fileNaming';
@@ -23,147 +23,44 @@ export interface MergeResult {
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
-const WHITE_LIMIT = 245;
-const EDGE_PADDING = 2;
 
-function fitContain(srcWidth: number, srcHeight: number, boxWidth: number, boxHeight: number) {
+function fitTopContain(srcWidth: number, srcHeight: number, boxWidth: number, boxHeight: number) {
   const scale = Math.min(boxWidth / srcWidth, boxHeight / srcHeight);
   const width = srcWidth * scale;
   const height = srcHeight * scale;
+
   return {
     width,
     height,
     x: (boxWidth - width) / 2,
-    y: (boxHeight - height) / 2,
-  };
-}
-
-function isAlmostWhite(r: number, g: number, b: number, a: number) {
-  if (a < 20) return true;
-  return r >= WHITE_LIMIT && g >= WHITE_LIMIT && b >= WHITE_LIMIT;
-}
-
-function findContentBox(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const data = ctx.getImageData(0, 0, width, height).data;
-  let minX = width;
-  let minY = height;
-  let maxX = -1;
-  let maxY = -1;
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const a = data[i + 3];
-
-      if (!isAlmostWhite(r, g, b, a)) {
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-
-  if (maxX < 0 || maxY < 0) {
-    return { x: 0, y: 0, width, height };
-  }
-
-  minX = Math.max(0, minX - EDGE_PADDING);
-  minY = Math.max(0, minY - EDGE_PADDING);
-  maxX = Math.min(width - 1, maxX + EDGE_PADDING);
-  maxY = Math.min(height - 1, maxY + EDGE_PADDING);
-
-  return {
-    x: minX,
-    y: minY,
-    width: maxX - minX + 1,
-    height: maxY - minY + 1,
+    y: boxHeight - height,
   };
 }
 
 async function loadImageElement(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error('Failed to load image'));
       img.src = e.target?.result as string;
     };
+
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
 }
 
-// ✅ FIXED: Image poora A4 fill karta hai, koi white space nahi
-export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; width: number; height: number }> {
-  const img = await loadImageElement(file);
-
-  const sourceCanvas = document.createElement('canvas');
-  sourceCanvas.width = img.naturalWidth || img.width;
-  sourceCanvas.height = img.naturalHeight || img.height;
-
-  const sourceCtx = sourceCanvas.getContext('2d');
-  if (!sourceCtx) throw new Error('Failed to create canvas context');
-
-  sourceCtx.fillStyle = '#ffffff';
-  sourceCtx.fillRect(0, 0, sourceCanvas.width, sourceCanvas.height);
-  sourceCtx.imageSmoothingEnabled = true;
-  sourceCtx.imageSmoothingQuality = 'high';
-  sourceCtx.drawImage(img, 0, 0);
-
-  const pageCanvas = document.createElement('canvas');
-  pageCanvas.width = Math.round(A4_WIDTH * 2);
-  pageCanvas.height = Math.round(A4_HEIGHT * 2);
-
-  const pageCtx = pageCanvas.getContext('2d');
-  if (!pageCtx) throw new Error('Failed to create A4 canvas');
-
-  pageCtx.fillStyle = '#ffffff';
-  pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-  pageCtx.imageSmoothingEnabled = true;
-  pageCtx.imageSmoothingQuality = 'high';
-
-  // Original image ratio preserve karo. Crop/stretch nahi hoga.
-  // Image ko page ke top par fit karo, center me latkao mat.
-  const fitted = fitContain(
-    sourceCanvas.width,
-    sourceCanvas.height,
-    pageCanvas.width,
-    pageCanvas.height
-  );
-
-  pageCtx.drawImage(
-    sourceCanvas,
-    0,
-    0,
-    sourceCanvas.width,
-    sourceCanvas.height,
-    fitted.x,
-    0,
-    fitted.width,
-    fitted.height
-  );
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    pageCanvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('Failed to create A4 image'))),
-      'image/jpeg',
-      0.94
-    );
-  });
-
-  return { blob, width: A4_WIDTH, height: A4_HEIGHT };
-}
-
+// Preview thumbnail only. PDF conversion original bytes se hota hai.
 export async function generateThumbnail(file: File, maxSize: number = 150): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = (e) => {
       const img = new Image();
+
       img.onload = () => {
         const canvas = document.createElement('canvas');
         let width = img.width;
@@ -188,35 +85,70 @@ export async function generateThumbnail(file: File, maxSize: number = 150): Prom
           return;
         }
 
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
         resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
+
       img.onerror = () => reject(new Error('Failed to load image'));
       img.src = e.target?.result as string;
     };
+
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
 }
 
 export async function loadImageInfo(file: File): Promise<{ width: number; height: number; thumbnail: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = async () => {
-        const thumbnail = await generateThumbnail(file);
-        resolve({ width: img.width, height: img.height, thumbnail });
-      };
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
+  const img = await loadImageElement(file);
+  const thumbnail = await generateThumbnail(file);
+
+  return {
+    width: img.naturalWidth || img.width,
+    height: img.naturalHeight || img.height,
+    thumbnail,
+  };
+}
+
+// Backward compatible helper. Isko sirf old code use kare to output dega.
+// Main ConverterWorkspace ab original bytes embed karta hai, quality loss nahi hoti.
+export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; width: number; height: number }> {
+  const img = await loadImageElement(file);
+
+  const pageCanvas = document.createElement('canvas');
+  pageCanvas.width = Math.round(A4_WIDTH * 3);
+  pageCanvas.height = Math.round(A4_HEIGHT * 3);
+
+  const ctx = pageCanvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('Failed to create A4 canvas');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  const fitted = fitTopContain(
+    img.naturalWidth || img.width,
+    img.naturalHeight || img.height,
+    pageCanvas.width,
+    pageCanvas.height
+  );
+
+  ctx.drawImage(img, fitted.x, fitted.y, fitted.width, fitted.height);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    pageCanvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('Failed to create A4 image'))),
+      'image/jpeg',
+      0.98
+    );
   });
+
+  return { blob, width: A4_WIDTH, height: A4_HEIGHT };
 }
 
 export async function processImageForPdf(
@@ -232,12 +164,15 @@ export async function processImageForPdf(
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = (e) => {
       const img = new Image();
+
       img.onload = () => {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
+
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           reject(new Error('Failed to create canvas'));
@@ -246,21 +181,26 @@ export async function processImageForPdf(
 
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0);
+
         canvas.toBlob(
           (blob) => {
             if (blob) resolve({ blob, width: img.width, height: img.height });
             else reject(new Error('Failed to create blob'));
           },
           'image/jpeg',
-          0.92
+          0.98
         );
       };
+
       img.onerror = () => reject(new Error('Failed to load image'));
       img.src = e.target?.result as string;
     };
+
     reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsArrayBuffer(file);
+    reader.readAsDataURL(file);
   });
 }
 
@@ -281,27 +221,50 @@ export async function mergeImagesToPdf(
 
     onProgress?.(i + 1, images.length, imageInfo.id);
 
-    const { blob } = await prepareImageForA4Pdf(file);
-    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = await file.arrayBuffer();
+    const fileName = file.name.toLowerCase();
+    const pngFile = file.type === 'image/png' || fileName.endsWith('.png');
+    const jpgFile =
+      file.type === 'image/jpeg' ||
+      fileName.endsWith('.jpg') ||
+      fileName.endsWith('.jpeg');
+
+    if (!pngFile && !jpgFile) {
+      throw new Error(`${file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`);
+    }
 
     let pdfImage: PDFImage;
     try {
-      pdfImage = await pdfDoc.embedJpg(arrayBuffer);
+      pdfImage = pngFile
+        ? await pdfDoc.embedPng(bytes)
+        : await pdfDoc.embedJpg(bytes);
     } catch {
-      try {
-        pdfImage = await pdfDoc.embedPng(arrayBuffer);
-      } catch {
-        throw new Error(`Failed to embed image: ${file.name}`);
-      }
+      throw new Error(`Failed to embed image: ${file.name}`);
     }
 
     const page = pdfDoc.addPage([A4_WIDTH, A4_HEIGHT]);
-    page.drawImage(pdfImage, { x: 0, y: 0, width: A4_WIDTH, height: A4_HEIGHT });
+    const fitted = fitTopContain(
+      pdfImage.width,
+      pdfImage.height,
+      A4_WIDTH,
+      A4_HEIGHT
+    );
+
+    page.drawImage(pdfImage, {
+      x: fitted.x,
+      y: fitted.y,
+      width: fitted.width,
+      height: fitted.height,
+    });
 
     pdfImage = undefined as any;
   }
 
-  const pdfBytes = await pdfDoc.save();
+  const pdfBytes = await pdfDoc.save({
+    useObjectStreams: true,
+    addDefaultPage: false,
+  });
+
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
   const filename = getZorPdfFileName('pdf');
 
@@ -311,13 +274,55 @@ export async function mergeImagesToPdf(
     pageCount: images.length,
     originalSize: totalOriginalSize,
     pdfSize: blob.size,
-    compressionRatio: totalOriginalSize > 0 ? Math.round(((totalOriginalSize - blob.size) / totalOriginalSize) * 100) : 0,
+    compressionRatio:
+      totalOriginalSize > 0
+        ? Math.round(((totalOriginalSize - blob.size) / totalOriginalSize) * 100)
+        : 0,
+  };
+}
+
+export async function mergePdfsWithoutQualityLoss(files: File[]): Promise<MergeResult> {
+  if (files.length === 0) throw new Error('No PDFs to merge');
+
+  const pdfDoc = await PDFDocument.create();
+  let pageCount = 0;
+  const originalSize = files.reduce((sum, file) => sum + file.size, 0);
+
+  for (const file of files) {
+    const bytes = await file.arrayBuffer();
+    const sourcePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const copiedPages = await pdfDoc.copyPages(sourcePdf, sourcePdf.getPageIndices());
+
+    copiedPages.forEach((page) => {
+      pdfDoc.addPage(page);
+      pageCount += 1;
+    });
+  }
+
+  const pdfBytes = await pdfDoc.save({
+    useObjectStreams: true,
+    addDefaultPage: false,
+  });
+
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+  return {
+    blob,
+    filename: getZorPdfFileName('pdf'),
+    pageCount,
+    originalSize,
+    pdfSize: blob.size,
+    compressionRatio:
+      originalSize > 0
+        ? Math.round(((originalSize - blob.size) / originalSize) * 100)
+        : 0,
   };
 }
 
 export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsArrayBuffer(file);
