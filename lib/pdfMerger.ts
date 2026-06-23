@@ -130,18 +130,26 @@ export async function prepareImageForA4Pdf(file: File): Promise<{ blob: Blob; wi
   pageCtx.imageSmoothingEnabled = true;
   pageCtx.imageSmoothingQuality = 'high';
 
-  // ✅ FIX: Cropped content ko POORA A4 fill karo - x:0, y:0, full width & height
-  // Purana code fitContain use karta tha jisse white space aata tha
+  // ✅ FINAL FIX:
+  // White extra border crop hoga, lekin document stretch/cut nahi hoga.
+  // Content A4 ke top se start hoga; ratio safe rahega.
+  const fitted = fitContain(
+    box.width,
+    box.height,
+    pageCanvas.width,
+    pageCanvas.height
+  );
+
   pageCtx.drawImage(
     sourceCanvas,
-    box.x,      // source crop start X
-    box.y,      // source crop start Y
-    box.width,  // source crop width
-    box.height, // source crop height
-    0,                    // ✅ destination X = 0 (no left/right padding)
-    0,                    // ✅ destination Y = 0 (no top/bottom padding)
-    pageCanvas.width,     // ✅ full A4 width
-    pageCanvas.height     // ✅ full A4 height
+    box.x,
+    box.y,
+    box.width,
+    box.height,
+    fitted.x,
+    0,
+    fitted.width,
+    fitted.height
   );
 
   const blob = await new Promise<Blob>((resolve, reject) => {
@@ -256,7 +264,7 @@ export async function processImageForPdf(
       img.src = e.target?.result as string;
     };
     reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsArrayBuffer(file);
+    reader.readAsDataURL(file);
   });
 }
 
@@ -316,6 +324,6 @@ export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
     const reader = new FileReader();
     reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
     reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsArrayBuffer(file);
+    reader.readAsDataURL(file);
   });
 }
