@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
 import type { ImageProcessingResult } from '@/lib/pdfMerger';
-import { loadImageInfo, type MergeResult } from '@/lib/pdfMerger';
+import { loadImageInfo, prepareImageForA4Pdf, type MergeResult } from '@/lib/pdfMerger';
 import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
 import { estimatePdfSize } from '@/lib/pdfEstimator';
 import { getZorPdfFileName } from '@/lib/fileNaming';
@@ -85,110 +85,6 @@ const shouldKeepOriginalImageSize = (width: number, height: number) => {
   return veryLarge && notDocumentLike;
 };
 
-const WHITE_THRESHOLD = 245;
-const CROP_PADDING = 10;
-
-const cropOuterWhiteSpace = async (file: File): Promise<ArrayBuffer> => {
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const img = new window.Image();
-
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-        if (!ctx) throw new Error('Canvas load nahi ho paaya');
-
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        let minX = canvas.width;
-        let minY = canvas.height;
-        let maxX = 0;
-        let maxY = 0;
-        let foundContent = false;
-
-        for (let y = 0; y < canvas.height; y++) {
-          for (let x = 0; x < canvas.width; x++) {
-            const idx = (y * canvas.width + x) * 4;
-            const r = data[idx];
-            const g = data[idx + 1];
-            const b = data[idx + 2];
-            const a = data[idx + 3];
-
-            const isNotWhite = a > 20 && (r < WHITE_THRESHOLD || g < WHITE_THRESHOLD || b < WHITE_THRESHOLD);
-
-            if (isNotWhite) {
-              foundContent = true;
-              if (x < minX) minX = x;
-              if (y < minY) minY = y;
-              if (x > maxX) maxX = x;
-              if (y > maxY) maxY = y;
-            }
-          }
-        }
-
-        if (!foundContent) {
-          minX = 0;
-          minY = 0;
-          maxX = canvas.width - 1;
-          maxY = canvas.height - 1;
-        }
-
-        minX = Math.max(0, minX - CROP_PADDING);
-        minY = Math.max(0, minY - CROP_PADDING);
-        maxX = Math.min(canvas.width - 1, maxX + CROP_PADDING);
-        maxY = Math.min(canvas.height - 1, maxY + CROP_PADDING);
-
-        const cropWidth = Math.max(1, maxX - minX + 1);
-        const cropHeight = Math.max(1, maxY - minY + 1);
-
-        const outputCanvas = document.createElement('canvas');
-        const outputCtx = outputCanvas.getContext('2d');
-
-        if (!outputCtx) throw new Error('Canvas crop nahi ho paaya');
-
-        outputCanvas.width = cropWidth;
-        outputCanvas.height = cropHeight;
-        outputCtx.fillStyle = '#ffffff';
-        outputCtx.fillRect(0, 0, cropWidth, cropHeight);
-        outputCtx.drawImage(canvas, minX, minY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-        outputCanvas.toBlob(
-          async (blob) => {
-            URL.revokeObjectURL(objectUrl);
-            if (!blob) {
-              reject(new Error('Image process nahi ho paayi'));
-              return;
-            }
-            resolve(await blob.arrayBuffer());
-          },
-          'image/jpeg',
-          0.95
-        );
-      } catch (error) {
-        URL.revokeObjectURL(objectUrl);
-        reject(error);
-      }
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('Image load nahi ho paayi'));
-    };
-
-    img.src = objectUrl;
-  });
-};
-
 const mergePdfAndImagesToPdf = async (
   orderedFiles: FileItem[],
   onProgress?: (current: number, total: number, fileId: string) => void
@@ -228,17 +124,16 @@ const mergePdfAndImagesToPdf = async (
         throw new Error(`${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`);
       }
 
-      const croppedImageBytes = await cropOuterWhiteSpace(item.file);
-      const embeddedImage = await mergedPdf.embedJpg(croppedImageBytes);
+      const preparedImage = await prepareImageForA4Pdf(item.file);
+      const preparedBytes = await preparedImage.blob.arrayBuffer();
+      const embeddedImage = await mergedPdf.embedJpg(preparedBytes);
 
       const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
-      const fitted = fitContain(embeddedImage.width, embeddedImage.height, A4_WIDTH, A4_HEIGHT);
-
       page.drawImage(embeddedImage, {
-        x: fitted.x,
-        y: fitted.y,
-        width: fitted.width,
-        height: fitted.height,
+        x: 0,
+        y: 0,
+        width: A4_WIDTH,
+        height: A4_HEIGHT,
       });
 
       pageCount += 1;
