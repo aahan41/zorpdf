@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
 import type { ImageProcessingResult } from '@/lib/pdfMerger';
-import { loadImageInfo, prepareImageForA4Pdf, type MergeResult } from '@/lib/pdfMerger';
+import { loadImageInfo, type MergeResult } from '@/lib/pdfMerger';
 import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
 import { estimatePdfSize } from '@/lib/pdfEstimator';
 import { getZorPdfFileName } from '@/lib/fileNaming';
@@ -98,14 +98,10 @@ const mergePdfAndImagesToPdf = async (
     const bytes = await item.file.arrayBuffer();
 
     if (item.fileType === 'pdf') {
+      // PDF ko bilkul original jaisa rakho. A4 me dobara draw/fit mat karo,
+      // warna page zoom/size/border change ho jata hai.
       const sourcePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-
-      // PDF ko image ki tarah draw nahi karna hai.
-      // Original PDF page direct copy hoga, isse zoom/border/size change nahi hota.
-      const copiedPages = await mergedPdf.copyPages(
-        sourcePdf,
-        sourcePdf.getPageIndices()
-      );
+      const copiedPages = await mergedPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
 
       copiedPages.forEach((page) => {
         mergedPdf.addPage(page);
@@ -120,16 +116,20 @@ const mergePdfAndImagesToPdf = async (
         throw new Error(`${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`);
       }
 
-      const preparedImage = await prepareImageForA4Pdf(item.file);
-      const preparedBytes = await preparedImage.blob.arrayBuffer();
-      const embeddedImage = await mergedPdf.embedJpg(preparedBytes);
+      // Image ko A4 page me original ratio ke sath fit karo.
+      // Stretch/crop nahi hoga. Image top se start hogi.
+      const embeddedImage = pngFile
+        ? await mergedPdf.embedPng(bytes)
+        : await mergedPdf.embedJpg(bytes);
 
       const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
+      const fitted = fitContain(embeddedImage.width, embeddedImage.height, A4_WIDTH, A4_HEIGHT);
+
       page.drawImage(embeddedImage, {
-        x: 0,
-        y: 0,
-        width: A4_WIDTH,
-        height: A4_HEIGHT,
+        x: fitted.x,
+        y: A4_HEIGHT - fitted.height,
+        width: fitted.width,
+        height: fitted.height,
       });
 
       pageCount += 1;
