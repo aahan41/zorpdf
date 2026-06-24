@@ -19,115 +19,77 @@ export async function convertImagesToPdf(
   files: File[],
   compressionLevel: CompressionLevel = 'balanced'
 ): Promise<CompressionResult> {
+  if (!files.length) throw new Error('No images selected');
+
   let totalOriginalSize = 0;
-
   let pdf: jsPDF | null = null;
-  let pageWidth = 0;
-  let pageHeight = 0;
-
-  const getImageDataUrl = async (file: File): Promise<{
-    dataUrl: string;
-    width: number;
-    height: number;
-  }> => {
-    const imgUrl = URL.createObjectURL(file);
-    const img = new Image();
-
-    try {
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
-        img.src = imgUrl;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Failed to get canvas context');
-
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      return {
-        dataUrl: canvas.toDataURL('image/jpeg', 1.0),
-        width: canvas.width,
-        height: canvas.height,
-      };
-    } finally {
-      URL.revokeObjectURL(imgUrl);
-    }
-  };
+  let lastPageWidth = 0;
+  let lastPageHeight = 0;
 
   for (let index = 0; index < files.length; index++) {
     const file = files[index];
     totalOriginalSize += file.size;
 
-    const image = await getImageDataUrl(file);
+    const imgUrl = URL.createObjectURL(file);
+    const img = new Image();
 
-    const orientation = image.width >= image.height ? 'landscape' : 'portrait';
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
+      img.src = imgUrl;
+    });
+
+    const imgWidth = img.naturalWidth || img.width;
+    const imgHeight = img.naturalHeight || img.height;
+
+    const pageWidth = imgWidth;
+    const pageHeight = imgHeight;
+
+    lastPageWidth = pageWidth;
+    lastPageHeight = pageHeight;
+
+    const orientation = pageWidth > pageHeight ? 'landscape' : 'portrait';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = imgWidth;
+    canvas.height = imgHeight;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get canvas context');
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+
+    const imgData = canvas.toDataURL('image/jpeg', 1.0);
 
     if (!pdf) {
       pdf = new jsPDF({
         orientation,
-        unit: 'mm',
-        format: 'a4',
+        unit: 'px',
+        format: [pageWidth, pageHeight],
         compress: false,
       });
     } else {
-      pdf.addPage('a4', orientation);
+      pdf.addPage([pageWidth, pageHeight], orientation);
     }
 
-    pageWidth = pdf.internal.pageSize.getWidth();
-    pageHeight = pdf.internal.pageSize.getHeight();
+    pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'NONE');
 
-    const imageRatio = image.width / image.height;
-    const pageRatio = pageWidth / pageHeight;
-
-    let drawWidth = pageWidth;
-    let drawHeight = pageHeight;
-    let x = 0;
-    let y = 0;
-
-    if (imageRatio > pageRatio) {
-      drawWidth = pageWidth;
-      drawHeight = pageWidth / imageRatio;
-      y = (pageHeight - drawHeight) / 2;
-    } else {
-      drawHeight = pageHeight;
-      drawWidth = pageHeight * imageRatio;
-      x = (pageWidth - drawWidth) / 2;
-    }
-
-    pdf.addImage(
-      image.dataUrl,
-      'JPEG',
-      x,
-      y,
-      drawWidth,
-      drawHeight,
-      undefined,
-      'NONE'
-    );
+    URL.revokeObjectURL(imgUrl);
   }
 
-  if (!pdf) {
-    throw new Error('No images selected');
-  }
+  if (!pdf) throw new Error('PDF creation failed');
 
   const pdfBlob = pdf.output('blob');
-  const filename = getZorPdfFileName('pdf');
 
   return {
     blob: pdfBlob,
-    filename,
+    filename: getZorPdfFileName('pdf'),
     originalSize: totalOriginalSize,
     pdfSize: pdfBlob.size,
     compressionRatio: pdfBlob.size > 0 ? totalOriginalSize / pdfBlob.size : 0,
-    pageWidth,
-    pageHeight,
+    pageWidth: lastPageWidth,
+    pageHeight: lastPageHeight,
     imageCount: files.length,
     compressionLevel,
     adaptiveQuality: 1.0,
