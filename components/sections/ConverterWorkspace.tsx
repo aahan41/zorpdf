@@ -119,7 +119,6 @@ const mergePdfAndImagesToPdf = async (
       originalSize > 0 ? Math.round(((originalSize - blob.size) / originalSize) * 100) : 0,
   };
 };
-};
 
 export default function ConverterWorkspace() {
   const [activeTab, setActiveTab] = useState<ToolId>('jpg-to-pdf');
