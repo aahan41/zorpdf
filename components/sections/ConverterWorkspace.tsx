@@ -51,24 +51,6 @@ const getFileType = (file: File): 'image' | 'pdf' => {
   return isPdf ? 'pdf' : 'image';
 };
 
-const A4_WIDTH = 595.28;
-const A4_HEIGHT = 841.89;
-
-// Image ko crop/stretch nahi karta. Original quality bytes embed karta hai.
-// Agar image A4 ratio nahi hai to sirf neeche/side natural white space rahega.
-const fitTopContain = (srcWidth: number, srcHeight: number, boxWidth: number, boxHeight: number) => {
-  const scale = Math.min(boxWidth / srcWidth, boxHeight / srcHeight);
-  const width = srcWidth * scale;
-  const height = srcHeight * scale;
-
-  return {
-    width,
-    height,
-    x: (boxWidth - width) / 2,
-    y: boxHeight - height,
-  };
-};
-
 const mergePdfAndImagesToPdf = async (
   orderedFiles: FileItem[],
   onProgress?: (current: number, total: number, fileId: string) => void
@@ -82,7 +64,6 @@ const mergePdfAndImagesToPdf = async (
     const bytes = await item.file.arrayBuffer();
 
     if (item.fileType === 'pdf') {
-      // ✅ PDF direct copy: no resize, no image conversion, no quality loss
       const sourcePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
       const copiedPages = await mergedPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
 
@@ -102,24 +83,17 @@ const mergePdfAndImagesToPdf = async (
         throw new Error(`${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`);
       }
 
-      // ✅ Image original bytes embed: no canvas recompress, no quality loss
       const embeddedImage = pngFile
         ? await mergedPdf.embedPng(bytes)
         : await mergedPdf.embedJpg(bytes);
 
-      const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
-      const fitted = fitTopContain(
-        embeddedImage.width,
-        embeddedImage.height,
-        A4_WIDTH,
-        A4_HEIGHT
-      );
+      const page = mergedPdf.addPage([embeddedImage.width, embeddedImage.height]);
 
       page.drawImage(embeddedImage, {
-        x: fitted.x,
-        y: fitted.y,
-        width: fitted.width,
-        height: fitted.height,
+        x: 0,
+        y: 0,
+        width: embeddedImage.width,
+        height: embeddedImage.height,
       });
 
       pageCount += 1;
@@ -132,6 +106,7 @@ const mergePdfAndImagesToPdf = async (
     useObjectStreams: true,
     addDefaultPage: false,
   });
+
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
 
   return {
@@ -143,6 +118,7 @@ const mergePdfAndImagesToPdf = async (
     compressionRatio:
       originalSize > 0 ? Math.round(((originalSize - blob.size) / originalSize) * 100) : 0,
   };
+};
 };
 
 export default function ConverterWorkspace() {
