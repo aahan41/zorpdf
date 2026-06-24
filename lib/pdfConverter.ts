@@ -19,7 +19,6 @@ export async function convertImagesToPdf(
   files: File[],
   compressionLevel: CompressionLevel = 'balanced'
 ): Promise<CompressionResult> {
-  throw new Error('PDF CONVERTER TEST');
   if (!files.length) throw new Error('No images selected');
 
   let totalOriginalSize = 0;
@@ -56,10 +55,15 @@ export async function convertImagesToPdf(
     canvas.height = imgHeight;
 
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Failed to get canvas context');
 
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+    if (!ctx) {
+      URL.revokeObjectURL(imgUrl);
+      throw new Error('Failed to get canvas context');
+    }
+
+    const context = ctx as CanvasRenderingContext2D;
+    context.imageSmoothingEnabled = false;
+    context.drawImage(img, 0, 0, imgWidth, imgHeight);
 
     const imgData = canvas.toDataURL('image/jpeg', 1.0);
 
