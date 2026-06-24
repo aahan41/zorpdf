@@ -19,6 +19,7 @@ export async function convertImagesToPdf(
   files: File[],
   compressionLevel: CompressionLevel = 'balanced'
 ): Promise<CompressionResult> {
+  throw new Error('PDF CONVERTER TEST');
   if (!files.length) throw new Error('No images selected');
 
   let totalOriginalSize = 0;
