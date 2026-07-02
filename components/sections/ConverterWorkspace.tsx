@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
   Zap, Image as ImageIcon, Trash2, CheckCircle2,
-  RotateCcw, File, AlertCircle, ChevronLeft, ChevronRight
+  RotateCcw, File, AlertCircle
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
 import type { ImageProcessingResult } from '@/lib/pdfMerger';
@@ -129,7 +129,10 @@ export default function ConverterWorkspace() {
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const thumbnailStripRef = useRef<HTMLDivElement>(null);
+  const horizontalListRef = useRef<HTMLDivElement>(null);
+  const dragScrollIntervalRef = useRef<number | null>(null);
+  const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
+  const [dragOverFileId, setDragOverFileId] = useState<string | null>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
 
   const loadThumbnails = async (newItems: FileItem[], existingFiles: FileItem[]) => {
@@ -532,55 +535,91 @@ export default function ConverterWorkspace() {
 
   const isMultiFile = ['jpg-to-pdf', 'png-to-pdf', 'png-to-jpg'].includes(activeTab);
 
-  const moveReadyFileByOffset = useCallback((fileId: string, offset: number) => {
+  const readyFiles = files.filter(f => f.status === 'ready');
+
+  const stopDragAutoScroll = useCallback(() => {
+    if (dragScrollIntervalRef.current !== null) {
+      window.clearInterval(dragScrollIntervalRef.current);
+      dragScrollIntervalRef.current = null;
+    }
+  }, []);
+
+  const startDragAutoScroll = useCallback((direction: 'left' | 'right') => {
+    stopDragAutoScroll();
+    dragScrollIntervalRef.current = window.setInterval(() => {
+      horizontalListRef.current?.scrollBy({
+        left: direction === 'left' ? -18 : 18,
+        behavior: 'auto',
+      });
+    }, 16);
+  }, [stopDragAutoScroll]);
+
+  const handleHorizontalDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const container = horizontalListRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const edge = 90;
+
+    if (e.clientX < rect.left + edge) {
+      startDragAutoScroll('left');
+    } else if (e.clientX > rect.right - edge) {
+      startDragAutoScroll('right');
+    } else {
+      stopDragAutoScroll();
+    }
+  }, [startDragAutoScroll, stopDragAutoScroll]);
+
+  const reorderReadyFiles = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return;
+
     setFiles(prev => {
-      const ready = prev.filter(f => f.status === 'ready');
+      const currentReady = prev.filter(f => f.status === 'ready');
       const nonReady = prev.filter(f => f.status !== 'ready');
-      const currentIndex = ready.findIndex(f => f.id === fileId);
-      const nextIndex = currentIndex + offset;
+      const fromIndex = currentReady.findIndex(f => f.id === fromId);
+      const toIndex = currentReady.findIndex(f => f.id === toId);
 
-      if (currentIndex === -1 || nextIndex < 0 || nextIndex >= ready.length) {
-        return prev;
-      }
+      if (fromIndex === -1 || toIndex === -1) return prev;
 
-      const updatedReady = [...ready];
-      const [moved] = updatedReady.splice(currentIndex, 1);
-      updatedReady.splice(nextIndex, 0, moved);
+      const nextReady = [...currentReady];
+      const [moved] = nextReady.splice(fromIndex, 1);
+      nextReady.splice(toIndex, 0, moved);
 
-      return [...updatedReady, ...nonReady];
+      return [...nextReady, ...nonReady];
     });
   }, []);
 
-  const moveReadyFileToPosition = useCallback((fileId: string) => {
-    setFiles(prev => {
-      const ready = prev.filter(f => f.status === 'ready');
-      const nonReady = prev.filter(f => f.status !== 'ready');
-      const currentIndex = ready.findIndex(f => f.id === fileId);
-
-      if (currentIndex === -1) return prev;
-
-      const input = window.prompt(`Is file ko kis number par le jana hai? 1 se ${ready.length} tak number likho.`);
-      if (!input) return prev;
-
-      const targetNumber = Number.parseInt(input, 10);
-      if (Number.isNaN(targetNumber) || targetNumber < 1 || targetNumber > ready.length) {
-        alert(`Please 1 se ${ready.length} ke beech valid number likho.`);
-        return prev;
-      }
-
-      const targetIndex = targetNumber - 1;
-      if (targetIndex === currentIndex) return prev;
-
-      const updatedReady = [...ready];
-      const [moved] = updatedReady.splice(currentIndex, 1);
-      updatedReady.splice(targetIndex, 0, moved);
-
-      return [...updatedReady, ...nonReady];
-    });
+  const handleNativeDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, id: string) => {
+    setDraggedFileId(id);
+    setDragOverFileId(null);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
   }, []);
 
-  const scrollThumbnailStrip = (direction: 'left' | 'right') => {
-    thumbnailStripRef.current?.scrollBy({
+  const handleNativeDragEnter = useCallback((id: string) => {
+    if (draggedFileId && draggedFileId !== id) {
+      setDragOverFileId(id);
+    }
+  }, [draggedFileId]);
+
+  const handleNativeDrop = useCallback((e: React.DragEvent<HTMLDivElement>, toId: string) => {
+    e.preventDefault();
+    const fromId = draggedFileId || e.dataTransfer.getData('text/plain');
+    if (fromId) reorderReadyFiles(fromId, toId);
+    setDraggedFileId(null);
+    setDragOverFileId(null);
+    stopDragAutoScroll();
+  }, [draggedFileId, reorderReadyFiles, stopDragAutoScroll]);
+
+  const handleNativeDragEnd = useCallback(() => {
+    setDraggedFileId(null);
+    setDragOverFileId(null);
+    stopDragAutoScroll();
+  }, [stopDragAutoScroll]);
+
+  const scrollPreview = (direction: 'left' | 'right') => {
+    horizontalListRef.current?.scrollBy({
       left: direction === 'left' ? -420 : 420,
       behavior: 'smooth',
     });
@@ -716,110 +755,90 @@ export default function ConverterWorkspace() {
                           </span>
                           <span className="text-slate-500 text-xs">({formatBytes(totalSize)})</span>
                         </div>
-                        <span className="text-slate-600 text-xs">Use ← → or Move number</span>
+                        <span className="text-slate-600 text-xs">Drag to reorder</span>
                       </div>
 
-                      <div className="relative rounded-xl bg-slate-950/35 border border-white/5 px-10 py-4">
+                      <div className="relative rounded-xl bg-slate-900/25 border border-white/5 px-11 py-4 overflow-hidden">
                         <button
                           type="button"
-                          onClick={() => scrollThumbnailStrip('left')}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-14 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 hover:text-white hover:border-blue-500/40 transition-all flex items-center justify-center"
+                          onClick={() => scrollPreview('left')}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-14 rounded-xl bg-slate-950/75 border border-white/10 text-slate-300 hover:text-white hover:border-blue-500/40 transition-all"
                           aria-label="Scroll left"
                         >
-                          <ChevronLeft className="w-5 h-5" />
+                          ‹
                         </button>
 
                         <div
-                          ref={thumbnailStripRef}
-                          className="overflow-x-auto overflow-y-hidden scroll-smooth pb-2"
+                          ref={horizontalListRef}
+                          onDragOver={handleHorizontalDragOver}
+                          onDragLeave={stopDragAutoScroll}
+                          className="flex gap-3 overflow-x-auto overflow-y-hidden pb-3 scroll-smooth select-none"
                         >
-                          <div className="flex items-stretch gap-3 min-w-max">
-                            {files.filter(f => f.status === 'ready').map((f, index) => (
+                          {readyFiles.map((f, index) => {
+                            const isDraggingThis = draggedFileId === f.id;
+                            const isDropTarget = dragOverFileId === f.id && draggedFileId !== f.id;
+
+                            return (
                               <div
                                 key={f.id}
-                                className="list-none transition-transform duration-200 hover:-translate-y-0.5"
+                                draggable
+                                onDragStart={(e) => handleNativeDragStart(e, f.id)}
+                                onDragEnter={() => handleNativeDragEnter(f.id)}
+                                onDrop={(e) => handleNativeDrop(e, f.id)}
+                                onDragEnd={handleNativeDragEnd}
+                                className={`relative w-36 sm:w-40 flex-shrink-0 rounded-xl border bg-slate-800/45 transition-all duration-150 cursor-grab active:cursor-grabbing overflow-hidden ${
+                                  isDraggingThis
+                                    ? 'opacity-45 scale-95 border-blue-400/70'
+                                    : isDropTarget
+                                      ? 'border-blue-400 shadow-[0_0_0_2px_rgba(59,130,246,0.45)] translate-y-[-2px]'
+                                      : 'border-white/10 hover:border-blue-500/35'
+                                }`}
                               >
-                                <div className={`relative w-36 h-52 rounded-xl border transition-all overflow-hidden group ${
-                                  f.fileType === 'image'
-                                    ? 'bg-slate-800/50 border-white/10 hover:border-blue-500/40'
-                                    : 'bg-red-900/10 border-red-500/20 hover:border-red-500/40'
-                                }`}>
-                                  <div className="absolute left-2 top-2 z-10 w-7 h-7 rounded-md bg-blue-600/90 border border-blue-300/20 flex items-center justify-center shadow-lg">
-                                    <span className="text-white text-xs font-bold">{index + 1}</span>
-                                  </div>
+                                <div className="absolute left-2 top-2 z-10 min-w-7 h-7 px-2 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center shadow-lg">
+                                  {index + 1}
+                                </div>
 
-                                  <button
-                                    type="button"
-                                    draggable={false}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeFile(f.id);
-                                    }}
-                                    className="absolute right-2 top-2 z-10 w-7 h-7 rounded-full bg-slate-950/80 border border-white/10 text-slate-300 hover:text-white hover:bg-red-500 transition-all flex items-center justify-center"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeFile(f.id);
+                                  }}
+                                  onDragStart={(e) => e.preventDefault()}
+                                  className="absolute right-2 top-2 z-10 w-7 h-7 rounded-full bg-slate-950/75 border border-white/10 text-slate-300 hover:text-red-400 hover:border-red-500/40 flex items-center justify-center transition-colors"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
 
-                                  <div className="h-28 bg-slate-900/70 flex items-center justify-center overflow-hidden pointer-events-none">
-                                    {f.fileType === 'image' ? (
-                                      <img src={f.thumbnail} alt="" draggable={false} className="w-full h-full object-contain select-none" />
-                                    ) : (
-                                      <FileText className="w-10 h-10 text-red-400" />
-                                    )}
-                                  </div>
+                                <div className="h-28 bg-slate-900/70 flex items-center justify-center overflow-hidden">
+                                  {f.fileType === 'image' && f.thumbnail ? (
+                                    <img src={f.thumbnail} alt="" className="w-full h-full object-contain pointer-events-none" draggable={false} />
+                                  ) : (
+                                    <FileText className="w-8 h-8 text-red-400" />
+                                  )}
+                                </div>
 
-                                  <div className="p-2.5">
-                                    <p className="text-white text-xs font-semibold truncate" title={f.file.name}>
-                                      {f.file.name}
-                                    </p>
-                                    <p className={`text-[11px] mt-0.5 truncate ${f.fileType === 'image' ? 'text-slate-500' : 'text-red-400'}`}>
-                                      {f.fileType === 'image'
-                                        ? `${f.width}×${f.height} | ${formatBytes(f.file.size)}`
-                                        : `PDF • ${formatBytes(f.file.size)}`}
-                                    </p>
-
-                                    <div className="mt-2 grid grid-cols-3 gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => moveReadyFileByOffset(f.id, -1)}
-                                        disabled={index === 0}
-                                        className="rounded-md bg-slate-900/80 border border-white/10 py-1 text-[11px] font-bold text-slate-300 hover:text-white hover:border-blue-500/40 disabled:opacity-30 disabled:cursor-not-allowed"
-                                        title="Move left"
-                                      >
-                                        ←
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => moveReadyFileToPosition(f.id)}
-                                        className="rounded-md bg-blue-600/20 border border-blue-500/30 py-1 text-[10px] font-bold text-blue-300 hover:text-white hover:bg-blue-600/35"
-                                        title="Move to any number"
-                                      >
-                                        Move
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => moveReadyFileByOffset(f.id, 1)}
-                                        disabled={index === files.filter(item => item.status === 'ready').length - 1}
-                                        className="rounded-md bg-slate-900/80 border border-white/10 py-1 text-[11px] font-bold text-slate-300 hover:text-white hover:border-blue-500/40 disabled:opacity-30 disabled:cursor-not-allowed"
-                                        title="Move right"
-                                      >
-                                        →
-                                      </button>
-                                    </div>
+                                <div className="p-2.5">
+                                  <p className="text-white text-xs font-semibold truncate">{f.file.name}</p>
+                                  <p className="text-slate-500 text-[11px] truncate mt-0.5">
+                                    {f.fileType === 'image' ? `${f.width}×${f.height} | ` : 'PDF • '}{formatBytes(f.file.size)}
+                                  </p>
+                                  <div className="mt-2 text-[10px] uppercase tracking-wide text-blue-400/80 text-center border border-blue-500/15 rounded-md py-1 bg-blue-600/5">
+                                    Hold & Drag
                                   </div>
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
 
                         <button
                           type="button"
-                          onClick={() => scrollThumbnailStrip('right')}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-14 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 hover:text-white hover:border-blue-500/40 transition-all flex items-center justify-center"
+                          onClick={() => scrollPreview('right')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-14 rounded-xl bg-slate-950/75 border border-white/10 text-slate-300 hover:text-white hover:border-blue-500/40 transition-all"
                           aria-label="Scroll right"
                         >
-                          <ChevronRight className="w-5 h-5" />
+                          ›
                         </button>
                       </div>
                     </div>
