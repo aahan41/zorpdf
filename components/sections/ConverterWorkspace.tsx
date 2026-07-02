@@ -5,7 +5,7 @@ import { motion, AnimatePresence, Reorder, type PanInfo } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
   Zap, GripVertical, Image as ImageIcon, Trash2, CheckCircle2,
-  RotateCcw, File, AlertCircle
+  RotateCcw, File, AlertCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
 import type { ImageProcessingResult } from '@/lib/pdfMerger';
@@ -129,9 +129,9 @@ export default function ConverterWorkspace() {
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const reorderScrollRef = useRef<HTMLDivElement>(null);
+  const thumbnailStripRef = useRef<HTMLDivElement>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
-  const lastPointerYRef = useRef<number | null>(null);
+  const lastPointerXRef = useRef<number | null>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
 
   const loadThumbnails = async (newItems: FileItem[], existingFiles: FileItem[]) => {
@@ -534,56 +534,62 @@ export default function ConverterWorkspace() {
 
   const isMultiFile = ['jpg-to-pdf', 'png-to-pdf', 'png-to-jpg'].includes(activeTab);
 
-
-  const stopAutoScroll = useCallback(() => {
+  const stopHorizontalAutoScroll = useCallback(() => {
     if (autoScrollFrameRef.current !== null) {
       cancelAnimationFrame(autoScrollFrameRef.current);
       autoScrollFrameRef.current = null;
     }
-    lastPointerYRef.current = null;
+    lastPointerXRef.current = null;
   }, []);
 
-  const autoScrollLoop = useCallback(() => {
-    const container = reorderScrollRef.current;
-    const pointerY = lastPointerYRef.current;
+  const horizontalAutoScrollLoop = useCallback(() => {
+    const container = thumbnailStripRef.current;
+    const pointerX = lastPointerXRef.current;
 
-    if (!container || pointerY === null) {
+    if (!container || pointerX === null) {
       autoScrollFrameRef.current = null;
       return;
     }
 
     const rect = container.getBoundingClientRect();
-    const edgeSize = 80;
+    const edgeSize = 90;
     const maxSpeed = 22;
     let speed = 0;
 
-    if (pointerY < rect.top + edgeSize) {
-      speed = -maxSpeed * (1 - Math.max(pointerY - rect.top, 0) / edgeSize);
-    } else if (pointerY > rect.bottom - edgeSize) {
-      speed = maxSpeed * (1 - Math.max(rect.bottom - pointerY, 0) / edgeSize);
+    if (pointerX < rect.left + edgeSize) {
+      speed = -maxSpeed * (1 - (pointerX - rect.left) / edgeSize);
+    } else if (pointerX > rect.right - edgeSize) {
+      speed = maxSpeed * (1 - (rect.right - pointerX) / edgeSize);
     }
 
     if (speed !== 0) {
-      container.scrollTop += speed;
+      container.scrollLeft += speed;
     }
 
-    autoScrollFrameRef.current = requestAnimationFrame(autoScrollLoop);
+    autoScrollFrameRef.current = requestAnimationFrame(horizontalAutoScrollLoop);
   }, []);
 
-  const handleReorderDrag = useCallback(
+  const handleHorizontalReorderDrag = useCallback(
     (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-      lastPointerYRef.current = info.point.y;
+      lastPointerXRef.current = info.point.x;
 
       if (autoScrollFrameRef.current === null) {
-        autoScrollFrameRef.current = requestAnimationFrame(autoScrollLoop);
+        autoScrollFrameRef.current = requestAnimationFrame(horizontalAutoScrollLoop);
       }
     },
-    [autoScrollLoop]
+    [horizontalAutoScrollLoop]
   );
 
+  const scrollThumbnailStrip = (direction: 'left' | 'right') => {
+    thumbnailStripRef.current?.scrollBy({
+      left: direction === 'left' ? -420 : 420,
+      behavior: 'smooth',
+    });
+  };
+
   useEffect(() => {
-    return () => stopAutoScroll();
-  }, [stopAutoScroll]);
+    return () => stopHorizontalAutoScroll();
+  }, [stopHorizontalAutoScroll]);
 
   return (
     <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
@@ -718,101 +724,100 @@ export default function ConverterWorkspace() {
                         <span className="text-slate-600 text-xs">Drag to reorder</span>
                       </div>
 
-                      <div
-                        ref={reorderScrollRef}
-                        className="max-h-[520px] overflow-y-auto pr-2 scroll-smooth"
-                      >
-                        <Reorder.Group
-                          axis="y"
-                          values={files.filter(f => f.status === 'ready')}
-                          onReorder={(reordered) => {
-                            setFiles(prev => {
-                              const nonReady = prev.filter(f => f.status !== 'ready');
-                              return [...reordered, ...nonReady];
-                            });
-                          }}
-                          className="space-y-1.5"
+                      <div className="relative rounded-xl bg-slate-950/35 border border-white/5 px-10 py-4">
+                        <button
+                          type="button"
+                          onClick={() => scrollThumbnailStrip('left')}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-14 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 hover:text-white hover:border-blue-500/40 transition-all flex items-center justify-center"
+                          aria-label="Scroll left"
                         >
-                          {files.filter(f => f.status === 'ready').map((f, index) => (
-                          f.fileType === 'image' ? (
-                            <Reorder.Item
-                              key={f.id}
-                              value={f}
-                              onDrag={handleReorderDrag}
-                              onDragEnd={stopAutoScroll}
-                              whileDrag={{
-                                scale: 1.03,
-                                zIndex: 50,
-                                boxShadow: '0 20px 45px rgba(0,0,0,0.45)',
-                              }}
-                              transition={{ duration: 0.2 }}
-                              className="cursor-grab active:cursor-grabbing"
-                            >
-                              <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-white/5 hover:border-white/10 transition-colors">
-                                <div className="w-7 h-7 rounded bg-blue-600/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-blue-400 text-xs font-bold">{index + 1}</span>
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <div
+                          ref={thumbnailStripRef}
+                          className="overflow-x-auto overflow-y-hidden scroll-smooth pb-2"
+                        >
+                          <Reorder.Group
+                            axis="x"
+                            values={files.filter(f => f.status === 'ready')}
+                            onReorder={(reordered) => {
+                              setFiles(prev => {
+                                const nonReady = prev.filter(f => f.status !== 'ready');
+                                return [...reordered, ...nonReady];
+                              });
+                            }}
+                            className="flex items-stretch gap-3 min-w-max"
+                          >
+                            {files.filter(f => f.status === 'ready').map((f, index) => (
+                              <Reorder.Item
+                                key={f.id}
+                                value={f}
+                                onDrag={handleHorizontalReorderDrag}
+                                onDragEnd={stopHorizontalAutoScroll}
+                                whileDrag={{
+                                  scale: 1.06,
+                                  zIndex: 50,
+                                  boxShadow: '0 22px 45px rgba(0,0,0,0.45)',
+                                }}
+                                transition={{ duration: 0.2 }}
+                                className="cursor-grab active:cursor-grabbing list-none"
+                              >
+                                <div className={`relative w-36 h-44 rounded-xl border transition-all overflow-hidden group ${
+                                  f.fileType === 'image'
+                                    ? 'bg-slate-800/50 border-white/10 hover:border-blue-500/40'
+                                    : 'bg-red-900/10 border-red-500/20 hover:border-red-500/40'
+                                }`}>
+                                  <div className="absolute left-2 top-2 z-10 w-7 h-7 rounded-md bg-blue-600/90 border border-blue-300/20 flex items-center justify-center shadow-lg">
+                                    <span className="text-white text-xs font-bold">{index + 1}</span>
+                                  </div>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeFile(f.id);
+                                    }}
+                                    className="absolute right-2 top-2 z-10 w-7 h-7 rounded-full bg-slate-950/80 border border-white/10 text-slate-300 hover:text-white hover:bg-red-500 transition-all flex items-center justify-center"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+
+                                  <div className="h-28 bg-slate-900/70 flex items-center justify-center overflow-hidden">
+                                    {f.fileType === 'image' ? (
+                                      <img src={f.thumbnail} alt="" className="w-full h-full object-contain" />
+                                    ) : (
+                                      <FileText className="w-10 h-10 text-red-400" />
+                                    )}
+                                  </div>
+
+                                  <div className="p-2.5">
+                                    <p className="text-white text-xs font-semibold truncate" title={f.file.name}>
+                                      {f.file.name}
+                                    </p>
+                                    <p className={`text-[11px] mt-0.5 truncate ${f.fileType === 'image' ? 'text-slate-500' : 'text-red-400'}`}>
+                                      {f.fileType === 'image'
+                                        ? `${f.width}×${f.height} | ${formatBytes(f.file.size)}`
+                                        : `PDF • ${formatBytes(f.file.size)}`}
+                                    </p>
+                                    <div className="mt-2 flex items-center justify-center gap-1 text-slate-500 text-[10px] uppercase tracking-wide">
+                                      <GripVertical className="w-3 h-3" />
+                                      Drag
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="w-24 h-24 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
-                                  <img src={f.thumbnail} alt="" className="w-full h-full object-cover" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-white text-xs font-medium truncate">{f.file.name}</p>
-                                  <p className="text-slate-500 text-[11px]">
-                                    {f.width}×{f.height} | {formatBytes(f.file.size)}
-                                  </p>
-                                </div>
-                                <GripVertical className="w-4 h-4 text-slate-600 flex-shrink-0" />
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeFile(f.id);
-                                  }}
-                                  className="p-1 text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </Reorder.Item>
-                          ) : (
-                            <Reorder.Item
-                              key={f.id}
-                              value={f}
-                              onDrag={handleReorderDrag}
-                              onDragEnd={stopAutoScroll}
-                              whileDrag={{
-                                scale: 1.03,
-                                zIndex: 50,
-                                boxShadow: '0 20px 45px rgba(0,0,0,0.45)',
-                              }}
-                              transition={{ duration: 0.2 }}
-                              className="cursor-grab active:cursor-grabbing"
-                            >
-                              <div className="flex items-center gap-2.5 p-2 rounded-lg bg-red-900/10 border border-red-500/20 hover:border-red-500/30 transition-colors">
-                                <div className="w-7 h-7 rounded bg-red-600/15 border border-red-500/20 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-red-400 text-xs font-bold">{index + 1}</span>
-                                </div>
-                                <div className="w-24 h-24 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
-                                  <FileText className="w-6 h-6 text-red-400" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-white text-xs font-medium truncate">{f.file.name}</p>
-                                  <p className="text-red-400 text-[11px]">PDF • {formatBytes(f.file.size)}</p>
-                                </div>
-                                <GripVertical className="w-4 h-4 text-slate-600 flex-shrink-0" />
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeFile(f.id);
-                                  }}
-                                  className="p-1 text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </Reorder.Item>
-                          )
-                        ))}
-                        </Reorder.Group>
+                              </Reorder.Item>
+                            ))}
+                          </Reorder.Group>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => scrollThumbnailStrip('right')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-14 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 hover:text-white hover:border-blue-500/40 transition-all flex items-center justify-center"
+                          aria-label="Scroll right"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
                       </div>
                     </div>
                   )}
