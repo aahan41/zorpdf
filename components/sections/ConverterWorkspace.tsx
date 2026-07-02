@@ -129,7 +129,7 @@ export default function ConverterWorkspace() {
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const reorderListRef = useRef<any>(null);
+  const reorderListRef = useRef<HTMLDivElement>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
   const lastPointerYRef = useRef<number | null>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
@@ -533,7 +533,6 @@ export default function ConverterWorkspace() {
   };
 
   const isMultiFile = ['jpg-to-pdf', 'png-to-pdf', 'png-to-jpg'].includes(activeTab);
-
 
   const stopAutoScroll = useCallback(() => {
     if (autoScrollFrameRef.current) {
