@@ -1,7 +1,7 @@
 'use client';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { motion, AnimatePresence, Reorder, type PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
   Zap, GripVertical, Image as ImageIcon, Trash2, CheckCircle2,
@@ -132,6 +132,8 @@ export default function ConverterWorkspace() {
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
   const lastPointerXRef = useRef<number | null>(null);
+  const draggedFileIdRef = useRef<string | null>(null);
+  const dragOverFileIdRef = useRef<string | null>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
 
   const loadThumbnails = async (newItems: FileItem[], existingFiles: FileItem[]) => {
@@ -569,16 +571,59 @@ export default function ConverterWorkspace() {
     autoScrollFrameRef.current = requestAnimationFrame(horizontalAutoScrollLoop);
   }, []);
 
-  const handleHorizontalReorderDrag = useCallback(
-    (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-      lastPointerXRef.current = info.point.x;
+  const moveReadyFile = useCallback((draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return;
 
+    setFiles(prev => {
+      const ready = prev.filter(f => f.status === 'ready');
+      const nonReady = prev.filter(f => f.status !== 'ready');
+
+      const fromIndex = ready.findIndex(f => f.id === draggedId);
+      const toIndex = ready.findIndex(f => f.id === targetId);
+
+      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+        return prev;
+      }
+
+      const updatedReady = [...ready];
+      const [moved] = updatedReady.splice(fromIndex, 1);
+      updatedReady.splice(toIndex, 0, moved);
+
+      return [...updatedReady, ...nonReady];
+    });
+  }, []);
+
+  const handleNativeDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, fileId: string) => {
+    draggedFileIdRef.current = fileId;
+    dragOverFileIdRef.current = fileId;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', fileId);
+  }, []);
+
+  const handleNativeDragOver = useCallback(
+    (event: React.DragEvent<HTMLDivElement>, targetId: string) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+
+      lastPointerXRef.current = event.clientX;
       if (autoScrollFrameRef.current === null) {
         autoScrollFrameRef.current = requestAnimationFrame(horizontalAutoScrollLoop);
       }
+
+      const draggedId = draggedFileIdRef.current;
+      if (!draggedId || draggedId === targetId || dragOverFileIdRef.current === targetId) return;
+
+      dragOverFileIdRef.current = targetId;
+      moveReadyFile(draggedId, targetId);
     },
-    [horizontalAutoScrollLoop]
+    [horizontalAutoScrollLoop, moveReadyFile]
   );
+
+  const handleNativeDragEnd = useCallback(() => {
+    draggedFileIdRef.current = null;
+    dragOverFileIdRef.current = null;
+    stopHorizontalAutoScroll();
+  }, [stopHorizontalAutoScroll]);
 
   const scrollThumbnailStrip = (direction: 'left' | 'right') => {
     thumbnailStripRef.current?.scrollBy({
@@ -738,30 +783,19 @@ export default function ConverterWorkspace() {
                           ref={thumbnailStripRef}
                           className="overflow-x-auto overflow-y-hidden scroll-smooth pb-2"
                         >
-                          <Reorder.Group
-                            axis="x"
-                            values={files.filter(f => f.status === 'ready')}
-                            onReorder={(reordered) => {
-                              setFiles(prev => {
-                                const nonReady = prev.filter(f => f.status !== 'ready');
-                                return [...reordered, ...nonReady];
-                              });
-                            }}
-                            className="flex items-stretch gap-3 min-w-max"
-                          >
+                          <div className="flex items-stretch gap-3 min-w-max">
                             {files.filter(f => f.status === 'ready').map((f, index) => (
-                              <Reorder.Item
+                              <div
                                 key={f.id}
-                                value={f}
-                                onDrag={handleHorizontalReorderDrag}
-                                onDragEnd={stopHorizontalAutoScroll}
-                                whileDrag={{
-                                  scale: 1.06,
-                                  zIndex: 50,
-                                  boxShadow: '0 22px 45px rgba(0,0,0,0.45)',
+                                draggable
+                                onDragStart={(e) => handleNativeDragStart(e, f.id)}
+                                onDragOver={(e) => handleNativeDragOver(e, f.id)}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  handleNativeDragEnd();
                                 }}
-                                transition={{ duration: 0.2 }}
-                                className="cursor-grab active:cursor-grabbing list-none"
+                                onDragEnd={handleNativeDragEnd}
+                                className="cursor-grab active:cursor-grabbing list-none transition-transform duration-200 hover:-translate-y-0.5 active:scale-[1.04]"
                               >
                                 <div className={`relative w-36 h-44 rounded-xl border transition-all overflow-hidden group ${
                                   f.fileType === 'image'
@@ -773,6 +807,8 @@ export default function ConverterWorkspace() {
                                   </div>
 
                                   <button
+                                    type="button"
+                                    draggable={false}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       removeFile(f.id);
@@ -782,15 +818,15 @@ export default function ConverterWorkspace() {
                                     <X className="w-4 h-4" />
                                   </button>
 
-                                  <div className="h-28 bg-slate-900/70 flex items-center justify-center overflow-hidden">
+                                  <div className="h-28 bg-slate-900/70 flex items-center justify-center overflow-hidden pointer-events-none">
                                     {f.fileType === 'image' ? (
-                                      <img src={f.thumbnail} alt="" className="w-full h-full object-contain" />
+                                      <img src={f.thumbnail} alt="" draggable={false} className="w-full h-full object-contain select-none" />
                                     ) : (
                                       <FileText className="w-10 h-10 text-red-400" />
                                     )}
                                   </div>
 
-                                  <div className="p-2.5">
+                                  <div className="p-2.5 pointer-events-none">
                                     <p className="text-white text-xs font-semibold truncate" title={f.file.name}>
                                       {f.file.name}
                                     </p>
@@ -799,15 +835,15 @@ export default function ConverterWorkspace() {
                                         ? `${f.width}×${f.height} | ${formatBytes(f.file.size)}`
                                         : `PDF • ${formatBytes(f.file.size)}`}
                                     </p>
-                                    <div className="mt-2 flex items-center justify-center gap-1 text-slate-500 text-[10px] uppercase tracking-wide">
+                                    <div className="mt-2 flex items-center justify-center gap-1 text-blue-400 text-[10px] uppercase tracking-wide font-semibold">
                                       <GripVertical className="w-3 h-3" />
                                       Drag
                                     </div>
                                   </div>
                                 </div>
-                              </Reorder.Item>
+                              </div>
                             ))}
-                          </Reorder.Group>
+                          </div>
                         </div>
 
                         <button
