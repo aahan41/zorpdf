@@ -131,6 +131,7 @@ export default function ConverterWorkspace() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const horizontalListRef = useRef<HTMLDivElement>(null);
   const dragScrollIntervalRef = useRef<number | null>(null);
+  const transparentDragImageRef = useRef<HTMLCanvasElement | null>(null);
   const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
   const [dragOverFileId, setDragOverFileId] = useState<string | null>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
@@ -595,6 +596,16 @@ export default function ConverterWorkspace() {
     setDragOverFileId(null);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', id);
+
+    // Browser ka default drag shadow/ghost hide karne ke liye transparent image use kar rahe hain.
+    // Isse drag clean rahega: card jump/shadow/duplicate preview nahi dikhega.
+    if (!transparentDragImageRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      transparentDragImageRef.current = canvas;
+    }
+    e.dataTransfer.setDragImage(transparentDragImageRef.current, 0, 0);
   }, []);
 
   const handleNativeDragEnter = useCallback((id: string) => {
@@ -784,17 +795,18 @@ export default function ConverterWorkspace() {
                                 draggable
                                 onDragStart={(e) => handleNativeDragStart(e, f.id)}
                                 onDragEnter={() => handleNativeDragEnter(f.id)}
+                                onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleNativeDrop(e, f.id)}
                                 onDragEnd={handleNativeDragEnd}
-                                className={`relative w-36 sm:w-40 flex-shrink-0 rounded-xl border bg-slate-800/45 transition-all duration-150 cursor-grab active:cursor-grabbing overflow-hidden ${
+                                className={`relative w-36 sm:w-40 flex-shrink-0 rounded-xl border bg-slate-800/45 transition-colors duration-100 cursor-grab active:cursor-grabbing overflow-hidden ${
                                   isDraggingThis
-                                    ? 'opacity-45 scale-95 border-blue-400/70'
+                                    ? 'border-blue-400/70'
                                     : isDropTarget
-                                      ? 'border-blue-400 shadow-[0_0_0_2px_rgba(59,130,246,0.45)] translate-y-[-2px]'
+                                      ? 'border-blue-400 bg-blue-600/10'
                                       : 'border-white/10 hover:border-blue-500/35'
                                 }`}
                               >
-                                <div className="absolute left-2 top-2 z-10 min-w-7 h-7 px-2 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center shadow-lg">
+                                <div className="absolute left-2 top-2 z-10 min-w-7 h-7 px-2 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
                                   {index + 1}
                                 </div>
 
@@ -824,7 +836,7 @@ export default function ConverterWorkspace() {
                                     {f.fileType === 'image' ? `${f.width}×${f.height} | ` : 'PDF • '}{formatBytes(f.file.size)}
                                   </p>
                                   <div className="mt-2 text-[10px] uppercase tracking-wide text-blue-400/80 text-center border border-blue-500/15 rounded-md py-1 bg-blue-600/5">
-                                    Hold & Drag
+                                    DRAG
                                   </div>
                                 </div>
                               </div>
