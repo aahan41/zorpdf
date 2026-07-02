@@ -129,7 +129,7 @@ export default function ConverterWorkspace() {
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const reorderListRef = useRef<HTMLDivElement>(null);
+  const reorderScrollRef = useRef<HTMLDivElement>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
   const lastPointerYRef = useRef<number | null>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
@@ -534,8 +534,9 @@ export default function ConverterWorkspace() {
 
   const isMultiFile = ['jpg-to-pdf', 'png-to-pdf', 'png-to-jpg'].includes(activeTab);
 
+
   const stopAutoScroll = useCallback(() => {
-    if (autoScrollFrameRef.current) {
+    if (autoScrollFrameRef.current !== null) {
       cancelAnimationFrame(autoScrollFrameRef.current);
       autoScrollFrameRef.current = null;
     }
@@ -543,7 +544,7 @@ export default function ConverterWorkspace() {
   }, []);
 
   const autoScrollLoop = useCallback(() => {
-    const container = reorderListRef.current;
+    const container = reorderScrollRef.current;
     const pointerY = lastPointerYRef.current;
 
     if (!container || pointerY === null) {
@@ -552,14 +553,14 @@ export default function ConverterWorkspace() {
     }
 
     const rect = container.getBoundingClientRect();
-    const edgeSize = 70;
-    const maxSpeed = 18;
+    const edgeSize = 80;
+    const maxSpeed = 22;
     let speed = 0;
 
     if (pointerY < rect.top + edgeSize) {
-      speed = -maxSpeed * (1 - (pointerY - rect.top) / edgeSize);
+      speed = -maxSpeed * (1 - Math.max(pointerY - rect.top, 0) / edgeSize);
     } else if (pointerY > rect.bottom - edgeSize) {
-      speed = maxSpeed * (1 - (rect.bottom - pointerY) / edgeSize);
+      speed = maxSpeed * (1 - Math.max(rect.bottom - pointerY, 0) / edgeSize);
     }
 
     if (speed !== 0) {
@@ -573,7 +574,7 @@ export default function ConverterWorkspace() {
     (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
       lastPointerYRef.current = info.point.y;
 
-      if (!autoScrollFrameRef.current) {
+      if (autoScrollFrameRef.current === null) {
         autoScrollFrameRef.current = requestAnimationFrame(autoScrollLoop);
       }
     },
@@ -717,19 +718,22 @@ export default function ConverterWorkspace() {
                         <span className="text-slate-600 text-xs">Drag to reorder</span>
                       </div>
 
-                      <Reorder.Group
-                        axis="y"
-                        values={files.filter(f => f.status === 'ready')}
-                        onReorder={(reordered) => {
-                          setFiles(prev => {
-                            const nonReady = prev.filter(f => f.status !== 'ready');
-                            return [...reordered, ...nonReady];
-                          });
-                        }}
-                        ref={reorderListRef}
-                        className="space-y-1.5 max-h-[520px] overflow-y-auto pr-2 scroll-smooth"
+                      <div
+                        ref={reorderScrollRef}
+                        className="max-h-[520px] overflow-y-auto pr-2 scroll-smooth"
                       >
-                        {files.filter(f => f.status === 'ready').map((f, index) => (
+                        <Reorder.Group
+                          axis="y"
+                          values={files.filter(f => f.status === 'ready')}
+                          onReorder={(reordered) => {
+                            setFiles(prev => {
+                              const nonReady = prev.filter(f => f.status !== 'ready');
+                              return [...reordered, ...nonReady];
+                            });
+                          }}
+                          className="space-y-1.5"
+                        >
+                          {files.filter(f => f.status === 'ready').map((f, index) => (
                           f.fileType === 'image' ? (
                             <Reorder.Item
                               key={f.id}
@@ -808,7 +812,8 @@ export default function ConverterWorkspace() {
                             </Reorder.Item>
                           )
                         ))}
-                      </Reorder.Group>
+                        </Reorder.Group>
+                      </div>
                     </div>
                   )}
 
