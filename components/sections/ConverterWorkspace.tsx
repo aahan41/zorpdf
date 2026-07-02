@@ -1,10 +1,10 @@
 'use client';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
-  Zap, GripVertical, Image as ImageIcon, Trash2, CheckCircle2,
+  Zap, Image as ImageIcon, Trash2, CheckCircle2,
   RotateCcw, File, AlertCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
@@ -130,10 +130,6 @@ export default function ConverterWorkspace() {
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
-  const autoScrollFrameRef = useRef<number | null>(null);
-  const lastPointerXRef = useRef<number | null>(null);
-  const draggedFileIdRef = useRef<string | null>(null);
-  const dragOverFileIdRef = useRef<string | null>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
 
   const loadThumbnails = async (newItems: FileItem[], existingFiles: FileItem[]) => {
@@ -536,94 +532,52 @@ export default function ConverterWorkspace() {
 
   const isMultiFile = ['jpg-to-pdf', 'png-to-pdf', 'png-to-jpg'].includes(activeTab);
 
-  const stopHorizontalAutoScroll = useCallback(() => {
-    if (autoScrollFrameRef.current !== null) {
-      cancelAnimationFrame(autoScrollFrameRef.current);
-      autoScrollFrameRef.current = null;
-    }
-    lastPointerXRef.current = null;
-  }, []);
-
-  const horizontalAutoScrollLoop = useCallback(() => {
-    const container = thumbnailStripRef.current;
-    const pointerX = lastPointerXRef.current;
-
-    if (!container || pointerX === null) {
-      autoScrollFrameRef.current = null;
-      return;
-    }
-
-    const rect = container.getBoundingClientRect();
-    const edgeSize = 90;
-    const maxSpeed = 22;
-    let speed = 0;
-
-    if (pointerX < rect.left + edgeSize) {
-      speed = -maxSpeed * (1 - (pointerX - rect.left) / edgeSize);
-    } else if (pointerX > rect.right - edgeSize) {
-      speed = maxSpeed * (1 - (rect.right - pointerX) / edgeSize);
-    }
-
-    if (speed !== 0) {
-      container.scrollLeft += speed;
-    }
-
-    autoScrollFrameRef.current = requestAnimationFrame(horizontalAutoScrollLoop);
-  }, []);
-
-  const moveReadyFile = useCallback((draggedId: string, targetId: string) => {
-    if (draggedId === targetId) return;
-
+  const moveReadyFileByOffset = useCallback((fileId: string, offset: number) => {
     setFiles(prev => {
       const ready = prev.filter(f => f.status === 'ready');
       const nonReady = prev.filter(f => f.status !== 'ready');
+      const currentIndex = ready.findIndex(f => f.id === fileId);
+      const nextIndex = currentIndex + offset;
 
-      const fromIndex = ready.findIndex(f => f.id === draggedId);
-      const toIndex = ready.findIndex(f => f.id === targetId);
-
-      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+      if (currentIndex === -1 || nextIndex < 0 || nextIndex >= ready.length) {
         return prev;
       }
 
       const updatedReady = [...ready];
-      const [moved] = updatedReady.splice(fromIndex, 1);
-      updatedReady.splice(toIndex, 0, moved);
+      const [moved] = updatedReady.splice(currentIndex, 1);
+      updatedReady.splice(nextIndex, 0, moved);
 
       return [...updatedReady, ...nonReady];
     });
   }, []);
 
-  const handleNativeDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, fileId: string) => {
-    draggedFileIdRef.current = fileId;
-    dragOverFileIdRef.current = fileId;
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', fileId);
-  }, []);
+  const moveReadyFileToPosition = useCallback((fileId: string) => {
+    setFiles(prev => {
+      const ready = prev.filter(f => f.status === 'ready');
+      const nonReady = prev.filter(f => f.status !== 'ready');
+      const currentIndex = ready.findIndex(f => f.id === fileId);
 
-  const handleNativeDragOver = useCallback(
-    (event: React.DragEvent<HTMLDivElement>, targetId: string) => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
+      if (currentIndex === -1) return prev;
 
-      lastPointerXRef.current = event.clientX;
-      if (autoScrollFrameRef.current === null) {
-        autoScrollFrameRef.current = requestAnimationFrame(horizontalAutoScrollLoop);
+      const input = window.prompt(`Is file ko kis number par le jana hai? 1 se ${ready.length} tak number likho.`);
+      if (!input) return prev;
+
+      const targetNumber = Number.parseInt(input, 10);
+      if (Number.isNaN(targetNumber) || targetNumber < 1 || targetNumber > ready.length) {
+        alert(`Please 1 se ${ready.length} ke beech valid number likho.`);
+        return prev;
       }
 
-      const draggedId = draggedFileIdRef.current;
-      if (!draggedId || draggedId === targetId || dragOverFileIdRef.current === targetId) return;
+      const targetIndex = targetNumber - 1;
+      if (targetIndex === currentIndex) return prev;
 
-      dragOverFileIdRef.current = targetId;
-      moveReadyFile(draggedId, targetId);
-    },
-    [horizontalAutoScrollLoop, moveReadyFile]
-  );
+      const updatedReady = [...ready];
+      const [moved] = updatedReady.splice(currentIndex, 1);
+      updatedReady.splice(targetIndex, 0, moved);
 
-  const handleNativeDragEnd = useCallback(() => {
-    draggedFileIdRef.current = null;
-    dragOverFileIdRef.current = null;
-    stopHorizontalAutoScroll();
-  }, [stopHorizontalAutoScroll]);
+      return [...updatedReady, ...nonReady];
+    });
+  }, []);
 
   const scrollThumbnailStrip = (direction: 'left' | 'right') => {
     thumbnailStripRef.current?.scrollBy({
@@ -631,10 +585,6 @@ export default function ConverterWorkspace() {
       behavior: 'smooth',
     });
   };
-
-  useEffect(() => {
-    return () => stopHorizontalAutoScroll();
-  }, [stopHorizontalAutoScroll]);
 
   return (
     <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
@@ -766,7 +716,7 @@ export default function ConverterWorkspace() {
                           </span>
                           <span className="text-slate-500 text-xs">({formatBytes(totalSize)})</span>
                         </div>
-                        <span className="text-slate-600 text-xs">Drag to reorder</span>
+                        <span className="text-slate-600 text-xs">Use ← → or Move number</span>
                       </div>
 
                       <div className="relative rounded-xl bg-slate-950/35 border border-white/5 px-10 py-4">
@@ -787,17 +737,9 @@ export default function ConverterWorkspace() {
                             {files.filter(f => f.status === 'ready').map((f, index) => (
                               <div
                                 key={f.id}
-                                draggable
-                                onDragStart={(e) => handleNativeDragStart(e, f.id)}
-                                onDragOver={(e) => handleNativeDragOver(e, f.id)}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  handleNativeDragEnd();
-                                }}
-                                onDragEnd={handleNativeDragEnd}
-                                className="cursor-grab active:cursor-grabbing list-none transition-transform duration-200 hover:-translate-y-0.5 active:scale-[1.04]"
+                                className="list-none transition-transform duration-200 hover:-translate-y-0.5"
                               >
-                                <div className={`relative w-36 h-44 rounded-xl border transition-all overflow-hidden group ${
+                                <div className={`relative w-36 h-52 rounded-xl border transition-all overflow-hidden group ${
                                   f.fileType === 'image'
                                     ? 'bg-slate-800/50 border-white/10 hover:border-blue-500/40'
                                     : 'bg-red-900/10 border-red-500/20 hover:border-red-500/40'
@@ -826,7 +768,7 @@ export default function ConverterWorkspace() {
                                     )}
                                   </div>
 
-                                  <div className="p-2.5 pointer-events-none">
+                                  <div className="p-2.5">
                                     <p className="text-white text-xs font-semibold truncate" title={f.file.name}>
                                       {f.file.name}
                                     </p>
@@ -835,9 +777,34 @@ export default function ConverterWorkspace() {
                                         ? `${f.width}×${f.height} | ${formatBytes(f.file.size)}`
                                         : `PDF • ${formatBytes(f.file.size)}`}
                                     </p>
-                                    <div className="mt-2 flex items-center justify-center gap-1 text-blue-400 text-[10px] uppercase tracking-wide font-semibold">
-                                      <GripVertical className="w-3 h-3" />
-                                      Drag
+
+                                    <div className="mt-2 grid grid-cols-3 gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => moveReadyFileByOffset(f.id, -1)}
+                                        disabled={index === 0}
+                                        className="rounded-md bg-slate-900/80 border border-white/10 py-1 text-[11px] font-bold text-slate-300 hover:text-white hover:border-blue-500/40 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title="Move left"
+                                      >
+                                        ←
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => moveReadyFileToPosition(f.id)}
+                                        className="rounded-md bg-blue-600/20 border border-blue-500/30 py-1 text-[10px] font-bold text-blue-300 hover:text-white hover:bg-blue-600/35"
+                                        title="Move to any number"
+                                      >
+                                        Move
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => moveReadyFileByOffset(f.id, 1)}
+                                        disabled={index === files.filter(item => item.status === 'ready').length - 1}
+                                        className="rounded-md bg-slate-900/80 border border-white/10 py-1 text-[11px] font-bold text-slate-300 hover:text-white hover:border-blue-500/40 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title="Move right"
+                                      >
+                                        →
+                                      </button>
                                     </div>
                                   </div>
                                 </div>
