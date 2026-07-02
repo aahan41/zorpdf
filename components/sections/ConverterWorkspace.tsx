@@ -1,7 +1,7 @@
 'use client';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, type PanInfo } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
   Zap, GripVertical, Image as ImageIcon, Trash2, CheckCircle2,
@@ -129,6 +129,9 @@ export default function ConverterWorkspace() {
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reorderListRef = useRef<HTMLDivElement>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const lastPointerYRef = useRef<number | null>(null);
   const tool = tools.find(t => t.id === activeTab) as Tool;
 
   const loadThumbnails = async (newItems: FileItem[], existingFiles: FileItem[]) => {
@@ -531,6 +534,56 @@ export default function ConverterWorkspace() {
 
   const isMultiFile = ['jpg-to-pdf', 'png-to-pdf', 'png-to-jpg'].includes(activeTab);
 
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollFrameRef.current) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+    lastPointerYRef.current = null;
+  }, []);
+
+  const autoScrollLoop = useCallback(() => {
+    const container = reorderListRef.current;
+    const pointerY = lastPointerYRef.current;
+
+    if (!container || pointerY === null) {
+      autoScrollFrameRef.current = null;
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const edgeSize = 70;
+    const maxSpeed = 18;
+    let speed = 0;
+
+    if (pointerY < rect.top + edgeSize) {
+      speed = -maxSpeed * (1 - (pointerY - rect.top) / edgeSize);
+    } else if (pointerY > rect.bottom - edgeSize) {
+      speed = maxSpeed * (1 - (rect.bottom - pointerY) / edgeSize);
+    }
+
+    if (speed !== 0) {
+      container.scrollTop += speed;
+    }
+
+    autoScrollFrameRef.current = requestAnimationFrame(autoScrollLoop);
+  }, []);
+
+  const handleReorderDrag = useCallback(
+    (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      lastPointerYRef.current = info.point.y;
+
+      if (!autoScrollFrameRef.current) {
+        autoScrollFrameRef.current = requestAnimationFrame(autoScrollLoop);
+      }
+    },
+    [autoScrollLoop]
+  );
+
+  useEffect(() => {
+    return () => stopAutoScroll();
+  }, [stopAutoScroll]);
+
   return (
     <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
@@ -673,11 +726,24 @@ export default function ConverterWorkspace() {
                             return [...reordered, ...nonReady];
                           });
                         }}
-                        className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1"
+                        ref={reorderListRef}
+                        className="space-y-1.5 max-h-[520px] overflow-y-auto pr-2 scroll-smooth"
                       >
                         {files.filter(f => f.status === 'ready').map((f, index) => (
                           f.fileType === 'image' ? (
-                            <Reorder.Item key={f.id} value={f} className="cursor-grab active:cursor-grabbing">
+                            <Reorder.Item
+                              key={f.id}
+                              value={f}
+                              onDrag={handleReorderDrag}
+                              onDragEnd={stopAutoScroll}
+                              whileDrag={{
+                                scale: 1.03,
+                                zIndex: 50,
+                                boxShadow: '0 20px 45px rgba(0,0,0,0.45)',
+                              }}
+                              transition={{ duration: 0.2 }}
+                              className="cursor-grab active:cursor-grabbing"
+                            >
                               <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-white/5 hover:border-white/10 transition-colors">
                                 <div className="w-7 h-7 rounded bg-blue-600/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
                                   <span className="text-blue-400 text-xs font-bold">{index + 1}</span>
@@ -704,7 +770,19 @@ export default function ConverterWorkspace() {
                               </div>
                             </Reorder.Item>
                           ) : (
-                            <Reorder.Item key={f.id} value={f} className="cursor-grab active:cursor-grabbing">
+                            <Reorder.Item
+                              key={f.id}
+                              value={f}
+                              onDrag={handleReorderDrag}
+                              onDragEnd={stopAutoScroll}
+                              whileDrag={{
+                                scale: 1.03,
+                                zIndex: 50,
+                                boxShadow: '0 20px 45px rgba(0,0,0,0.45)',
+                              }}
+                              transition={{ duration: 0.2 }}
+                              className="cursor-grab active:cursor-grabbing"
+                            >
                               <div className="flex items-center gap-2.5 p-2 rounded-lg bg-red-900/10 border border-red-500/20 hover:border-red-500/30 transition-colors">
                                 <div className="w-7 h-7 rounded bg-red-600/15 border border-red-500/20 flex items-center justify-center flex-shrink-0">
                                   <span className="text-red-400 text-xs font-bold">{index + 1}</span>
