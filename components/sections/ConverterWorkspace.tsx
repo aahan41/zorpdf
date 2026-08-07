@@ -646,7 +646,7 @@ export default function ConverterWorkspace() {
   return (
     <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-1 overflow-x-auto pb-3 mb-6 scrollbar-hide -mx-1 px-1">
+        <div className="flex items-center flex-wrap gap-1.5 pb-3 mb-6 -mx-1 px-1">
           {converterTabs.map((tab) => (
             <button
               key={tab.id}
