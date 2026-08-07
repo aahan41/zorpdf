@@ -3,7 +3,6 @@
 import Navbar from '@/components/sections/Navbar';
 import ConverterWorkspace from '@/components/sections/ConverterWorkspace';
 import PremiumSection from '@/components/sections/PremiumSection';
-import WorkYourWaySection from '@/components/sections/WorkYourWaySection';
 import FeaturesSection from '@/components/sections/FeaturesSection';
 import Footer from '@/components/sections/Footer';
 
@@ -16,8 +15,6 @@ export default function Home() {
         <ConverterWorkspace />
 
         <PremiumSection />
-
-        <WorkYourWaySection />
 
         <FeaturesSection />
 
