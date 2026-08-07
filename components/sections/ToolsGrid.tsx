@@ -10,6 +10,7 @@ import {
   FileOutput,
   PenLine,
   Sparkles,
+  Wand2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -21,7 +22,8 @@ export type ToolId =
   | 'word-to-pdf'
   | 'pdf-to-word'
   | 'pdf-compressor'
-  | 'pdf-editor';
+  | 'pdf-editor'
+  | 'background-remover';
 
 export interface Tool {
   id: ToolId;
@@ -126,6 +128,17 @@ export const tools: Tool[] = [
     accept: '.pdf',
     isPremium: true,
   },
+  {
+    id: 'background-remover',
+    title: 'AI Background Remover',
+    description: 'Photo se background hatao aur white, blue, red ya custom naya background lagao — AI se, HD quality mein.',
+    from: 'PHOTO',
+    to: 'PNG',
+    icon: Wand2,
+    gradient: 'from-purple-600/20 via-blue-700/20 to-cyan-900/20',
+    iconBg: 'from-purple-500 via-blue-500 to-cyan-500',
+    accept: '.jpg,.jpeg,.png,.webp',
+  },
 ];
 
 interface ToolCardProps {
@@ -222,6 +235,11 @@ export default function ToolsGrid() {
   const handleNavigate = (toolId: ToolId) => {
     if (toolId === 'pdf-editor') {
       router.push('/pdf-editor');
+      return;
+    }
+
+    if (toolId === 'background-remover') {
+      router.push('/background-remover');
       return;
     }
 
