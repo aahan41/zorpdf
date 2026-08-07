@@ -2,9 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Menu, X, LogOut, ChevronDown } from 'lucide-react';
+import { Zap, Menu, X, LogOut, ChevronDown, Crown } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/authContext';
+
+const navLinks = [
+  { label: 'Tools', href: '/#tools' },
+  { label: 'Features', href: '/#features' },
+  { label: 'Zor Remover', href: '/zor-remover' },
+  { label: 'Contact', href: '/#contact' },
+];
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -29,6 +36,14 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleNavClick = (href: string) => {
+    setMobileOpen(false);
+    if (href.startsWith('/#')) {
+      const el = document.querySelector(href.slice(1));
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const handleSignOut = async () => {
     setUserMenuOpen(false);
     setMobileOpen(false);
@@ -44,20 +59,33 @@ export default function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'glass-nav shadow-lg shadow-black/20' : 'bg-transparent'
+        scrolled ? 'glass-nav shadow-sm' : 'bg-transparent'
       }`}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white fill-white" />
+        <div className="flex items-center justify-between h-14">
+          {/* Logo — kept exactly as original */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white fill-white" />
             </div>
-            <span className="text-2xl font-bold text-white">
-              Zor<span className="text-blue-400">PDF</span>
+            <span className="text-lg font-bold text-slate-900">
+              Zor<span className="text-blue-600">PDF</span>
             </span>
           </Link>
+
+          {/* Desktop nav links */}
+          <div className="hidden md:flex items-center gap-1">
+            {navLinks.map((link) => (
+              <button
+                key={link.label}
+                onClick={() => handleNavClick(link.href)}
+                className="px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
+              >
+                {link.label}
+              </button>
+            ))}
+          </div>
 
           {/* Desktop auth buttons */}
           <div className="hidden md:flex items-center gap-2">
@@ -66,13 +94,13 @@ export default function Navbar() {
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-white/8 transition-all"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all"
                   >
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {userInitial}
                     </div>
                     <span className="max-w-[130px] truncate">{userEmail}</span>
-                    <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   <AnimatePresence>
@@ -82,15 +110,15 @@ export default function Navbar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -6, scale: 0.97 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute right-0 mt-2 w-48 glass border border-white/10 rounded-xl shadow-xl shadow-black/30 overflow-hidden"
+                        className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl shadow-slate-200/60 overflow-hidden"
                       >
-                        <div className="px-4 py-3 border-b border-white/8">
-                          <p className="text-xs text-slate-500">Signed in as</p>
-                          <p className="text-sm text-white font-medium truncate">{userEmail}</p>
+                        <div className="px-4 py-3 border-b border-slate-100">
+                          <p className="text-xs text-slate-400">Signed in as</p>
+                          <p className="text-sm text-slate-900 font-medium truncate">{userEmail}</p>
                         </div>
                         <button
                           onClick={handleSignOut}
-                          className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-all"
+                          className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
                         >
                           <LogOut className="w-4 h-4" />
                           Sign out
@@ -103,13 +131,13 @@ export default function Navbar() {
                 <>
                   <Link
                     href="/login"
-                    className="px-4 py-1.5 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-white/8 transition-all font-medium"
+                    className="px-4 py-1.5 rounded-xl text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all font-medium"
                   >
                     Login
                   </Link>
                   <Link
                     href="/signup"
-                    className="px-4 py-1.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-all"
+                    className="px-4 py-1.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
                   >
                     Sign up
                   </Link>
@@ -123,7 +151,7 @@ export default function Navbar() {
             {!loading && !user && (
               <Link
                 href="/signup"
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-red-600 hover:bg-red-500 transition-all"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all"
               >
                 Sign up
               </Link>
@@ -134,7 +162,7 @@ export default function Navbar() {
               </div>
             )}
             <button
-              className="p-2 rounded-lg text-slate-400 hover:text-white transition-colors"
+              className="p-2 rounded-lg text-slate-600 hover:text-slate-900 transition-colors"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label="Toggle menu"
             >
@@ -151,20 +179,30 @@ export default function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden glass-nav border-t border-white/5 overflow-hidden"
+            className="md:hidden glass-nav border-t border-slate-100 overflow-hidden"
           >
             <div className="px-4 py-3 flex flex-col gap-1">
+              {navLinks.map((link) => (
+                <button
+                  key={link.label}
+                  onClick={() => handleNavClick(link.href)}
+                  className="text-left px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                >
+                  {link.label}
+                </button>
+              ))}
+
               {!loading && (
-                <div className="flex flex-col gap-1">
+                <div className="mt-2 pt-2 border-t border-slate-100 flex flex-col gap-1">
                   {user ? (
                     <>
                       <div className="px-3 py-2">
-                        <p className="text-xs text-slate-500">Signed in as</p>
-                        <p className="text-sm text-white font-medium truncate">{userEmail}</p>
+                        <p className="text-xs text-slate-400">Signed in as</p>
+                        <p className="text-sm text-slate-900 font-medium truncate">{userEmail}</p>
                       </div>
                       <button
                         onClick={handleSignOut}
-                        className="flex items-center gap-2 text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                        className="flex items-center gap-2 text-left px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
                       >
                         <LogOut className="w-4 h-4" />
                         Sign out
@@ -175,14 +213,14 @@ export default function Navbar() {
                       <Link
                         href="/login"
                         onClick={() => setMobileOpen(false)}
-                        className="text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                        className="text-left px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
                       >
                         Login
                       </Link>
                       <Link
                         href="/signup"
                         onClick={() => setMobileOpen(false)}
-                        className="text-center px-3 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-all"
+                        className="text-center px-3 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all"
                       >
                         Sign up
                       </Link>

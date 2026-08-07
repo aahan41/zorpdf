@@ -1,17 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import {
-  Image,
-  FileImage,
-  FileText,
-  ArrowRight,
-  Minimize2,
-  FileOutput,
-  PenLine,
-  Sparkles,
-  Wand2,
-} from 'lucide-react';
+import { Image, FileImage, FileText, FileType, ArrowRight, Minimize2, Layers, FileOutput, Crown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export type ToolId =
@@ -22,8 +12,7 @@ export type ToolId =
   | 'word-to-pdf'
   | 'pdf-to-word'
   | 'pdf-compressor'
-  | 'pdf-editor'
-  | 'background-remover';
+  | 'image-compressor';
 
 export interface Tool {
   id: ToolId;
@@ -35,7 +24,6 @@ export interface Tool {
   gradient: string;
   iconBg: string;
   accept: string;
-  isPremium?: boolean;
 }
 
 export const tools: Tool[] = [
@@ -46,7 +34,7 @@ export const tools: Tool[] = [
     from: 'JPG',
     to: 'PDF',
     icon: Image,
-    gradient: 'from-blue-600/20 to-blue-900/20',
+    gradient: 'from-blue-50 to-blue-100/50',
     iconBg: 'from-blue-500 to-blue-700',
     accept: '.jpg,.jpeg,.png',
   },
@@ -57,7 +45,7 @@ export const tools: Tool[] = [
     from: 'PDF',
     to: 'JPG',
     icon: FileImage,
-    gradient: 'from-sky-600/20 to-sky-900/20',
+    gradient: 'from-sky-50 to-sky-100/50',
     iconBg: 'from-sky-500 to-blue-600',
     accept: '.pdf',
   },
@@ -68,7 +56,7 @@ export const tools: Tool[] = [
     from: 'PNG',
     to: 'JPG',
     icon: Image,
-    gradient: 'from-emerald-600/20 to-emerald-900/20',
+    gradient: 'from-emerald-50 to-emerald-100/50',
     iconBg: 'from-emerald-500 to-emerald-700',
     accept: '.png',
   },
@@ -79,7 +67,7 @@ export const tools: Tool[] = [
     from: 'PNG',
     to: 'PDF',
     icon: Image,
-    gradient: 'from-teal-600/20 to-teal-900/20',
+    gradient: 'from-teal-50 to-teal-100/50',
     iconBg: 'from-teal-500 to-teal-700',
     accept: '.png',
   },
@@ -90,7 +78,7 @@ export const tools: Tool[] = [
     from: 'DOCX',
     to: 'PDF',
     icon: FileText,
-    gradient: 'from-blue-700/20 to-slate-900/20',
+    gradient: 'from-blue-50 to-slate-100/50',
     iconBg: 'from-blue-600 to-blue-800',
     accept: '.doc,.docx',
   },
@@ -101,7 +89,7 @@ export const tools: Tool[] = [
     from: 'PDF',
     to: 'DOCX',
     icon: FileOutput,
-    gradient: 'from-indigo-600/20 to-slate-900/20',
+    gradient: 'from-indigo-50 to-slate-100/50',
     iconBg: 'from-blue-500 to-slate-600',
     accept: '.pdf',
   },
@@ -112,31 +100,19 @@ export const tools: Tool[] = [
     from: 'PDF',
     to: 'PDF',
     icon: Minimize2,
-    gradient: 'from-cyan-600/20 to-blue-900/20',
+    gradient: 'from-cyan-50 to-blue-100/50',
     iconBg: 'from-cyan-500 to-blue-600',
     accept: '.pdf',
   },
   {
-    id: 'pdf-editor',
-    title: 'PDF Editor Pro',
-    description: 'Add text, signature, images and highlights to your PDF online.',
-    from: 'PDF',
-    to: 'EDIT',
-    icon: PenLine,
-    gradient: 'from-yellow-500/20 via-blue-700/20 to-cyan-900/20',
-    iconBg: 'from-yellow-400 via-blue-500 to-cyan-500',
-    accept: '.pdf',
-    isPremium: true,
-  },
-  {
-    id: 'background-remover',
-    title: 'AI Background Remover',
-    description: 'Photo se background hatao aur white, blue, red ya custom naya background lagao — AI se, HD quality mein.',
-    from: 'PHOTO',
-    to: 'PNG',
-    icon: Wand2,
-    gradient: 'from-purple-600/20 via-blue-700/20 to-cyan-900/20',
-    iconBg: 'from-purple-500 via-blue-500 to-cyan-500',
+    id: 'image-compressor',
+    title: 'Image Compressor',
+    description: 'Compress images without losing quality.',
+    from: 'IMAGE',
+    to: 'IMAGE',
+    icon: Layers,
+    gradient: 'from-teal-50 to-blue-100/50',
+    iconBg: 'from-teal-500 to-blue-600',
     accept: '.jpg,.jpeg,.png,.webp',
   },
 ];
@@ -147,9 +123,7 @@ interface ToolCardProps {
 }
 
 function ToolCard({ tool, onNavigate }: ToolCardProps) {
-  const handleClick = () => {
-    onNavigate(tool.id);
-  };
+  const handleClick = () => onNavigate(tool.id);
 
   return (
     <motion.div
@@ -158,12 +132,10 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
       viewport={{ once: true }}
       transition={{ duration: 0.5 }}
       whileHover={{ y: -8, scale: 1.02 }}
-      className={tool.isPremium ? 'h-full sm:col-span-2 lg:col-span-3' : 'h-full'}
+      className="h-full"
     >
       <div
-        className={`group relative card-hover glass-card rounded-2xl p-6 h-full flex flex-col cursor-pointer bg-gradient-to-br ${tool.gradient} ${
-          tool.isPremium ? 'border border-yellow-400/30 shadow-2xl shadow-blue-950/40' : ''
-        }`}
+        className={`group relative card-hover glass-card rounded-2xl p-6 h-full flex flex-col cursor-pointer bg-gradient-to-br ${tool.gradient}`}
         onClick={handleClick}
         role="button"
         tabIndex={0}
@@ -174,55 +146,36 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
           }
         }}
       >
-        {tool.isPremium && (
-          <>
-            <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.22),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.3),transparent_35%)] pointer-events-none" />
-            <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-[11px] font-black text-yellow-300">
-              <Sparkles className="w-3.5 h-3.5" />
-              NEW FEATURE
-            </div>
-          </>
-        )}
+        {/* Format badges */}
+        <div className="flex items-center gap-2 mb-5">
+          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+            {tool.from}
+          </span>
+          <ArrowRight className="w-4 h-4 text-blue-500" />
+          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
+            {tool.to}
+          </span>
+        </div>
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-5">
-            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-slate-300 border border-white/10">
-              {tool.from}
-            </span>
-            <ArrowRight className="w-4 h-4 text-blue-400" />
-            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600/20 text-blue-300 border border-blue-500/30">
-              {tool.to}
-            </span>
-          </div>
+        {/* Icon */}
+        <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+          <tool.icon className="w-8 h-8 text-white" />
+        </div>
 
-          <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-            <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-              <tool.icon className="w-8 h-8 text-white" />
-            </div>
+        {/* Content */}
+        <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">
+          {tool.title}
+        </h3>
+        <p className="text-slate-500 text-sm leading-relaxed flex-1 mb-6">
+          {tool.description}
+        </p>
 
-            <div className="flex-1">
-              <h3 className={`${tool.isPremium ? 'text-3xl' : 'text-xl'} font-bold text-white mb-3 group-hover:text-blue-300 transition-colors`}>
-                {tool.title}
-              </h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                {tool.description}
-              </p>
-
-              {tool.isPremium && (
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold">Add Text</span>
-                  <span className="px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs font-bold">Signature</span>
-                  <span className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-300 text-xs font-bold">Highlight</span>
-                  <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-bold">Images</span>
-                </div>
-              )}
-            </div>
-
-            <div className={`${tool.isPremium ? 'lg:w-56' : 'w-full'} py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none`}>
-              <span>{tool.isPremium ? 'Open PDF Editor' : 'Open Tool'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </div>
+        {/* CTA Button */}
+        <div
+          className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none"
+        >
+          <span>Open Tool</span>
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </div>
       </div>
     </motion.div>
@@ -233,22 +186,13 @@ export default function ToolsGrid() {
   const router = useRouter();
 
   const handleNavigate = (toolId: ToolId) => {
-    if (toolId === 'pdf-editor') {
-      router.push('/pdf-editor');
-      return;
-    }
-
-    if (toolId === 'background-remover') {
-      router.push('/background-remover');
-      return;
-    }
-
     router.push(`/tool/${toolId}`);
   };
 
   return (
     <section id="tools" className="py-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
+        {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -256,14 +200,15 @@ export default function ToolsGrid() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-5">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 mb-5">
             Choose Your Tool
           </h2>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+          <p className="text-slate-500 text-lg max-w-2xl mx-auto">
             Select a conversion tool to get started. All conversions are processed locally in your browser.
           </p>
         </motion.div>
 
+        {/* Tool cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {tools.map((tool) => (
             <ToolCard
@@ -273,6 +218,39 @@ export default function ToolsGrid() {
             />
           ))}
         </div>
+
+        {/* Zor Remover premium card */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mt-6"
+        >
+          <div
+            onClick={() => router.push('/zor-remover')}
+            className="group relative card-hover rounded-2xl p-6 sm:p-8 cursor-pointer overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50"
+          >
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+                <Crown className="w-8 h-8 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-xl font-bold text-slate-900">Zor Remover</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">PRO</span>
+                </div>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Remove image backgrounds instantly with AI. Get clean, transparent PNGs in seconds.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm group-hover:gap-3 transition-all">
+                <span>Open Tool</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </section>
   );

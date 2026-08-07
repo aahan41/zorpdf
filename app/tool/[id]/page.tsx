@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { tools, type ToolId } from '@/components/sections/ToolsGrid';
-import ConverterWorkspace from '@/components/sections/ConverterWorkspace';
+import UploadSection from '@/components/sections/UploadSection';
 import NotFound from './not-found';
 
 export default function ToolPage() {
@@ -17,18 +17,17 @@ export default function ToolPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050913]">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-        {/* Back button */}
+    <div className="min-h-screen bg-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pt-20">
         <button
           onClick={() => router.push('/')}
-          className="flex items-center gap-1.5 text-slate-500 hover:text-white transition-colors mb-6 text-sm"
+          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors mb-6 text-sm"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to all tools
         </button>
 
-        <ConverterWorkspace />
+        <UploadSection toolId={toolId} tool={tool} />
       </div>
     </div>
   );
