@@ -1,15 +1,5 @@
 import Link from 'next/link';
-import {
-  Zap,
-  Globe2,
-  Play,
-  Facebook,
-  Instagram,
-  Clock3,
-  LockKeyhole,
-  Star,
-  Infinity,
-} from 'lucide-react';
+import { Zap, Globe2, Play, Facebook, Instagram } from 'lucide-react';
 
 const footerLinks = [
   {
@@ -56,24 +46,24 @@ const socialLinks = [
 
 const stats = [
   {
+    icon: '◷',
     value: '< 3s',
     label: 'Avg. Conversion Time',
-    icon: Clock3,
   },
   {
+    icon: '♙',
     value: '256-bit',
     label: 'SSL Encryption',
-    icon: LockKeyhole,
   },
   {
+    icon: '☆',
     value: '4.9/5',
     label: 'User Rating',
-    icon: Star,
   },
   {
+    icon: '∞',
     value: 'Unlimited',
     label: 'Daily Conversions',
-    icon: Infinity,
   },
 ];
 
@@ -81,10 +71,10 @@ export default function Footer() {
   return (
     <footer className="w-full px-6 pb-6">
       <div className="mx-auto max-w-7xl rounded-3xl border border-blue-500/30 bg-[#080f20] px-8 py-8">
-        
+
         {/* Main Footer */}
         <div className="grid grid-cols-1 gap-8 md:grid-cols-[1.3fr_repeat(5,1fr)]">
-          
+
           {/* Brand */}
           <div>
             <div className="mb-5 flex items-center gap-3">
@@ -104,7 +94,7 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Links */}
+          {/* Footer Links */}
           {footerLinks.map((group) => (
             <div key={group.title}>
               <h3 className="mb-4 text-xs font-bold uppercase tracking-wide text-white">
@@ -127,10 +117,10 @@ export default function Footer() {
           ))}
         </div>
 
-        {/* Bottom divider */}
+        {/* Divider */}
         <div className="my-6 h-px bg-white/10" />
 
-        {/* Compact Bottom Section */}
+        {/* Bottom Section */}
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
 
           {/* Language + Social */}
@@ -141,35 +131,41 @@ export default function Footer() {
             </button>
 
             <div className="flex items-center gap-2">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  aria-label={social.label}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-400 transition-all hover:border-blue-400/40 hover:bg-blue-500/10 hover:text-white"
-                >
-                  <social.icon className="h-4 w-4" />
-                </a>
-              ))}
+              {socialLinks.map((social) => {
+                const Icon = social.icon;
+
+                return (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    aria-label={social.label}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-400 transition-all hover:border-blue-400/40 hover:bg-blue-500/10 hover:text-white"
+                  >
+                    <Icon className="h-4 w-4" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
-          {/* Stats - compact */}
+          {/* Compact Stats */}
           <div className="flex items-center justify-center">
             {stats.map((stat, index) => (
               <div
                 key={stat.value}
-                className={`flex min-w-[105px] flex-col items-center px-4 text-center ${
+                className={`flex min-w-[100px] flex-col items-center px-3 text-center ${
                   index !== 0 ? 'border-l border-white/10' : ''
                 }`}
               >
-                <stat.icon className="mb-1 h-5 w-5 text-blue-400" />
+                <span className="mb-1 text-xl leading-none text-blue-400">
+                  {stat.icon}
+                </span>
 
                 <span className="text-base font-bold leading-tight text-white">
                   {stat.value}
                 </span>
 
-                <span className="mt-1 whitespace-nowrap text-[10px] text-slate-500">
+                <span className="mt-1 whitespace-nowrap text-[9px] text-slate-500">
                   {stat.label}
                 </span>
               </div>
