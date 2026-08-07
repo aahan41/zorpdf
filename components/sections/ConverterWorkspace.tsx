@@ -1,11 +1,12 @@
 'use client';
 import { useState, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { PDFDocument } from 'pdf-lib';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
   Zap, Image as ImageIcon, Trash2, CheckCircle2,
-  RotateCcw, File, AlertCircle
+  RotateCcw, File, AlertCircle, Wand2
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
 import type { ImageProcessingResult } from '@/lib/pdfMerger';
@@ -24,6 +25,7 @@ const converterTabs: { id: ToolId; label: string; from: string; to: string }[] =
   { id: 'word-to-pdf', label: 'Word to PDF', from: 'DOCX', to: 'PDF' },
   { id: 'pdf-to-word', label: 'PDF to Word', from: 'PDF', to: 'DOCX' },
   { id: 'pdf-compressor', label: 'PDF Compressor', from: 'PDF', to: 'PDF' },
+  { id: 'background-remover', label: 'AI Background Remover', from: 'PHOTO', to: 'PNG' },
 ];
 
 interface FileItem {
@@ -121,6 +123,7 @@ const mergePdfAndImagesToPdf = async (
 };
 
 export default function ConverterWorkspace() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<ToolId>('jpg-to-pdf');
   const [state, setState] = useState<'idle' | 'loading' | 'selected' | 'converting' | 'done' | 'error'>('idle');
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -522,6 +525,10 @@ export default function ConverterWorkspace() {
   const readyFilesCount = readyImages.length + readyPdfs.length;
 
   const handleTabChange = (tabId: ToolId) => {
+    if (tabId === 'background-remover') {
+      router.push('/background-remover');
+      return;
+    }
     if (tabId !== activeTab) {
       setActiveTab(tabId);
       clearAllFiles();
