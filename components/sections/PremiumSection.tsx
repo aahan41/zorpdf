@@ -25,8 +25,8 @@ export default function PremiumSection() {
   ];
 
   return (
-    <section className="bg-[#050913] px-4 sm:px-6 py-20">
-      <div className="max-w-7xl mx-auto space-y-12">
+    <section className="bg-[#050913] px-4 sm:px-6 pt-8 pb-20">
+      <div className="max-w-4xl mr-auto ml-0 lg:ml-6 space-y-12 scale-[0.92] origin-top-left">
         <div className="relative overflow-hidden rounded-[30px] border border-blue-500/30 bg-gradient-to-br from-[#081225] via-[#0b1b3a] to-[#050913] shadow-2xl shadow-blue-950/40">
           <div className="absolute -top-20 -left-20 w-80 h-80 bg-blue-500/20 blur-[120px]" />
           <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-cyan-400/15 blur-[130px]" />
