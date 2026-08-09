@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Crown, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
-const BEFORE_IMAGE = 'https://images.pexels.com/photos/34921744/pexels-photo-34921744.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
+const BEFORE_IMAGE = 'https://images.pexels.com/photos/36965736/pexels-photo-36965736.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
 
 export default function ZorRemoverSection() {
   return (

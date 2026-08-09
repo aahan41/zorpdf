@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Upload, X, Crown, Lock, Sparkles, CheckCircle2,
-  Loader2, Download, Wand2, Image as ImageIcon, Zap
+  Upload, X, Crown, Sparkles, CheckCircle2,
+  Loader2, Download, Wand2, Image as ImageIcon, Zap, Lock
 } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/sections/Navbar';
 import Footer from '@/components/sections/Footer';
-import { useAuth } from '@/lib/authContext';
 
 type ProcessState = 'idle' | 'processing' | 'done' | 'error';
 
@@ -20,19 +19,38 @@ interface UploadedImage {
   resultBlob?: Blob;
 }
 
-const HERO_IMAGE = 'https://images.pexels.com/photos/36763510/pexels-photo-36763510.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
+const HERO_IMAGE = 'https://images.pexels.com/photos/36965736/pexels-photo-36965736.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
+
+const FREE_LIMIT = 5;
+
+function useUsageCount() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('zor-usage');
+      if (stored) setCount(parseInt(stored, 10) || 0);
+    } catch {}
+  }, []);
+  const increment = useCallback(() => {
+    setCount(prev => {
+      const next = prev + 1;
+      try { localStorage.setItem('zor-usage', String(next)); } catch {}
+      return next;
+    });
+  }, []);
+  return { count, increment };
+}
 
 export default function ZorRemoverPage() {
-  const { user } = useAuth();
-  const [isPremium, setIsPremium] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [state, setState] = useState<ProcessState>('idle');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [image, setImage] = useState<UploadedImage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { count: usageCount, increment: incrementUsage } = useUsageCount();
 
-  const isLocked = !user || !isPremium;
+  const limitReached = usageCount >= FREE_LIMIT;
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -63,7 +81,7 @@ export default function ZorRemoverPage() {
   };
 
   const removeBackground = async () => {
-    if (!image || isLocked) return;
+    if (!image || limitReached) return;
     setState('processing');
     setProgress(0);
 
@@ -91,6 +109,7 @@ export default function ZorRemoverPage() {
       clearInterval(interval);
       setProgress(100);
       setImage(prev => prev ? { ...prev, resultUrl, resultBlob: blob } : null);
+      incrementUsage();
       setState('done');
     } catch (err: any) {
       clearInterval(interval);
@@ -181,27 +200,27 @@ export default function ZorRemoverPage() {
                         onDrop={handleDrop}
                         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragLeave={() => setIsDragging(false)}
-                        onClick={() => !isLocked && fileInputRef.current?.click()}
+                        onClick={() => !limitReached && fileInputRef.current?.click()}
                         className={`relative rounded-2xl border-2 border-dashed transition-all duration-300 ${
-                          isLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                          limitReached ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                         } ${
                           isDragging ? 'border-blue-500 bg-blue-50 scale-[1.01]' : 'border-slate-200 hover:border-blue-400 hover:bg-blue-50/50'
                         }`}
                       >
                         <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
-                          {isLocked ? (
+                          {limitReached ? (
                             <>
                               <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mb-5">
                                 <Lock className="w-6 h-6 text-amber-600" />
                               </div>
-                              <p className="text-slate-900 text-lg font-semibold mb-2">Premium feature locked</p>
-                              <p className="text-slate-500 text-sm mb-5">Upgrade to upload and remove backgrounds</p>
+                              <p className="text-slate-900 text-lg font-semibold mb-2">Free limit reached</p>
+                              <p className="text-slate-500 text-sm mb-5">You've used all {FREE_LIMIT} free removals. Upgrade to Premium for unlimited use.</p>
                               <Link
-                                href={!user ? "/signup" : "/"}
+                                href="/signup"
                                 className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-all flex items-center gap-2"
                               >
                                 <Crown className="w-4 h-4" />
-                                {!user ? 'Sign up to unlock' : 'Upgrade now'}
+                                Upgrade to Premium
                               </Link>
                             </>
                           ) : (
@@ -216,6 +235,9 @@ export default function ZorRemoverPage() {
                               <p className="text-slate-400 text-sm">
                                 paste image or{' '}
                                 <span className="text-blue-600 underline cursor-pointer">URL</span>
+                              </p>
+                              <p className="text-slate-400 text-xs mt-4">
+                                {FREE_LIMIT - usageCount} of {FREE_LIMIT} free removals remaining
                               </p>
                             </>
                           )}
@@ -234,7 +256,7 @@ export default function ZorRemoverPage() {
                         </div>
                         <button
                           onClick={removeBackground}
-                          disabled={isLocked}
+                          disabled={limitReached}
                           className="px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-base font-bold text-white shadow-md shadow-blue-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                         >
                           <Wand2 className="w-5 h-5" />
