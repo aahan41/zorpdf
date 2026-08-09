@@ -4,6 +4,7 @@ import Navbar from '@/components/sections/Navbar';
 import ConverterWorkspace from '@/components/sections/ConverterWorkspace';
 import FeaturesSection from '@/components/sections/FeaturesSection';
 import HeroSection from '@/components/sections/HeroSection';
+import Footer from '@/components/sections/Footer';
 
 export default function Home() {
   return (
@@ -14,6 +15,7 @@ export default function Home() {
         <ConverterWorkspace />
         <FeaturesSection />
       </main>
+      <Footer />
     </div>
   );
 }
