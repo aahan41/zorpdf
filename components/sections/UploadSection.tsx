@@ -168,19 +168,6 @@ export default function UploadSection({ toolId, tool }: UploadSectionProps) {
             updateFileStatus(fileItem.id, 'error', undefined, undefined, err?.message || 'Conversion failed');
           }
         }
-      } else if (toolId === 'image-compressor') {
-        for (const fileItem of files) {
-          updateFileStatus(fileItem.id, 'converting');
-          try {
-            const compressed = await compressImage(fileItem.file, compressionLevel);
-            const baseName = fileItem.file.name.replace(/\.[^.]+$/, '');
-            const ext = fileItem.file.name.split('.').pop() || 'jpg';
-            updateFileProgress(fileItem.id, 100);
-            updateFileStatus(fileItem.id, 'done', { blob: compressed.blob, filename: `${baseName}-compressed.${ext}` });
-          } catch (err: any) {
-            updateFileStatus(fileItem.id, 'error', undefined, undefined, err?.message || 'Compression failed');
-          }
-        }
       } else {
         for (const fileItem of files) {
           updateFileStatus(fileItem.id, 'error', undefined, undefined, 'This conversion is not yet implemented. Try JPG to PDF, PNG to JPG, or Image Compressor.');

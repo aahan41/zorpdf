@@ -1,9 +1,10 @@
 'use client';
 
 import Navbar from '@/components/sections/Navbar';
-import ConverterWorkspace from '@/components/sections/ConverterWorkspace';
 import FeaturesSection from '@/components/sections/FeaturesSection';
 import HeroSection from '@/components/sections/HeroSection';
+import ToolsGrid from '@/components/sections/ToolsGrid';
+import ZorRemoverSection from '@/components/sections/ZorRemoverSection';
 import Footer from '@/components/sections/Footer';
 
 export default function Home() {
@@ -12,7 +13,8 @@ export default function Home() {
       <Navbar />
       <main>
         <HeroSection />
-        <ConverterWorkspace />
+        <ToolsGrid />
+        <ZorRemoverSection />
         <FeaturesSection />
       </main>
       <Footer />

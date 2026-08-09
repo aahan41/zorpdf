@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Image, FileImage, FileText, FileType, ArrowRight, Minimize2, Layers, FileOutput, Crown } from 'lucide-react';
+import { Image, FileImage, FileText, ArrowRight, Minimize2, FileOutput } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export type ToolId =
@@ -11,8 +11,7 @@ export type ToolId =
   | 'png-to-pdf'
   | 'word-to-pdf'
   | 'pdf-to-word'
-  | 'pdf-compressor'
-  | 'image-compressor';
+  | 'pdf-compressor';
 
 export interface Tool {
   id: ToolId;
@@ -104,17 +103,6 @@ export const tools: Tool[] = [
     iconBg: 'from-cyan-500 to-blue-600',
     accept: '.pdf',
   },
-  {
-    id: 'image-compressor',
-    title: 'Image Compressor',
-    description: 'Compress images without losing quality.',
-    from: 'IMAGE',
-    to: 'IMAGE',
-    icon: Layers,
-    gradient: 'from-teal-50 to-blue-100/50',
-    iconBg: 'from-teal-500 to-blue-600',
-    accept: '.jpg,.jpeg,.png,.webp',
-  },
 ];
 
 interface ToolCardProps {
@@ -201,10 +189,10 @@ export default function ToolsGrid() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 mb-5">
-            Choose Your Tool
+            File Converter
           </h2>
           <p className="text-slate-500 text-lg max-w-2xl mx-auto">
-            Select a conversion tool to get started. All conversions are processed locally in your browser.
+            Convert your files to any format you need
           </p>
         </motion.div>
 
@@ -219,38 +207,6 @@ export default function ToolsGrid() {
           ))}
         </div>
 
-        {/* Zor Remover premium card */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="mt-6"
-        >
-          <div
-            onClick={() => router.push('/zor-remover')}
-            className="group relative card-hover rounded-2xl p-6 sm:p-8 cursor-pointer overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50"
-          >
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
-                <Crown className="w-8 h-8 text-white" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-xl font-bold text-slate-900">Zor Remover</h3>
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">PRO</span>
-                </div>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  Remove image backgrounds instantly with AI. Get clean, transparent PNGs in seconds.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm group-hover:gap-3 transition-all">
-                <span>Open Tool</span>
-                <ArrowRight className="w-4 h-4" />
-              </div>
-            </div>
-          </div>
-        </motion.div>
       </div>
     </section>
   );
