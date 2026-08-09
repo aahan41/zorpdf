@@ -3,7 +3,6 @@
 import Navbar from '@/components/sections/Navbar';
 import ConverterWorkspace from '@/components/sections/ConverterWorkspace';
 import FeaturesSection from '@/components/sections/FeaturesSection';
-import Footer from '@/components/sections/Footer';
 import HeroSection from '@/components/sections/HeroSection';
 
 export default function Home() {
@@ -15,7 +14,6 @@ export default function Home() {
         <ConverterWorkspace />
         <FeaturesSection />
       </main>
-      <Footer />
     </div>
   );
 }
