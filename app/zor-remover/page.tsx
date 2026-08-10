@@ -19,7 +19,7 @@ interface UploadedImage {
   resultBlob?: Blob;
 }
 
-const HERO_IMAGE = 'https://images.pexels.com/photos/36965736/pexels-photo-36965736.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
+const HERO_IMAGE = 'https://images.pexels.com/photos/26425579/pexels-photo-26425579.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
 
 const FREE_LIMIT = 5;
 
