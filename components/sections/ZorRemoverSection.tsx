@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { Crown, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
-const BEFORE_IMAGE = 'https://images.pexels.com/photos/36965736/pexels-photo-36965736.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
+const BEFORE_IMAGE = 'https://images.pexels.com/photos/26425579/pexels-photo-26425579.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
+const CHECKERBOARD = "url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22><rect width=%2232%22 height=%2232%22 fill=%22%23e2e8f0%22/><rect width=%2216%22 height=%2216%22 fill=%22%23f8fafc%22/><rect x=%2216%22 y=%2216%22 width=%2216%22 height=%2216%22 fill=%22%23f8fafc%22/></svg>')";
 
 export default function ZorRemoverSection() {
   return (
@@ -62,12 +63,15 @@ export default function ZorRemoverSection() {
                       Before
                     </span>
                   </div>
-                  <div className="relative aspect-[3/4] bg-[url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23f8fafc%22/><rect width=%2220%22 height=%2220%22 fill=%22%23f1f5f9%22/><rect x=%2220%22 y=%2220%22 width=%2220%22 height=%2220%22 fill=%22%23f1f5f9%22/></svg>')]">
+                  <div
+                    className="relative aspect-[3/4]"
+                    style={{ backgroundColor: '#e2e8f0', backgroundImage: CHECKERBOARD, backgroundSize: '32px 32px' }}
+                  >
                     <img
                       src={BEFORE_IMAGE}
                       alt="After background removal"
-                      className="w-full h-full object-cover mix-blend-multiply opacity-90"
-                      style={{ WebkitMaskImage: 'radial-gradient(ellipse 60% 75% at 50% 40%, black 60%, transparent 75%)', maskImage: 'radial-gradient(ellipse 60% 75% at 50% 40%, black 60%, transparent 75%)' }}
+                      className="w-full h-full object-cover"
+                      style={{ mixBlendMode: 'multiply' }}
                     />
                     <span className="absolute top-3 left-3 px-2 py-1 rounded-md bg-green-500 text-white text-[10px] font-semibold uppercase tracking-wide">
                       After
