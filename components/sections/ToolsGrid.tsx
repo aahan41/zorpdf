@@ -1,14 +1,20 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Image, FileImage, FileText, ArrowRight, Minimize2, FileOutput } from 'lucide-react';
+import {
+  Image,
+  FileImage,
+  FileText,
+  ArrowRight,
+  Minimize2,
+  FileOutput,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export type ToolId =
   | 'jpg-to-pdf'
   | 'pdf-to-jpg'
   | 'png-to-jpg'
-  | 'png-to-pdf'
   | 'word-to-pdf'
   | 'pdf-to-word'
   | 'pdf-compressor';
@@ -57,17 +63,6 @@ export const tools: Tool[] = [
     icon: Image,
     gradient: 'from-emerald-50 to-emerald-100/50',
     iconBg: 'from-emerald-500 to-emerald-700',
-    accept: '.png',
-  },
-  {
-    id: 'png-to-pdf',
-    title: 'PNG to PDF',
-    description: 'Convert PNG images to PDF documents.',
-    from: 'PNG',
-    to: 'PDF',
-    icon: Image,
-    gradient: 'from-teal-50 to-teal-100/50',
-    iconBg: 'from-teal-500 to-teal-700',
     accept: '.png',
   },
   {
@@ -136,17 +131,21 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
       >
         {/* Format badges */}
         <div className="flex items-center gap-2 mb-5">
-          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+          <span className="px-3 py-1 rounded-lg bg-white/70 text-slate-700 text-xs font-bold">
             {tool.from}
           </span>
-          <ArrowRight className="w-4 h-4 text-blue-500" />
-          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
+
+          <ArrowRight className="w-4 h-4 text-slate-400" />
+
+          <span className="px-3 py-1 rounded-lg bg-white/70 text-slate-700 text-xs font-bold">
             {tool.to}
           </span>
         </div>
 
         {/* Icon */}
-        <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+        <div
+          className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}
+        >
           <tool.icon className="w-8 h-8 text-white" />
         </div>
 
@@ -154,15 +153,15 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
         <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">
           {tool.title}
         </h3>
+
         <p className="text-slate-500 text-sm leading-relaxed flex-1 mb-6">
           {tool.description}
         </p>
 
         {/* CTA Button */}
-        <div
-          className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none"
-        >
+        <div className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none">
           <span>Open Tool</span>
+
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </div>
       </div>
@@ -178,8 +177,8 @@ export default function ToolsGrid() {
   };
 
   return (
-    <section id="tools" className="py-24 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+    <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
+      <div className="max-w-6xl mx-auto">
         {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -188,10 +187,11 @@ export default function ToolsGrid() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 mb-5">
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             File Converter
           </h2>
-          <p className="text-slate-500 text-lg max-w-2xl mx-auto">
+
+          <p className="text-slate-500 text-lg">
             Convert your files to any format you need
           </p>
         </motion.div>
@@ -206,7 +206,6 @@ export default function ToolsGrid() {
             />
           ))}
         </div>
-
       </div>
     </section>
   );
