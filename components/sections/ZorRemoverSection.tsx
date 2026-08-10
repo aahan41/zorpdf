@@ -5,7 +5,7 @@ import { Crown, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 const BEFORE_IMAGE =
-  'https://images.pexels.com/photos/26425579/pexels-photo-26425579.jpeg?auto=compress&cs=tinysrgb&w=900';
+  'https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1200';
 
 export default function ZorRemoverSection() {
   return (
@@ -50,10 +50,9 @@ export default function ZorRemoverSection() {
               </p>
             </div>
 
-            {/* RIGHT SIDE - BEFORE / AFTER */}
+            {/* RIGHT SIDE */}
             <div className="relative w-full">
               <div className="relative rounded-2xl overflow-hidden shadow-lg bg-white">
-
                 <div className="grid grid-cols-2 gap-px bg-slate-200">
 
                   {/* BEFORE */}
@@ -82,23 +81,18 @@ export default function ZorRemoverSection() {
                       `,
                       backgroundSize: '24px 24px',
                       backgroundPosition:
-                        '0 0, 0 12px, 12px -12px, -12px 0px',
+                        '0 0, 0 12px, 12px -12px, -12px 0',
                     }}
                   >
-                    {/* Subject preview */}
-                    <div className="absolute inset-0 flex items-end justify-center">
-                      <img
-                        src={BEFORE_IMAGE}
-                        alt="After background removal"
-                        className="w-full h-full object-cover object-center"
-                        style={{
-                          mixBlendMode: 'multiply',
-                        }}
-                      />
-                    </div>
-
-                    {/* Soft white overlay to make the result look cleaner */}
-                    <div className="absolute inset-0 bg-white/10 pointer-events-none" />
+                    {/* AFTER IMAGE */}
+                    <img
+                      src={BEFORE_IMAGE}
+                      alt="After background removal"
+                      className="absolute inset-0 w-full h-full object-cover object-center"
+                      style={{
+                        mixBlendMode: 'multiply',
+                      }}
+                    />
 
                     <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-md bg-green-500 text-white text-[10px] font-bold uppercase tracking-wide">
                       After
