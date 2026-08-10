@@ -18,9 +18,9 @@ import Footer from '@/components/sections/Footer';
 
 type ProcessState = 'idle' | 'processing' | 'done' | 'error';
 
-/* Attractive studio portrait — clear, front-facing face */
+/* Attractive studio portrait */
 const DEMO_IMAGE =
-  'https://images.pexels.com/photos/9571265/pexels-photo-9571265.jpeg?auto=compress&cs=tinysrgb&w=1200';
+  'https://images.pexels.com/photos/33261955/pexels-photo-33261955.jpeg?auto=compress&cs=tinysrgb&w=1200';
 
 export default function ZorRemoverPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
