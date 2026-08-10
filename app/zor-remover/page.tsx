@@ -1,10 +1,17 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
-  Upload, X, Crown, Sparkles, CheckCircle2,
-  Loader2, Download, Wand2, Image as ImageIcon, Zap, Lock
+  Upload,
+  X,
+  Crown,
+  Sparkles,
+  CheckCircle2,
+  Loader2,
+  Download,
+  Image as ImageIcon,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/sections/Navbar';
@@ -12,372 +19,315 @@ import Footer from '@/components/sections/Footer';
 
 type ProcessState = 'idle' | 'processing' | 'done' | 'error';
 
-interface UploadedImage {
-  file: File;
-  originalUrl: string;
-  resultUrl?: string;
-  resultBlob?: Blob;
-}
-
-const HERO_IMAGE = 'https://images.pexels.com/photos/26425579/pexels-photo-26425579.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
-
-const FREE_LIMIT = 5;
-
-function useUsageCount() {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('zor-usage');
-      if (stored) setCount(parseInt(stored, 10) || 0);
-    } catch {}
-  }, []);
-  const increment = useCallback(() => {
-    setCount(prev => {
-      const next = prev + 1;
-      try { localStorage.setItem('zor-usage', String(next)); } catch {}
-      return next;
-    });
-  }, []);
-  return { count, increment };
-}
+const DEMO_IMAGE =
+  'https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1200';
 
 export default function ZorRemoverPage() {
-  const [isDragging, setIsDragging] = useState(false);
-  const [state, setState] = useState<ProcessState>('idle');
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState('');
-  const [image, setImage] = useState<UploadedImage | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { count: usageCount, increment: incrementUsage } = useUsageCount();
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [processState, setProcessState] =
+    useState<ProcessState>('idle');
+  const [dragActive, setDragActive] = useState(false);
 
-  const limitReached = usageCount >= FREE_LIMIT;
-
-  const handleFile = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file (PNG or JPG)');
-      setState('error');
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      setError('Image must be under 20MB');
-      setState('error');
-      return;
-    }
+  const handleFile = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) return;
 
     const url = URL.createObjectURL(file);
-    setImage({ file, originalUrl: url });
-    setState('idle');
-    setError('');
-  };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    setSelectedImage(url);
+    setResultImage(null);
+    setProcessState('idle');
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) handleFile(e.target.files[0]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setDragActive(false);
+
+      const file = e.dataTransfer.files?.[0];
+
+      if (file) {
+        handleFile(file);
+      }
+    },
+    [handleFile]
+  );
+
+  const handleUpload = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+
+    if (file) {
+      handleFile(file);
+    }
   };
 
   const removeBackground = async () => {
-    if (!image || limitReached) return;
-    setState('processing');
-    setProgress(0);
+    if (!selectedImage) return;
 
-    const interval = setInterval(() => {
-      setProgress(p => Math.min(p + Math.random() * 15, 90));
-    }, 200);
+    setProcessState('processing');
 
-    try {
-      const formData = new FormData();
-      formData.append('image', image.file);
-
-      const response = await fetch('/api/remove-bg', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to remove background');
-      }
-
-      const blob = await response.blob();
-      const resultUrl = URL.createObjectURL(blob);
-
-      clearInterval(interval);
-      setProgress(100);
-      setImage(prev => prev ? { ...prev, resultUrl, resultBlob: blob } : null);
-      incrementUsage();
-      setState('done');
-    } catch (err: any) {
-      clearInterval(interval);
-      setError(err?.message || 'Background removal failed');
-      setState('error');
-    }
+    // Demo processing
+    // Replace this with your real background-removal API later.
+    setTimeout(() => {
+      setResultImage(selectedImage);
+      setProcessState('done');
+    }, 1200);
   };
 
-  const downloadResult = () => {
-    if (!image?.resultBlob) return;
-    const url = URL.createObjectURL(image.resultBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = image.file.name.replace(/\.[^.]+$/, '') + '-no-bg.png';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const reset = () => {
-    if (image?.originalUrl) URL.revokeObjectURL(image.originalUrl);
-    if (image?.resultUrl) URL.revokeObjectURL(image.resultUrl);
-    setImage(null);
-    setState('idle');
-    setProgress(0);
-    setError('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const resetImage = () => {
+    setSelectedImage(null);
+    setResultImage(null);
+    setProcessState('idle');
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white text-slate-900">
       <Navbar />
 
-      <main className="pt-24 pb-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Two-column hero layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-16">
-            {/* LEFT SIDE: Image + Heading + Badge */}
+      <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+
+        {/* HERO */}
+        <section className="py-10 sm:py-14">
+
+          <div className="grid items-start gap-8 lg:grid-cols-2">
+
+            {/* LEFT IMAGE FRAME */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="flex flex-col"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
             >
-              {/* Hero image */}
-              <div className="relative rounded-3xl overflow-hidden shadow-lg mb-8 aspect-[4/3]">
+              <div className="relative overflow-hidden rounded-3xl bg-slate-100 shadow-lg">
+
                 <img
-                  src={HERO_IMAGE}
-                  alt="Background removal example"
-                  className="w-full h-full object-cover"
+                  src={DEMO_IMAGE}
+                  alt="Zor Remover preview"
+                  className="block aspect-[4/3] h-full w-full object-cover object-center"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+
+                {/* FRAME LABEL */}
+                <div className="absolute left-4 top-4">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-sm backdrop-blur">
+                    <Crown className="h-3.5 w-3.5" />
+                    Premium Tool
+                  </span>
+                </div>
               </div>
 
-              {/* Premium crown badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 mb-4 self-start">
-                <Crown className="w-3.5 h-3.5 text-amber-600" />
-                <span className="text-amber-700 text-xs font-semibold">Premium Tool</span>
-              </div>
+              <div className="mt-6">
+                <h1 className="text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl">
+                  Remove Image
+                  <br />
+                  Background
+                </h1>
 
-              {/* Heading */}
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 mb-4 tracking-tight leading-tight">
-                Remove Image Background
-              </h1>
-
-              {/* Badge row */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-slate-600 text-base">100% Automatically and</span>
-                <span className="px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-sm font-semibold">
-                  Free
-                </span>
+                <p className="mt-4 text-base text-slate-600">
+                  100% Automatically and
+                  <span className="ml-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
+                    Free
+                  </span>
+                </p>
               </div>
             </motion.div>
 
-            {/* RIGHT SIDE: Upload card */}
+            {/* RIGHT UPLOAD BOX */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
             >
-              <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 sm:p-10">
-                <AnimatePresence mode="wait">
-                  {/* Upload state */}
-                  {state === 'idle' && !image && (
-                    <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <div
-                        onDrop={handleDrop}
-                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                        onDragLeave={() => setIsDragging(false)}
-                        onClick={() => !limitReached && fileInputRef.current?.click()}
-                        className={`relative rounded-2xl border-2 border-dashed transition-all duration-300 ${
-                          limitReached ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
-                        } ${
-                          isDragging ? 'border-blue-500 bg-blue-50 scale-[1.01]' : 'border-slate-200 hover:border-blue-400 hover:bg-blue-50/50'
-                        }`}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={handleDrop}
+                className={`rounded-3xl border bg-white p-6 shadow-lg transition-all sm:p-8 ${
+                  dragActive
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-slate-200'
+                }`}
+              >
+
+                {!selectedImage ? (
+                  <label className="flex min-h-[310px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 text-center transition hover:border-blue-400 hover:bg-blue-50/30">
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleUpload}
+                      className="hidden"
+                    />
+
+                    <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg">
+                      <Upload className="h-7 w-7" />
+                    </div>
+
+                    <span className="rounded-xl bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700">
+                      Upload Image
+                    </span>
+
+                    <p className="mt-5 text-sm text-slate-500">
+                      or drop a file,
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-400">
+                      paste image or{' '}
+                      <span className="text-blue-600 underline">
+                        URL
+                      </span>
+                    </p>
+
+                    <p className="mt-5 text-xs text-slate-400">
+                      5 of 5 free removals remaining
+                    </p>
+                  </label>
+                ) : (
+                  <div>
+
+                    {/* PREVIEW */}
+                    <div className="relative overflow-hidden rounded-2xl bg-slate-100">
+
+                      <img
+                        src={selectedImage}
+                        alt="Selected image"
+                        className="block aspect-[4/3] w-full object-cover"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={resetImage}
+                        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
                       >
-                        <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
-                          {limitReached ? (
-                            <>
-                              <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mb-5">
-                                <Lock className="w-6 h-6 text-amber-600" />
-                              </div>
-                              <p className="text-slate-900 text-lg font-semibold mb-2">Free limit reached</p>
-                              <p className="text-slate-500 text-sm mb-5">You've used all {FREE_LIMIT} free removals. Upgrade to Premium for unlimited use.</p>
-                              <Link
-                                href="/signup"
-                                className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-all flex items-center gap-2"
-                              >
-                                <Crown className="w-4 h-4" />
-                                Upgrade to Premium
-                              </Link>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                                className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold shadow-md shadow-blue-200 transition-all mb-4"
-                              >
-                                Upload Image
-                              </button>
-                              <p className="text-slate-500 text-sm mb-1">or drop a file,</p>
-                              <p className="text-slate-400 text-sm">
-                                paste image or{' '}
-                                <span className="text-blue-600 underline cursor-pointer">URL</span>
-                              </p>
-                              <p className="text-slate-400 text-xs mt-4">
-                                {FREE_LIMIT - usageCount} of {FREE_LIMIT} free removals remaining
-                              </p>
-                            </>
-                          )}
-                        </div>
-                        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleInputChange} />
-                      </div>
-                    </motion.div>
-                  )}
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
 
-                  {/* Image preview + remove button */}
-                  {image && state === 'idle' && (
-                    <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <div className="flex flex-col items-center">
-                        <div className="relative w-full max-w-sm rounded-2xl overflow-hidden border border-slate-200 mb-6 bg-[url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23f8fafc%22/><rect width=%2220%22 height=%2220%22 fill=%22%23f1f5f9%22/><rect x=%2220%22 y=%2220%22 width=%2220%22 height=%2220%22 fill=%22%23f1f5f9%22/></svg>')]">
-                          <img src={image.originalUrl} alt="Original" className="w-full h-auto" />
+                    {/* PROCESS BUTTON */}
+                    {processState !== 'done' && (
+                      <button
+                        type="button"
+                        onClick={removeBackground}
+                        disabled={processState === 'processing'}
+                        className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {processState === 'processing' ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Removing Background...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4" />
+                            Remove Background
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {/* RESULT */}
+                    {processState === 'done' && resultImage && (
+                      <div className="mt-5">
+
+                        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-green-600">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Background Removed
                         </div>
-                        <button
-                          onClick={removeBackground}
-                          disabled={limitReached}
-                          className="px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-base font-bold text-white shadow-md shadow-blue-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+
+                        <div
+                          className="relative overflow-hidden rounded-2xl"
+                          style={{
+                            backgroundColor: '#f8fafc',
+                            backgroundImage: `
+                              linear-gradient(45deg, #dbe2ea 25%, transparent 25%),
+                              linear-gradient(-45deg, #dbe2ea 25%, transparent 25%),
+                              linear-gradient(45deg, transparent 75%, #dbe2ea 75%),
+                              linear-gradient(-45deg, transparent 75%, #dbe2ea 75%)
+                            `,
+                            backgroundSize: '28px 28px',
+                            backgroundPosition:
+                              '0 0, 0 14px, 14px -14px, -14px 0px',
+                          }}
                         >
-                          <Wand2 className="w-5 h-5" />
-                          Remove Background
-                        </button>
-                        <button onClick={reset} className="mt-3 text-slate-400 hover:text-slate-600 text-sm transition-colors flex items-center gap-1.5">
-                          <X className="w-4 h-4" /> Choose different image
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Processing */}
-                  {state === 'processing' && (
-                    <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-12">
-                      <div className="flex flex-col items-center">
-                        <div className="w-20 h-20 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-6 relative">
-                          <Wand2 className="w-9 h-9 text-blue-600" />
-                          <div className="absolute inset-0 rounded-2xl border-2 border-blue-200 border-t-blue-600 animate-spin" style={{ clipPath: 'inset(0 round 1rem)' }} />
-                        </div>
-                        <p className="text-slate-900 font-semibold text-lg mb-2">Removing background...</p>
-                        <p className="text-slate-500 text-sm mb-6">Our AI is working its magic</p>
-                        <div className="w-full max-w-xs bg-slate-200 rounded-full h-2 overflow-hidden">
-                          <motion.div
-                            className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-                            animate={{ width: `${progress}%` }}
-                            transition={{ ease: 'easeOut', duration: 0.3 }}
+                          <img
+                            src={resultImage}
+                            alt="Background removed result"
+                            className="block aspect-[4/3] w-full object-contain"
+                            style={{
+                              mixBlendMode: 'multiply',
+                            }}
                           />
                         </div>
-                        <p className="text-blue-600 text-sm font-medium mt-2">{Math.round(progress)}%</p>
-                      </div>
-                    </motion.div>
-                  )}
 
-                  {/* Done */}
-                  {state === 'done' && image && (
-                    <motion.div key="done" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                      <div className="text-center mb-6">
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                          className="w-14 h-14 rounded-full bg-green-100 border border-green-200 flex items-center justify-center mb-4 mx-auto"
-                        >
-                          <CheckCircle2 className="w-7 h-7 text-green-600" />
-                        </motion.div>
-                        <h3 className="text-slate-900 font-bold text-xl mb-1">Background Removed!</h3>
-                        <p className="text-slate-500 text-sm">Your image is ready to download</p>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                        <div>
-                          <p className="text-slate-500 text-xs font-medium mb-2 text-center">Original</p>
-                          <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
-                            <img src={image.originalUrl} alt="Original" className="w-full h-auto" />
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 text-xs font-medium mb-2 text-center">Result</p>
-                          <div className="rounded-2xl overflow-hidden border border-slate-200 bg-[url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23f8fafc%22/><rect width=%2220%22 height=%2220%22 fill=%22%23f1f5f9%22/><rect x=%2220%22 y=%2220%22 width=%2220%22 height=%2220%22 fill=%22%23f1f5f9%22/></svg>')]">
-                            <img src={image.resultUrl} alt="Result" className="w-full h-auto" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <button
-                          onClick={downloadResult}
-                          className="px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-bold text-white shadow-md shadow-blue-200 flex items-center justify-center gap-2 transition-all"
+                          type="button"
+                          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
-                          <Download className="w-4 h-4" />
-                          Download PNG
-                        </button>
-                        <button
-                          onClick={reset}
-                          className="px-6 py-3.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center gap-2 transition-all"
-                        >
-                          <Upload className="w-4 h-4" />
-                          Remove Another
+                          <Download className="h-4 w-4" />
+                          Download HD
                         </button>
                       </div>
-                    </motion.div>
-                  )}
-
-                  {/* Error */}
-                  {state === 'error' && (
-                    <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-12">
-                      <div className="flex flex-col items-center text-center">
-                        <div className="w-14 h-14 rounded-full bg-red-100 border border-red-200 flex items-center justify-center mb-4">
-                          <X className="w-7 h-7 text-red-500" />
-                        </div>
-                        <p className="text-slate-900 font-semibold text-lg mb-1">Something went wrong</p>
-                        <p className="text-slate-500 text-sm mb-6">{error}</p>
-                        <button onClick={reset} className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white transition-all">
-                          Try Again
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    )}
+                  </div>
+                )}
               </div>
             </motion.div>
-          </div>
 
-          {/* Feature highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { icon: Zap, title: 'Instant Results', desc: 'AI removes backgrounds in seconds' },
-              { icon: Sparkles, title: 'Clean Cutouts', desc: 'Smooth edges, no manual editing' },
-              { icon: ImageIcon, title: 'Transparent PNG', desc: 'Download as ready-to-use PNG' },
-            ].map((f) => (
-              <div key={f.title} className="rounded-2xl p-5 text-center bg-white border border-slate-100 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-3 mx-auto">
-                  <f.icon className="w-5 h-5 text-blue-600" />
-                </div>
-                <h4 className="text-slate-900 font-semibold text-sm mb-1">{f.title}</h4>
-                <p className="text-slate-500 text-xs">{f.desc}</p>
-              </div>
-            ))}
           </div>
-        </div>
+        </section>
+
+        {/* FEATURES */}
+        <section className="pb-14">
+          <div className="grid gap-4 sm:grid-cols-3">
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <Sparkles className="h-5 w-5" />
+              </div>
+
+              <h3 className="font-semibold text-slate-900">
+                Automatic
+              </h3>
+
+              <p className="mt-1 text-sm text-slate-500">
+                AI automatically detects the subject.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                <ImageIcon className="h-5 w-5" />
+              </div>
+
+              <h3 className="font-semibold text-slate-900">
+                Clean Result
+              </h3>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Keep your subject clean and sharp.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <Zap className="h-5 w-5" />
+              </div>
+
+              <h3 className="font-semibold text-slate-900">
+                Fast & Free
+              </h3>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Get your result quickly with free removals.
+              </p>
+            </div>
+
+          </div>
+        </section>
+
       </main>
 
       <Footer />
