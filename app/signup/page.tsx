@@ -9,11 +9,16 @@ import { supabase } from '@/lib/supabase';
 
 export default function SignUpPage() {
   const router = useRouter();
+
+  const [fullName, setFullName] = useState('');
+  const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,30 +26,103 @@ export default function SignUpPage() {
     e.preventDefault();
     setError('');
 
+    const cleanMobile = mobile.replace(/\D/g, '');
+
+    if (!fullName.trim()) {
+      setError('Please enter your full name.');
+      return;
+    }
+
+    if (cleanMobile.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwords do not match.');
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Password must be at least 6 characters.');
       return;
     }
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    try {
+      // Check whether mobile already exists
+      const { data: existingMobile, error: mobileCheckError } =
+        await supabase
+          .from('profiles')
+          .select('id')
+          .eq('mobile', cleanMobile)
+          .maybeSingle();
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
+      if (mobileCheckError) {
+        setError(mobileCheckError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (existingMobile) {
+        setError('An account with this mobile number already exists.');
+        setLoading(false);
+        return;
+      }
+
+      // Create Supabase Auth account
+      const {
+        data: authData,
+        error: authError,
+      } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!authData.user) {
+        setError('Account could not be created. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Save user profile information
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          full_name: fullName.trim(),
+          mobile: cleanMobile,
+          email: email.trim().toLowerCase(),
+        });
+
+      if (profileError) {
+        setError(profileError.message);
+        setLoading(false);
+        return;
+      }
+
       router.push('/');
+    } catch (err) {
+      console.error(err);
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -52,24 +130,74 @@ export default function SignUpPage() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white fill-white" />
-            </div>
-            <span className="text-xl font-bold text-slate-900">
-              Zor<span className="text-blue-600">PDF</span>
-            </span>
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-900 mb-1">Create account</h1>
-          <p className="text-slate-500 text-sm">Start converting files for free</p>
+        <div className="flex justify-center mb-6">
+          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg">
+            <Zap className="w-6 h-6 text-white fill-white" />
+          </div>
+        </div>
+
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">
+            ZorPDF
+          </h1>
+
+          <h2 className="mt-3 text-xl font-semibold text-slate-900">
+            Create account
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Start converting files for free
+          </p>
         </div>
 
         {/* Card */}
         <div className="glass-card rounded-2xl p-8">
           <form onSubmit={handleSignUp} className="flex flex-col gap-4">
+
+            {/* Full Name */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">Email</label>
+              <label className="text-sm font-medium text-slate-700">
+                Full Name
+              </label>
+
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Enter your full name"
+                required
+                className="w-full h-11 px-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+              />
+            </div>
+
+            {/* Mobile */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Mobile Number
+              </label>
+
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={mobile}
+                onChange={(e) =>
+                  setMobile(
+                    e.target.value.replace(/\D/g, '').slice(0, 10)
+                  )
+                }
+                placeholder="Enter 10-digit mobile number"
+                maxLength={10}
+                required
+                className="w-full h-11 px-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+              />
+            </div>
+
+            {/* Email */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Email
+              </label>
+
               <input
                 type="email"
                 value={email}
@@ -80,8 +208,12 @@ export default function SignUpPage() {
               />
             </div>
 
+            {/* Password */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">Password</label>
+              <label className="text-sm font-medium text-slate-700">
+                Password
+              </label>
+
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -91,43 +223,65 @@ export default function SignUpPage() {
                   required
                   className="w-full h-11 px-4 pr-11 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
                 />
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() =>
+                    setShowPassword(!showPassword)
+                  }
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
 
+            {/* Confirm Password */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">Confirm Password</label>
+              <label className="text-sm font-medium text-slate-700">
+                Confirm Password
+              </label>
+
               <div className="relative">
                 <input
                   type={showConfirm ? 'text' : 'password'}
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) =>
+                    setConfirmPassword(e.target.value)
+                  }
                   placeholder="••••••••"
                   required
                   className="w-full h-11 px-4 pr-11 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
                 />
+
                 <button
                   type="button"
-                  onClick={() => setShowConfirm(!showConfirm)}
+                  onClick={() =>
+                    setShowConfirm(!showConfirm)
+                  }
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showConfirm ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
 
+            {/* Error */}
             {error && (
               <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
                 {error}
               </div>
             )}
 
+            {/* Create Account */}
             <button
               type="submit"
               disabled={loading}
@@ -146,14 +300,20 @@ export default function SignUpPage() {
 
           <div className="mt-6 pt-5 border-t border-slate-100 text-center text-sm text-slate-500">
             Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+            <Link
+              href="/login"
+              className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
+            >
               Sign in
             </Link>
           </div>
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">
-          <Link href="/" className="hover:text-slate-600 transition-colors">
+          <Link
+            href="/"
+            className="hover:text-slate-600 transition-colors"
+          >
             ← Back to ZorPDF
           </Link>
         </p>
