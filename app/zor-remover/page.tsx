@@ -21,7 +21,7 @@ type ProcessState = 'idle' | 'processing' | 'done' | 'error';
 
 /* Attractive studio portrait */
 const DEMO_IMAGE =
-  'https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1200';
+  'https://images.pexels.com/photos/33261955/pexels-photo-33261955.jpeg?auto=compress&cs=tinysrgb&w=1200';
 
 export default function ZorRemoverPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -87,6 +87,29 @@ export default function ZorRemoverPage() {
     setSelectedImage(null);
     setResultImage(null);
     setProcessState('idle');
+  };
+
+  const handleDownload = async () => {
+    if (!resultImage) return;
+
+    try {
+      // Fetch the blob so the download works reliably
+      // (a plain <a download> can fail to trigger for blob: URLs in some browsers)
+      const response = await fetch(resultImage);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = 'background-removed.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
   };
 
   return (
@@ -316,6 +339,7 @@ export default function ZorRemoverPage() {
 
                         <button
                           type="button"
+                          onClick={handleDownload}
                           className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                           <Download className="h-4 w-4" />
