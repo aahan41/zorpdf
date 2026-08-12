@@ -882,41 +882,48 @@ export default function UploadSection({
               {/* NON IMAGE FILES */}
 
               {toolId !== 'jpg-to-pdf' && (
-                <div className="space-y-2">
-                  {files.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-                        <FileText className="h-5 w-5 text-blue-600" />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-800">
-                          {item.file.name}
-                        </p>
-
-                        <p className="text-xs text-slate-400">
-                          {formatBytes(
-                            item.file.size
-                          )}
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeFile(
-                            item.id
-                          )
-                        }
-                        className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="space-y-2.5">
+                    {files.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-200 hover:shadow-md"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                          {index + 1}
+                        </div>
+
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                          <FileText className="h-5 w-5 text-blue-600" />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-slate-800">
+                            {item.file.name}
+                          </p>
+
+                          <p className="text-xs text-slate-400">
+                            {formatBytes(
+                              item.file.size
+                            )}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeFile(
+                              item.id
+                            )
+                          }
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                          aria-label="Remove file"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
