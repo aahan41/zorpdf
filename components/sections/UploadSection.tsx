@@ -1,43 +1,36 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Upload,
-  FileCheck,
-  X,
   AlertCircle,
-  RotateCcw,
+  ArrowRight,
   CheckCircle2,
   File,
-  Package,
-  Trash2,
-  ArrowRight,
-  Zap,
   FileText,
   Layers,
+  RotateCcw,
+  Trash2,
+  Upload,
+  Zap,
 } from 'lucide-react';
 
 import type { Tool, ToolId } from './ToolsGrid';
 import type { CompressionLevel } from '@/lib/imageCompression';
-import type { ImageProcessingResult } from '@/lib/pdfMerger';
+import type { ImageProcessingResult, MergeResult } from '@/lib/pdfMerger';
 
 import {
   loadImageInfo,
   mergeImagesToPdf,
-  type MergeResult,
 } from '@/lib/pdfMerger';
 
 import {
-  formatBytes,
   calculateCompressionPercentage,
   compressImage,
+  formatBytes,
 } from '@/lib/imageCompression';
 
 import { estimatePdfSize } from '@/lib/pdfEstimator';
-import { DownloadButton } from '@/components/ui/DownloadButton';
 import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
-import ImageReorderGrid from '@/components/ui/ImageReorderGrid';
 
 interface UploadSectionProps {
   toolId: ToolId;
@@ -67,9 +60,13 @@ interface FileItem {
 }
 
 const MAX_FILES = 100;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-const generateId = () =>
-  Math.random().toString(36).substring(2, 15);
+function createId(): string {
+  return `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
 
 export default function UploadSection({
   toolId,
@@ -80,180 +77,44 @@ export default function UploadSection({
   >('idle');
 
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-
   const [compressionLevel, setCompressionLevel] =
     useState<CompressionLevel>('balanced');
 
-  const [estimatedSize, setEstimatedSize] = useState<{
-    min: number;
-    max: number;
-  } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [loadingProgress, setLoadingProgress] = useState({
     loaded: 0,
     total: 0,
   });
 
+  const [estimatedSize, setEstimatedSize] = useState<{
+    min: number;
+    max: number;
+  } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /* ---------------------------------------------
-     LOAD IMAGE THUMBNAILS
-  --------------------------------------------- */
+  /*
+   * --------------------------------------------------
+   * HELPERS
+   * --------------------------------------------------
+   */
 
-  useEffect(() => {
-    if (
-      toolId === 'jpg-to-pdf' &&
-      state === 'loading' &&
-      files.some((file) => file.status === 'pending')
-    ) {
-      loadPendingThumbnails();
-    }
-  }, [files, state, toolId]);
-
-  const loadPendingThumbnails = async () => {
-    const pendingFiles = files.filter(
-      (file) => file.status === 'pending'
-    );
-
-    if (pendingFiles.length === 0) return;
-
-    for (let i = 0; i < pendingFiles.length; i++) {
-      const fileItem = pendingFiles[i];
-
-      try {
-        const info = await loadImageInfo(fileItem.file);
-
-        setFiles((prev) =>
-          prev.map((file) =>
-            file.id === fileItem.id
-              ? {
-                  ...file,
-                  status: 'ready',
-                  thumbnail: info.thumbnail,
-                  width: info.width,
-                  height: info.height,
-                }
-              : file
-          )
-        );
-
-        setLoadingProgress({
-          loaded: i + 1,
-          total: pendingFiles.length,
-        });
-      } catch (error) {
-        console.error('Failed to load thumbnail:', error);
-      }
-    }
-
-    setState('selected');
-  };
-
-  /* ---------------------------------------------
-     ADD FILES
-  --------------------------------------------- */
-
-  const addFiles = async (
-    newFiles: FileList | File[]
+  const updateFile = (
+    id: string,
+    changes: Partial<FileItem>
   ) => {
-    const fileArray = Array.from(newFiles);
-
-    const maxSize = 50 * 1024 * 1024;
-
-    if (files.length + fileArray.length > MAX_FILES) {
-      alert(`Maximum ${MAX_FILES} files allowed.`);
-      return;
-    }
-
-    const oversizedFiles = fileArray.filter(
-      (file) => file.size > maxSize
+    setFiles((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...changes,
+            }
+          : item
+      )
     );
-
-    if (oversizedFiles.length > 0) {
-      alert(
-        `Some files exceed 50MB limit: ${oversizedFiles
-          .map((file) => file.name)
-          .join(', ')}`
-      );
-      return;
-    }
-
-    const newFileItems: FileItem[] =
-      fileArray.map((file) => ({
-        id: generateId(),
-        file,
-        status: 'pending',
-        progress: 0,
-      }));
-
-    setFiles((prev) => [...prev, ...newFileItems]);
-
-    if (toolId === 'jpg-to-pdf') {
-      setState('loading');
-
-      setLoadingProgress({
-        loaded: 0,
-        total: newFileItems.length,
-      });
-
-      const allFiles = [
-        ...files.map((file) => file.file),
-        ...fileArray,
-      ];
-
-      const size = estimatePdfSize(
-        allFiles,
-        compressionLevel
-      );
-
-      setEstimatedSize({
-        min: size.minSize,
-        max: size.maxSize,
-      });
-    } else {
-      setState('selected');
-    }
   };
-
-  /* ---------------------------------------------
-     REMOVE FILE
-  --------------------------------------------- */
-
-  const removeFile = (id: string) => {
-    setFiles((prev) => {
-      const updated = prev.filter(
-        (file) => file.id !== id
-      );
-
-      if (updated.length === 0) {
-        setState('idle');
-        setEstimatedSize(null);
-      } else if (toolId === 'jpg-to-pdf') {
-        const remainingFiles = updated
-          .filter((file) => file.status === 'ready')
-          .map((file) => file.file);
-
-        if (remainingFiles.length > 0) {
-          const size = estimatePdfSize(
-            remainingFiles,
-            compressionLevel
-          );
-
-          setEstimatedSize({
-            min: size.minSize,
-            max: size.maxSize,
-          });
-        }
-      }
-
-      return updated;
-    });
-  };
-
-  /* ---------------------------------------------
-     CLEAR ALL
-  --------------------------------------------- */
 
   const clearAllFiles = () => {
     setFiles([]);
@@ -270,24 +131,220 @@ export default function UploadSection({
     }
   };
 
-  /* ---------------------------------------------
-     DRAG & DROP
-  --------------------------------------------- */
+  const removeFile = (id: string) => {
+    setFiles((current) => {
+      const next = current.filter(
+        (item) => item.id !== id
+      );
 
-  const handleDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-      setIsDragging(false);
-
-      if (event.dataTransfer.files.length > 0) {
-        addFiles(event.dataTransfer.files);
+      if (next.length === 0) {
+        setState('idle');
+        setEstimatedSize(null);
       }
-    },
-    [files, compressionLevel]
-  );
+
+      return next;
+    });
+  };
+
+  /*
+   * --------------------------------------------------
+   * LOAD IMAGE INFORMATION
+   * --------------------------------------------------
+   */
+
+  useEffect(() => {
+    if (toolId !== 'jpg-to-pdf') {
+      return;
+    }
+
+    const pendingFiles = files.filter(
+      (item) => item.status === 'pending'
+    );
+
+    if (pendingFiles.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadImages = async () => {
+      setState('loading');
+
+      setLoadingProgress({
+        loaded: 0,
+        total: pendingFiles.length,
+      });
+
+      for (let index = 0; index < pendingFiles.length; index++) {
+        const item = pendingFiles[index];
+
+        try {
+          const info = await loadImageInfo(item.file);
+
+          if (cancelled) {
+            return;
+          }
+
+          updateFile(item.id, {
+            status: 'ready',
+            thumbnail: info.thumbnail,
+            width: info.width,
+            height: info.height,
+          });
+        } catch (error) {
+          console.error(
+            'Could not load image:',
+            error
+          );
+
+          if (!cancelled) {
+            updateFile(item.id, {
+              status: 'error',
+              error: 'Could not read this image.',
+            });
+          }
+        }
+
+        if (!cancelled) {
+          setLoadingProgress({
+            loaded: index + 1,
+            total: pendingFiles.length,
+          });
+        }
+      }
+
+      if (!cancelled) {
+        setState('selected');
+      }
+    };
+
+    loadImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [files, toolId]);
+
+  /*
+   * --------------------------------------------------
+   * UPDATE ESTIMATED PDF SIZE
+   * --------------------------------------------------
+   */
+
+  useEffect(() => {
+    if (toolId !== 'jpg-to-pdf') {
+      return;
+    }
+
+    const readyFiles = files
+      .filter(
+        (item) => item.status === 'ready'
+      )
+      .map((item) => item.file);
+
+    if (readyFiles.length === 0) {
+      setEstimatedSize(null);
+      return;
+    }
+
+    try {
+      const estimate = estimatePdfSize(
+        readyFiles,
+        compressionLevel
+      );
+
+      setEstimatedSize({
+        min: estimate.minSize,
+        max: estimate.maxSize,
+      });
+    } catch (error) {
+      console.error(
+        'Could not estimate PDF size:',
+        error
+      );
+    }
+  }, [
+    files,
+    compressionLevel,
+    toolId,
+  ]);
+
+  /*
+   * --------------------------------------------------
+   * ADD FILES
+   * --------------------------------------------------
+   */
+
+  const addFiles = (
+    fileList: FileList | File[]
+  ) => {
+    const incoming = Array.from(fileList);
+
+    if (incoming.length === 0) {
+      return;
+    }
+
+    if (
+      files.length + incoming.length >
+      MAX_FILES
+    ) {
+      window.alert(
+        `You can upload a maximum of ${MAX_FILES} files.`
+      );
+      return;
+    }
+
+    const invalidSize = incoming.filter(
+      (file) => file.size > MAX_FILE_SIZE
+    );
+
+    if (invalidSize.length > 0) {
+      window.alert(
+        'Each file must be smaller than 50MB.'
+      );
+      return;
+    }
+
+    const newItems: FileItem[] =
+      incoming.map((file) => ({
+        id: createId(),
+        file,
+        status: 'pending',
+        progress: 0,
+      }));
+
+    setFiles((current) => [
+      ...current,
+      ...newItems,
+    ]);
+
+    if (toolId !== 'jpg-to-pdf') {
+      setState('selected');
+    }
+  };
+
+  /*
+   * --------------------------------------------------
+   * FILE INPUT
+   * --------------------------------------------------
+   */
+
+  const handleInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (event.target.files) {
+      addFiles(event.target.files);
+    }
+  };
+
+  /*
+   * --------------------------------------------------
+   * DRAG AND DROP
+   * --------------------------------------------------
+   */
 
   const handleDragOver = (
-    event: React.DragEvent
+    event: React.DragEvent<HTMLDivElement>
   ) => {
     event.preventDefault();
     setIsDragging(true);
@@ -297,1611 +354,904 @@ export default function UploadSection({
     setIsDragging(false);
   };
 
-  const handleInputChange = (
-    event: React.ChangeEvent<HTMLInputElement>
+  const handleDrop = (
+    event: React.DragEvent<HTMLDivElement>
   ) => {
-    if (
-      event.target.files &&
-      event.target.files.length > 0
-    ) {
-      addFiles(event.target.files);
+    event.preventDefault();
+    setIsDragging(false);
+
+    if (event.dataTransfer.files) {
+      addFiles(event.dataTransfer.files);
     }
   };
 
-  /* ---------------------------------------------
-     FILE STATUS
-  --------------------------------------------- */
+  /*
+   * --------------------------------------------------
+   * DOWNLOAD
+   * --------------------------------------------------
+   */
 
-  const updateFileProgress = (
-    id: string,
-    progress: number
+  const downloadResult = (
+    item: FileItem
   ) => {
-    setFiles((prev) =>
-      prev.map((file) =>
-        file.id === id
-          ? {
-              ...file,
-              progress,
-            }
-          : file
-      )
+    if (!item.result) {
+      return;
+    }
+
+    const url = URL.createObjectURL(
+      item.result.blob
     );
+
+    const anchor =
+      document.createElement('a');
+
+    anchor.href = url;
+    anchor.download =
+      item.result.filename;
+
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+
+    URL.revokeObjectURL(url);
   };
 
-  const updateFileStatus = (
-    id: string,
-    status: FileItem['status'],
-    result?: {
-      blob: Blob;
-      filename: string;
-    },
-    pdfResult?: MergeResult,
-    error?: string
-  ) => {
-    setFiles((prev) =>
-      prev.map((file) =>
-        file.id === id
-          ? {
-              ...file,
-              status,
-              result,
-              pdfResult,
-              error,
-            }
-          : file
-      )
+  /*
+   * --------------------------------------------------
+   * ZIP DOWNLOAD
+   * --------------------------------------------------
+   */
+
+  const downloadAllAsZip = async () => {
+    const completed = files.filter(
+      (item) =>
+        item.status === 'done' &&
+        item.result
     );
+
+    if (completed.length === 0) {
+      return;
+    }
+
+    try {
+      const JSZip =
+        (await import('jszip')).default;
+
+      const zip = new JSZip();
+
+      completed.forEach((item) => {
+        if (item.result) {
+          zip.file(
+            item.result.filename,
+            item.result.blob
+          );
+        }
+      });
+
+      const blob =
+        await zip.generateAsync({
+          type: 'blob',
+        });
+
+      const url =
+        URL.createObjectURL(blob);
+
+      const anchor =
+        document.createElement('a');
+
+      anchor.href = url;
+      anchor.download = `converted-files-${Date.now()}.zip`;
+
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(
+        'ZIP creation failed:',
+        error
+      );
+    }
   };
 
-  /* ---------------------------------------------
-     CONVERT / MERGE
-  --------------------------------------------- */
+  /*
+   * --------------------------------------------------
+   * CONVERT FILES
+   * --------------------------------------------------
+   */
 
-  const processFilesWithCompression = async () => {
-    if (files.length === 0) return;
+  const processFiles = async () => {
+    if (files.length === 0) {
+      return;
+    }
 
     setState('converting');
 
-    try {
-      /* JPG → PDF */
+    /*
+     * JPG TO PDF
+     */
 
-      if (toolId === 'jpg-to-pdf') {
-        const readyFiles = files.filter(
-          (file) =>
-            file.status === 'ready' &&
-            file.thumbnail
-        );
+    if (toolId === 'jpg-to-pdf') {
+      const readyItems = files.filter(
+        (item) =>
+          item.status === 'ready' &&
+          item.thumbnail
+      );
 
-        if (readyFiles.length === 0) {
-          throw new Error(
-            'No valid images ready for conversion'
-          );
-        }
+      if (readyItems.length === 0) {
+        setState('error');
+        return;
+      }
 
+      readyItems.forEach((item) => {
+        updateFile(item.id, {
+          status: 'converting',
+          progress: 0,
+        });
+      });
+
+      try {
         const imageData: ImageProcessingResult[] =
-          readyFiles.map((file) => ({
-            id: file.id,
-            file: file.file,
-            thumbnail: file.thumbnail!,
-            width: file.width!,
-            height: file.height!,
+          readyItems.map((item) => ({
+            id: item.id,
+            file: item.file,
+            thumbnail: item.thumbnail!,
+            width: item.width!,
+            height: item.height!,
           }));
 
-        readyFiles.forEach((file) => {
-          updateFileStatus(
-            file.id,
-            'converting'
+        const result =
+          await mergeImagesToPdf(
+            imageData,
+            compressionLevel,
+            (
+              current,
+              total,
+              imageId
+            ) => {
+              const progress =
+                total > 0
+                  ? Math.round(
+                      (current / total) *
+                        100
+                    )
+                  : 0;
+
+              updateFile(imageId, {
+                progress,
+              });
+            }
           );
-        });
 
-        const result = await mergeImagesToPdf(
-          imageData,
-          compressionLevel,
-          (current, total, imageId) => {
-            const progress = Math.round(
-              (current / total) * 100
-            );
-
-            updateFileProgress(
-              imageId,
-              progress
-            );
-          }
-        );
-
-        updateFileStatus(
-          readyFiles[0].id,
-          'done',
-          {
+        updateFile(readyItems[0].id, {
+          status: 'done',
+          progress: 100,
+          result: {
             blob: result.blob,
             filename: result.filename,
           },
-          result
-        );
+          pdfResult: result,
+        });
 
-        readyFiles
+        readyItems
           .slice(1)
-          .forEach((file) => {
-            updateFileStatus(
-              file.id,
-              'done'
-            );
+          .forEach((item) => {
+            updateFile(item.id, {
+              status: 'done',
+              progress: 100,
+              pdfResult: result,
+            });
           });
 
-      /* PNG → JPG */
+        setState('done');
+      } catch (error) {
+        console.error(
+          'JPG to PDF failed:',
+          error
+        );
 
-      } else if (toolId === 'png-to-jpg') {
-        for (const fileItem of files) {
-          updateFileStatus(
-            fileItem.id,
-            'converting'
-          );
+        readyItems.forEach((item) => {
+          updateFile(item.id, {
+            status: 'error',
+            error:
+              'PDF creation failed.',
+          });
+        });
 
-          updateFileProgress(
-            fileItem.id,
-            20
-          );
+        setState('error');
+      }
 
-          try {
-            const compressed =
-              await compressImage(
-                fileItem.file,
-                compressionLevel
-              );
+      return;
+    }
 
-            const baseName =
-              fileItem.file.name.replace(
-                /\.[^.]+$/,
-                ''
-              );
+    /*
+     * PNG TO JPG
+     */
 
-            updateFileProgress(
-              fileItem.id,
-              100
+    if (toolId === 'png-to-jpg') {
+      let failed = false;
+
+      for (const item of files) {
+        updateFile(item.id, {
+          status: 'converting',
+          progress: 10,
+        });
+
+        try {
+          const compressed =
+            await compressImage(
+              item.file,
+              compressionLevel
             );
 
-            updateFileStatus(
-              fileItem.id,
-              'done',
-              {
-                blob: compressed.blob,
-                filename: `${baseName}.jpg`,
-              }
-            );
-          } catch (error: any) {
-            updateFileStatus(
-              fileItem.id,
-              'error',
-              undefined,
-              undefined,
-              error?.message ||
-                'Conversion failed'
-            );
-          }
-        }
-
-      /* Other tools */
-
-      } else {
-        for (const fileItem of files) {
-          updateFileStatus(
-            fileItem.id,
-            'error',
-            undefined,
-            undefined,
-            'This conversion is not yet implemented. Try JPG to PDF, PNG to JPG, or Image Compressor.'
+          updateFile(item.id, {
+            status: 'done',
+            progress: 100,
+            result: {
+              blob: compressed.blob,
+              filename:
+                item.file.name.replace(
+                  /\.[^/.]+$/,
+                  ''
+                ) + '.jpg',
+            },
+          });
+        } catch (error) {
+          console.error(
+            'PNG to JPG failed:',
+            error
           );
+
+          failed = true;
+
+          updateFile(item.id, {
+            status: 'error',
+            error:
+              'Image conversion failed.',
+          });
         }
       }
 
-      setState('done');
-
-    } catch (error: any) {
-      setState('error');
-
-      files.forEach((file) => {
-        updateFileStatus(
-          file.id,
-          'error',
-          undefined,
-          undefined,
-          error?.message ||
-            'Conversion failed'
-        );
-      });
-    }
-  };
-
-  /* ---------------------------------------------
-     DOWNLOAD
-  --------------------------------------------- */
-
-  const downloadFile = (
-    fileItem: FileItem
-  ) => {
-    if (!fileItem.result) return;
-
-    const url = URL.createObjectURL(
-      fileItem.result.blob
-    );
-
-    const anchor =
-      document.createElement('a');
-
-    anchor.href = url;
-    anchor.download =
-      fileItem.result.filename;
-
-    document.body.appendChild(anchor);
-    anchor.click();
-
-    document.body.removeChild(anchor);
-
-    URL.revokeObjectURL(url);
-  };
-
-  const downloadAllAsZip = async () => {
-    const completedFiles =
-      files.filter(
-        (file) =>
-          file.status === 'done' &&
-          file.result
+      setState(
+        failed ? 'error' : 'done'
       );
 
-    if (completedFiles.length === 0)
       return;
+    }
 
-    const JSZip =
-      (await import('jszip')).default;
+    /*
+     * OTHER TOOLS
+     *
+     * Keep the UI working while the
+     * individual converter is implemented.
+     */
 
-    const zip = new JSZip();
-
-    completedFiles.forEach((file) => {
-      if (file.result) {
-        zip.file(
-          file.result.filename,
-          file.result.blob
-        );
-      }
+    files.forEach((item) => {
+      updateFile(item.id, {
+        status: 'error',
+        error:
+          'This converter is not implemented yet.',
+      });
     });
 
-    const zipBlob =
-      await zip.generateAsync({
-        type: 'blob',
-      });
-
-    const url =
-      URL.createObjectURL(zipBlob);
-
-    const anchor =
-      document.createElement('a');
-
-    anchor.href = url;
-    anchor.download =
-      `converted-files-${Date.now()}.zip`;
-
-    document.body.appendChild(anchor);
-    anchor.click();
-
-    document.body.removeChild(anchor);
-
-    URL.revokeObjectURL(url);
+    setState('error');
   };
 
-  /* ---------------------------------------------
-     VALUES
-  --------------------------------------------- */
+  /*
+   * --------------------------------------------------
+   * DERIVED VALUES
+   * --------------------------------------------------
+   */
 
   const totalSize = files.reduce(
-    (sum, file) =>
-      sum + file.file.size,
+    (total, item) =>
+      total + item.file.size,
     0
   );
 
-  const completedCount =
+  const readyImages =
     files.filter(
-      (file) => file.status === 'done'
-    ).length;
-
-  const hasErrors =
-    files.some(
-      (file) => file.status === 'error'
+      (item) =>
+        item.status === 'ready' &&
+        item.thumbnail
     );
 
-  const mergedPdf =
-    files.find(
-      (file) => file.pdfResult
-    )?.pdfResult;
+  const completedFiles =
+    files.filter(
+      (item) =>
+        item.status === 'done' &&
+        item.result
+    );
 
-  const totalSavings = mergedPdf
-    ? calculateCompressionPercentage(
-        mergedPdf.originalSize,
-        mergedPdf.pdfSize
-      )
-    : 0;
+  const pdfResult = files.find(
+    (item) => item.pdfResult
+  )?.pdfResult;
 
-  const readyImages: ImageProcessingResult[] =
-    files
-      .filter(
-        (file) =>
-          file.status === 'ready' &&
-          file.thumbnail
-      )
-      .map((file) => ({
-        id: file.id,
-        file: file.file,
-        thumbnail: file.thumbnail!,
-        width: file.width!,
-        height: file.height!,
-      }));
+  const savings =
+    pdfResult &&
+    pdfResult.originalSize > 0
+      ? calculateCompressionPercentage(
+          pdfResult.originalSize,
+          pdfResult.pdfSize
+        )
+      : 0;
 
-  /* ---------------------------------------------
-     UI
-  --------------------------------------------- */
+  /*
+   * --------------------------------------------------
+   * RENDER
+   * --------------------------------------------------
+   */
 
   return (
     <div className="w-full">
-      <AnimatePresence mode="wait">
-
-        {/* =========================================
-            UPLOAD / SELECTED
-        ========================================= */}
-
-        {(state === 'idle' ||
-          state === 'loading' ||
-          state === 'selected') && (
-          <motion.div
-            key="upload"
-            initial={{
-              opacity: 0,
-              y: 8,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{
-              opacity: 0,
-              y: -8,
-            }}
-            transition={{
-              duration: 0.25,
-            }}
-          >
-
-            {/* Compression */}
-            {toolId === 'jpg-to-pdf' &&
-              files.length > 0 && (
-                <motion.div
-                  initial={{
-                    opacity: 0,
-                    y: -8,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  className="mb-5"
-                >
-                  <CompressionLevelSelector
-                    value={compressionLevel}
-                    onChange={(level) => {
-                      setCompressionLevel(level);
-
-                      if (
-                        readyImages.length > 0
-                      ) {
-                        const size =
-                          estimatePdfSize(
-                            readyImages.map(
-                              (image) =>
-                                image.file
-                            ),
-                            level
-                          );
-
-                        setEstimatedSize({
-                          min: size.minSize,
-                          max: size.maxSize,
-                        });
-                      }
-                    }}
-                  />
-                </motion.div>
-              )}
-
-            {/* Main upload card */}
-
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() =>
-                fileInputRef.current?.click()
-              }
-              className={`
-                relative overflow-hidden
-                rounded-2xl
-                border
-                transition-all duration-200
-                cursor-pointer
-                bg-white
-                ${
-                  isDragging
-                    ? 'border-blue-500 bg-blue-50/50 shadow-lg shadow-blue-100'
-                    : 'border-slate-200 hover:border-blue-400 hover:shadow-md'
-                }
-              `}
-            >
-
-              <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
-
-                {/* Upload icon */}
-
-                <motion.div
-                  animate={{
-                    scale: isDragging
-                      ? 1.08
-                      : 1,
-                  }}
-                  className="
-                    w-16 h-16
-                    rounded-2xl
-                    bg-blue-50
-                    border border-blue-100
-                    flex items-center
-                    justify-center
-                    mb-5
-                  "
-                >
-                  <Upload
-                    className="
-                      w-8 h-8
-                      text-blue-600
-                    "
-                  />
-                </motion.div>
-
-                <h3 className="
-                  text-slate-900
-                  text-xl
-                  font-bold
-                  mb-2
-                ">
-                  {isDragging
-                    ? 'Drop your files here'
-                    : 'Upload your files'}
-                </h3>
-
-                <p className="
-                  text-slate-500
-                  text-sm
-                  mb-6
-                ">
-                  {toolId === 'jpg-to-pdf'
-                    ? `Upload up to ${MAX_FILES} images and combine them into one PDF`
-                    : 'Drag & drop your files here, or browse from your device'}
-                </p>
-
-                {/* Browse button */}
-
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  className="
-                    inline-flex
-                    items-center
-                    justify-center
-                    gap-2
-                    px-7 py-3
-                    rounded-lg
-                    bg-blue-600
-                    hover:bg-blue-700
-                    text-white
-                    text-sm
-                    font-semibold
-                    transition-colors
-                    shadow-sm
-                  "
-                >
-                  <Upload className="w-4 h-4" />
-                  UPLOAD FILES
-                </button>
-
-                <p className="
-                  text-slate-400
-                  text-xs
-                  mt-4
-                ">
-                  Supported: {tool.accept}
-                  {' '}• Max 50MB per file
-                </p>
-
+      {state === 'idle' ||
+      state === 'loading' ||
+      state === 'selected' ? (
+        <div>
+          {toolId === 'jpg-to-pdf' &&
+            files.length > 0 && (
+              <div className="mb-6">
+                <CompressionLevelSelector
+                  value={compressionLevel}
+                  onChange={
+                    setCompressionLevel
+                  }
+                />
               </div>
+            )}
+
+          {/* UPLOAD CARD */}
+
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`
+              rounded-2xl
+              border
+              bg-white
+              transition-all
+              ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-50 shadow-lg'
+                  : 'border-slate-200 shadow-sm'
+              }
+            `}
+          >
+            <div className="py-12 px-6 text-center">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50">
+                <Upload className="h-8 w-8 text-blue-600" />
+              </div>
+
+              <h2 className="text-xl font-bold text-slate-900">
+                {isDragging
+                  ? 'Drop files here'
+                  : 'Upload Files'}
+              </h2>
+
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+                Drag & drop your files here or
+                choose files from your device.
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  fileInputRef.current?.click()
+                }
+                className="
+                  mt-6
+                  inline-flex
+                  items-center
+                  gap-2
+                  rounded-lg
+                  bg-blue-600
+                  px-7
+                  py-3
+                  text-sm
+                  font-bold
+                  text-white
+                  shadow-sm
+                  transition
+                  hover:bg-blue-700
+                "
+              >
+                <Upload className="h-4 w-4" />
+                UPLOAD FILES
+              </button>
+
+              <p className="mt-4 text-xs text-slate-400">
+                Supported: {tool.accept} •
+                Max 50MB per file
+              </p>
 
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
                 accept={tool.accept}
+                onChange={
+                  handleInputChange
+                }
                 className="hidden"
-                onChange={handleInputChange}
               />
-
             </div>
+          </div>
 
-            {/* =====================================
-                FILES
-            ===================================== */}
+          {/* LOADING */}
 
-            {files.length > 0 && (
-              <motion.div
-                initial={{
-                  opacity: 0,
-                  y: 8,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                className="mt-5"
-              >
+          {state === 'loading' && (
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
 
-                {/* Loading */}
+                <span className="text-sm text-blue-700">
+                  Loading images...
+                  {' '}
+                  {loadingProgress.loaded}
+                  {' / '}
+                  {loadingProgress.total}
+                </span>
+              </div>
+            </div>
+          )}
 
-                {state === 'loading' &&
-                  toolId === 'jpg-to-pdf' && (
-                    <div className="
-                      mb-4
-                      px-4 py-3
-                      rounded-xl
-                      bg-blue-50
-                      border border-blue-100
-                    ">
-                      <div className="
-                        flex items-center
-                        gap-3
-                      ">
-                        <div className="
-                          w-7 h-7
-                          rounded-full
-                          border-2
-                          border-blue-100
-                          border-t-blue-600
-                          animate-spin
-                        />
+          {/* FILE LIST */}
 
-                        <span className="
-                          text-slate-600
-                          text-sm
-                        ">
-                          Loading thumbnails...
-                          {' '}
-                          {loadingProgress.loaded}
-                          {' '}
-                          of
-                          {' '}
-                          {loadingProgress.total}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+          {files.length > 0 && (
+            <div className="mt-5">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <File className="h-5 w-5 text-blue-600" />
 
-                {/* JPG thumbnails */}
+                  <span className="text-sm font-semibold text-slate-800">
+                    {files.length} file
+                    {files.length !== 1
+                      ? 's'
+                      : ''}{' '}
+                    selected
+                  </span>
 
-                {toolId === 'jpg-to-pdf' &&
-                  readyImages.length > 0 && (
-                    <div className="mb-5">
-                      <ImageReorderGrid
-                        images={readyImages}
-                        onReorder={(reordered) => {
-                          const reorderedMap =
-                            new Map(
-                              reordered.map(
-                                (image, index) => [
-                                  image.id,
-                                  index,
-                                ]
-                              )
-                            );
-
-                          setFiles((prev) =>
-                            [
-                              ...prev,
-                            ].sort(
-                              (a, b) => {
-                                const aIndex =
-                                  reorderedMap.get(
-                                    a.id
-                                  ) ??
-                                  prev.indexOf(a);
-
-                                const bIndex =
-                                  reorderedMap.get(
-                                    b.id
-                                  ) ??
-                                  prev.indexOf(b);
-
-                                return (
-                                  aIndex -
-                                  bIndex
-                                );
-                              }
-                            )
-                          );
-                        }}
-                        onRemove={removeFile}
-                      />
-                    </div>
-                  )}
-
-                {/* Other file types */}
-
-                {toolId !== 'jpg-to-pdf' && (
-                  <div className="
-                    flex items-center
-                    justify-between
-                    mb-4
-                    px-1
-                  ">
-
-                    <div className="
-                      flex items-center
-                      gap-2
-                    ">
-                      <Package className="
-                        w-5 h-5
-                        text-blue-600
-                      " />
-
-                      <span className="
-                        text-slate-800
-                        font-semibold
-                        text-sm
-                      ">
-                        {files.length}
-                        {' '}
-                        file
-                        {files.length !== 1
-                          ? 's'
-                          : ''}
-                        {' '}selected
-                      </span>
-
-                      <span className="
-                        text-slate-400
-                        text-sm
-                      ">
-                        ({formatBytes(totalSize)})
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={clearAllFiles}
-                      className="
-                        text-slate-400
-                        hover:text-red-500
-                        transition-colors
-                        flex items-center
-                        gap-1.5
-                        text-sm
-                      "
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Clear all
-                    </button>
-
-                  </div>
-                )}
-
-                {/* Estimated size */}
-
-                {toolId === 'jpg-to-pdf' &&
-                  estimatedSize &&
-                  readyImages.length > 0 && (
-                    <motion.div
-                      initial={{
-                        opacity: 0,
-                        y: -5,
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                      }}
-                      className="
-                        mb-4
-                        px-4 py-3
-                        rounded-xl
-                        bg-slate-50
-                        border border-slate-200
-                      "
-                    >
-                      <div className="
-                        flex items-center
-                        justify-between
-                        flex-wrap
-                        gap-4
-                      ">
-
-                        <div className="
-                          flex items-center
-                          gap-4
-                        ">
-                          <div>
-                            <p className="
-                              text-slate-400
-                              text-xs
-                            ">
-                              Original
-                            </p>
-
-                            <p className="
-                              text-slate-800
-                              font-semibold
-                              text-sm
-                            ">
-                              {formatBytes(
-                                totalSize
-                              )}
-                            </p>
-                          </div>
-
-                          <ArrowRight className="
-                            w-4 h-4
-                            text-slate-300
-                          " />
-
-                          <div>
-                            <p className="
-                              text-slate-400
-                              text-xs
-                            ">
-                              Est. PDF
-                            </p>
-
-                            <p className="
-                              text-green-600
-                              font-semibold
-                              text-sm
-                            ">
-                              {formatBytes(
-                                estimatedSize.min
-                              )}
-                              {' - '}
-                              {formatBytes(
-                                estimatedSize.max
-                              )}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="
-                          flex items-center
-                          gap-2
-                          bg-green-50
-                          border border-green-100
-                          px-3 py-1.5
-                          rounded-lg
-                        ">
-                          <Zap className="
-                            w-4 h-4
-                            text-green-600
-                          " />
-
-                          <span className="
-                            text-green-700
-                            text-xs
-                            font-semibold
-                          ">
-                            ~
-                            {Math.round(
-                              70 -
-                              (estimatedSize.min /
-                                totalSize) *
-                                100
-                            )}
-                            % smaller
-                          </span>
-                        </div>
-
-                      </div>
-                    </motion.div>
-                  )}
-
-                {/* JPG clear button */}
-
-                {toolId === 'jpg-to-pdf' &&
-                  readyImages.length > 0 && (
-                    <div className="
-                      flex justify-end
-                      mb-4
-                    ">
-                      <button
-                        type="button"
-                        onClick={clearAllFiles}
-                        className="
-                          inline-flex
-                          items-center
-                          gap-1.5
-                          px-3 py-2
-                          rounded-lg
-                          text-slate-500
-                          hover:text-red-500
-                          hover:bg-red-50
-                          text-sm
-                          transition-colors
-                        "
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        CLEAR
-                      </button>
-                    </div>
-                  )}
-
-                {/* Main action */}
+                  <span className="text-xs text-slate-400">
+                    ({formatBytes(totalSize)})
+                  </span>
+                </div>
 
                 <button
                   type="button"
-                  onClick={processFilesWithCompression}
-                  disabled={
-                    files.length === 0 ||
-                    (toolId === 'jpg-to-pdf' &&
-                      readyImages.length === 0)
-                  }
-                  className="
-                    w-full
-                    py-3.5
-                    rounded-xl
-                    bg-blue-600
-                    hover:bg-blue-700
-                    disabled:bg-slate-300
-                    disabled:cursor-not-allowed
-                    text-white
-                    text-sm
-                    font-bold
-                    shadow-sm
-                    transition-colors
-                    flex items-center
-                    justify-center
-                    gap-2
-                  "
+                  onClick={clearAllFiles}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-600"
                 >
-                  {toolId === 'jpg-to-pdf' ? (
-                    <>
-                      <Layers className="w-5 h-5" />
-                      COMBINE
-                      <span className="
-                        min-w-6 h-6
-                        px-1.5
-                        rounded-full
-                        bg-white/20
-                        flex items-center
-                        justify-center
-                        text-xs
-                      ">
-                        {readyImages.length}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <FileCheck className="w-5 h-5" />
-                      Convert to {tool.to}
-                    </>
-                  )}
+                  <Trash2 className="h-4 w-4" />
+                  CLEAR
                 </button>
+              </div>
 
-              </motion.div>
-            )}
-
-          </motion.div>
-        )}
-
-        {/* =========================================
-            CONVERTING
-        ========================================= */}
-
-        {state === 'converting' && (
-          <motion.div
-            key="converting"
-            initial={{
-              opacity: 0,
-              scale: 0.97,
-            }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
-            className="py-10"
-          >
-
-            <div className="
-              text-center
-              mb-7
-            ">
-              <div className="
-                w-16 h-16
-                mx-auto
-                mb-4
-                rounded-full
-                border-4
-                border-blue-100
-                border-t-blue-600
-                animate-spin
-              />
-
-              <p className="
-                text-slate-900
-                font-bold
-                text-xl
-                mb-2
-              ">
-                {toolId === 'jpg-to-pdf'
-                  ? 'Merging images into PDF...'
-                  : 'Converting files...'}
-              </p>
+              {/* IMAGE THUMBNAILS */}
 
               {toolId === 'jpg-to-pdf' &&
-                mergedPdf === undefined && (
-                  <p className="
-                    text-slate-500
-                    text-sm
-                  ">
-                    Processing
-                    {' '}
-                    {
-                      files.filter(
-                        (file) =>
-                          file.status ===
-                          'converting'
-                      ).length
-                    }
-                    {' '}of{' '}
-                    {
-                      files.filter(
-                        (file) =>
-                          file.status !==
-                          'pending'
-                      ).length
-                    }
-                    {' '}pages
-                  </p>
+                readyImages.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                      {readyImages.map(
+                        (item, index) => (
+                          <div
+                            key={item.id}
+                            className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white"
+                          >
+                            <div className="aspect-[4/3] bg-slate-100">
+                              <img
+                                src={
+                                  item.thumbnail
+                                }
+                                alt={
+                                  item.file.name
+                                }
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+
+                            <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold text-slate-700 shadow">
+                              {index + 1}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeFile(
+                                  item.id
+                                )
+                              }
+                              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-500 shadow transition hover:bg-red-50 hover:text-red-600"
+                              aria-label="Remove file"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+
+                            <div className="truncate px-3 py-2 text-xs text-slate-500">
+                              {item.file.name}
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
                 )}
-            </div>
 
-            {toolId === 'jpg-to-pdf' && (
-              <div className="
-                space-y-2
-                max-h-72
-                overflow-y-auto
-              ">
-                {files
-                  .filter(
-                    (file) =>
-                      file.status ===
-                        'converting' ||
-                      file.progress > 0
-                  )
-                  .map((fileItem) => (
+              {/* NON IMAGE FILES */}
+
+              {toolId !== 'jpg-to-pdf' && (
+                <div className="space-y-2">
+                  {files.map((item) => (
                     <div
-                      key={fileItem.id}
-                      className="
-                        flex items-center
-                        gap-3
-                        p-3
-                        rounded-xl
-                        bg-slate-50
-                        border border-slate-100
-                      "
+                      key={item.id}
+                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
                     >
-
-                      <div className="
-                        w-16 h-16
-                        rounded-lg
-                        bg-slate-100
-                        flex items-center
-                        justify-center
-                        flex-shrink-0
-                        overflow-hidden
-                      ">
-                        {fileItem.thumbnail ? (
-                          <img
-                            src={
-                              fileItem.thumbnail
-                            }
-                            alt=""
-                            className="
-                              w-full h-full
-                              object-cover
-                            "
-                          />
-                        ) : (
-                          <File className="
-                            w-6 h-6
-                            text-blue-500
-                          " />
-                        )}
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                        <FileText className="h-5 w-5 text-blue-600" />
                       </div>
 
-                      <div className="
-                        flex-1
-                        min-w-0
-                      ">
-                        <div className="
-                          flex items-center
-                          justify-between
-                          mb-1.5
-                        ">
-                          <p className="
-                            text-slate-900
-                            text-sm
-                            font-medium
-                            truncate
-                          ">
-                            {fileItem.file.name}
-                          </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-800">
+                          {item.file.name}
+                        </p>
 
-                          <span className="
-                            text-blue-600
-                            text-xs
-                            font-medium
-                          ">
-                            {fileItem.progress}%
-                          </span>
-                        </div>
-
-                        <div className="
-                          w-full
-                          bg-slate-200
-                          rounded-full
-                          h-1.5
-                          overflow-hidden
-                        ">
-                          <motion.div
-                            className="
-                              h-full
-                              bg-blue-600
-                              rounded-full
-                            "
-                            initial={{
-                              width: 0,
-                            }}
-                            animate={{
-                              width: `${fileItem.progress}%`,
-                            }}
-                          />
-                        </div>
+                        <p className="text-xs text-slate-400">
+                          {formatBytes(
+                            item.file.size
+                          )}
+                        </p>
                       </div>
 
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeFile(
+                            item.id
+                          )
+                        }
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
-              </div>
-            )}
+                </div>
+              )}
 
-          </motion.div>
-        )}
-
-        {/* =========================================
-            DONE
-        ========================================= */}
-
-        {state === 'done' && (
-          <motion.div
-            key="done"
-            initial={{
-              opacity: 0,
-              scale: 0.95,
-            }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
-            className="py-8"
-          >
-
-            <div className="
-              text-center
-              mb-8
-            ">
-
-              <motion.div
-                initial={{
-                  scale: 0,
-                }}
-                animate={{
-                  scale: 1,
-                }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 300,
-                  damping: 20,
-                }}
-                className="
-                  w-20 h-20
-                  rounded-full
-                  bg-green-100
-                  border border-green-200
-                  flex items-center
-                  justify-center
-                  mb-6
-                  mx-auto
-                "
-              >
-                <CheckCircle2 className="
-                  w-10 h-10
-                  text-green-600
-                " />
-              </motion.div>
-
-              <h3 className="
-                text-slate-900
-                font-bold
-                text-2xl
-                mb-2
-              ">
-                {toolId === 'jpg-to-pdf'
-                  ? 'PDF Created!'
-                  : 'Conversion Complete!'}
-              </h3>
+              {/* ESTIMATE */}
 
               {toolId === 'jpg-to-pdf' &&
-                mergedPdf && (
-                  <motion.div
-                    initial={{
-                      opacity: 0,
-                      y: 10,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                    }}
-                    className="
-                      mt-4
-                      p-5
-                      rounded-xl
-                      bg-green-50
-                      border border-green-100
-                      inline-block
-                    "
-                  >
-                    <div className="
-                      flex items-center
-                      justify-center
-                      gap-3
-                      text-sm
-                      mb-3
-                    ">
-                      <div className="text-center">
-                        <p className="
-                          text-slate-500
-                          text-xs
-                          mb-1
-                        ">
-                          Images
-                        </p>
-                        <p className="
-                          text-slate-900
-                          font-bold
-                          text-lg
-                        ">
-                          {mergedPdf.pageCount}
-                        </p>
+                estimatedSize &&
+                readyImages.length > 0 && (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <p className="text-xs text-slate-400">
+                            Original
+                          </p>
+
+                          <p className="text-sm font-bold text-slate-800">
+                            {formatBytes(
+                              totalSize
+                            )}
+                          </p>
+                        </div>
+
+                        <ArrowRight className="h-4 w-4 text-slate-300" />
+
+                        <div>
+                          <p className="text-xs text-slate-400">
+                            Estimated PDF
+                          </p>
+
+                          <p className="text-sm font-bold text-green-600">
+                            {formatBytes(
+                              estimatedSize.min
+                            )}
+                            {' - '}
+                            {formatBytes(
+                              estimatedSize.max
+                            )}
+                          </p>
+                        </div>
                       </div>
 
-                      <ArrowRight className="
-                        w-5 h-5
-                        text-green-500
-                      " />
+                      <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2">
+                        <Zap className="h-4 w-4 text-green-600" />
 
-                      <div className="text-center">
-                        <p className="
-                          text-slate-500
-                          text-xs
-                          mb-1
-                        ">
-                          PDF Pages
-                        </p>
-                        <p className="
-                          text-slate-900
-                          font-bold
-                          text-lg
-                        ">
-                          {mergedPdf.pageCount}
-                        </p>
+                        <span className="text-xs font-semibold text-green-700">
+                          Smart Compression
+                        </span>
                       </div>
                     </div>
-
-                    <div className="
-                      flex items-center
-                      justify-center
-                      gap-3
-                      text-sm
-                    ">
-                      <div className="text-center">
-                        <p className="
-                          text-slate-500
-                          text-xs
-                          mb-1
-                        ">
-                          Original Size
-                        </p>
-                        <p className="
-                          text-slate-900
-                          font-semibold
-                        ">
-                          {formatBytes(
-                            mergedPdf.originalSize
-                          )}
-                        </p>
-                      </div>
-
-                      <ArrowRight className="
-                        w-5 h-5
-                        text-green-500
-                      " />
-
-                      <div className="text-center">
-                        <p className="
-                          text-slate-500
-                          text-xs
-                          mb-1
-                        ">
-                          PDF Size
-                        </p>
-                        <p className="
-                          text-green-600
-                          font-bold
-                        ">
-                          {formatBytes(
-                            mergedPdf.pdfSize
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="
-                        ml-2
-                        px-3 py-1.5
-                        bg-green-200
-                        rounded-lg
-                      ">
-                        <p className="
-                          text-green-700
-                          font-bold
-                        ">
-                          {totalSavings}% saved
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
+                  </div>
                 )}
 
-              {!hasErrors &&
-                toolId !== 'jpg-to-pdf' && (
-                  <p className="
-                    text-slate-500
-                    text-sm
-                    mt-4
-                  ">
-                    {completedCount} file
-                    {completedCount !== 1
-                      ? 's'
-                      : ''}{' '}
-                    converted successfully
-                  </p>
-                )}
-            </div>
-
-            {/* PDF result */}
-
-            {toolId === 'jpg-to-pdf' &&
-            mergedPdf ? (
-              <div className="
-                space-y-3
-                mb-8
-              ">
-                <div className="
-                  flex items-center
-                  gap-3
-                  p-4
-                  rounded-xl
-                  bg-slate-50
-                  border border-slate-100
-                ">
-
-                  <div className="
-                    w-12 h-12
-                    rounded-lg
-                    bg-red-100
-                    flex items-center
-                    justify-center
-                    flex-shrink-0
-                  ">
-                    <FileText className="
-                      w-6 h-6
-                      text-red-500
-                    " />
-                  </div>
-
-                  <div className="
-                    flex-1
-                    min-w-0
-                  ">
-                    <p className="
-                      text-slate-900
-                      text-sm
-                      font-medium
-                      truncate
-                    ">
-                      {mergedPdf.filename}
-                    </p>
-
-                    <p className="
-                      text-slate-500
-                      text-xs
-                    ">
-                      {mergedPdf.pageCount}
-                      {' '}
-                      page
-                      {mergedPdf.pageCount !== 1
-                        ? 's'
-                        : ''}
-                      {' | '}
-                      {formatBytes(
-                        mergedPdf.pdfSize
-                      )}
-                    </p>
-                  </div>
-
-                  <DownloadButton
-                    onClick={() => {
-                      const fileItem =
-                        files.find(
-                          (file) =>
-                            file.pdfResult
-                        );
-
-                      if (fileItem) {
-                        downloadFile(
-                          fileItem
-                        );
-                      }
-                    }}
-                    size="md"
-                    text="Download"
-                  />
-
-                </div>
-              </div>
-            ) : (
-              <div className="
-                space-y-2
-                max-h-64
-                overflow-y-auto
-                pr-2
-                mb-8
-              ">
-                {files.map((fileItem) => (
-                  <div
-                    key={fileItem.id}
-                    className={`
-                      flex items-center
-                      gap-3
-                      p-3
-                      rounded-xl
-                      border
-                      ${
-                        fileItem.status ===
-                        'done'
-                          ? 'bg-slate-50 border-slate-100'
-                          : 'bg-red-50 border-red-100'
-                      }
-                    `}
-                  >
-
-                    <div
-                      className={`
-                        w-10 h-10
-                        rounded-lg
-                        flex items-center
-                        justify-center
-                        flex-shrink-0
-                        ${
-                          fileItem.status ===
-                          'done'
-                            ? 'bg-green-100'
-                            : 'bg-red-100'
-                        }
-                      `}
-                    >
-                      {fileItem.status ===
-                      'done' ? (
-                        <CheckCircle2 className="
-                          w-5 h-5
-                          text-green-600
-                        " />
-                      ) : (
-                        <AlertCircle className="
-                          w-5 h-5
-                          text-red-500
-                        " />
-                      )}
-                    </div>
-
-                    <div className="
-                      flex-1
-                      min-w-0
-                    ">
-                      <p className="
-                        text-slate-900
-                        text-sm
-                        font-medium
-                        truncate
-                      ">
-                        {fileItem.result
-                          ?.filename ||
-                          fileItem.file.name}
-                      </p>
-
-                      <p className="
-                        text-slate-500
-                        text-xs
-                      ">
-                        {fileItem.result
-                          ? formatBytes(
-                              fileItem
-                                .result
-                                .blob
-                                .size
-                            )
-                          : fileItem.error ||
-                            'Failed'}
-                      </p>
-                    </div>
-
-                    {fileItem.status ===
-                      'done' &&
-                      fileItem.result && (
-                        <DownloadButton
-                          onClick={() =>
-                            downloadFile(
-                              fileItem
-                            )
-                          }
-                          size="sm"
-                          text="Download"
-                        />
-                      )}
-
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Bottom buttons */}
-
-            <div className="
-              flex flex-col
-              gap-3
-            ">
-              {completedCount > 1 &&
-                toolId !== 'jpg-to-pdf' && (
-                  <DownloadButton
-                    onClick={
-                      downloadAllAsZip
-                    }
-                    text="Download All as ZIP"
-                    size="md"
-                    fullWidth
-                  />
-                )}
+              {/* COMBINE / CONVERT */}
 
               <button
                 type="button"
-                onClick={clearAllFiles}
+                onClick={processFiles}
+                disabled={
+                  files.length === 0 ||
+                  (toolId === 'jpg-to-pdf' &&
+                    readyImages.length === 0)
+                }
                 className="
+                  mt-4
+                  flex
                   w-full
-                  py-3.5
-                  rounded-xl
-                  text-sm
-                  font-semibold
-                  text-slate-600
-                  hover:text-slate-900
-                  bg-slate-100
-                  hover:bg-slate-200
-                  border border-slate-200
-                  flex items-center
+                  items-center
                   justify-center
                   gap-2
-                  transition-all
+                  rounded-xl
+                  bg-blue-600
+                  py-3.5
+                  text-sm
+                  font-bold
+                  text-white
+                  shadow-sm
+                  transition
+                  hover:bg-blue-700
+                  disabled:cursor-not-allowed
+                  disabled:bg-slate-300
                 "
               >
-                <RotateCcw className="w-4 h-4" />
-                Convert More
+                {toolId === 'jpg-to-pdf' ? (
+                  <>
+                    <Layers className="h-5 w-5" />
+                    COMBINE
+                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white/20 px-1.5 text-xs">
+                      {readyImages.length}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-5 w-5" />
+                    Convert to {tool.to}
+                  </>
+                )}
               </button>
             </div>
+          )}
+        </div>
+      ) : null}
 
-          </motion.div>
-        )}
+      {/* CONVERTING */}
 
-        {/* =========================================
-            ERROR
-        ========================================= */}
+      {state === 'converting' && (
+        <div className="py-16 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 animate-spin items-center justify-center rounded-full border-4 border-blue-100 border-t-blue-600">
+            <span />
+          </div>
 
-        {state === 'error' && (
-          <motion.div
-            key="error"
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            className="py-10 text-center"
-          >
-            <div className="
-              w-16 h-16
-              mx-auto mb-4
-              rounded-full
-              bg-red-50
-              border border-red-100
-              flex items-center
-              justify-center
-            ">
-              <AlertCircle className="
-                w-8 h-8
-                text-red-500
-              " />
+          <h2 className="text-xl font-bold text-slate-900">
+            {toolId === 'jpg-to-pdf'
+              ? 'Creating your PDF...'
+              : 'Converting your files...'}
+          </h2>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Please wait while your files are
+            being processed.
+          </p>
+        </div>
+      )}
+
+      {/* DONE */}
+
+      {state === 'done' && (
+        <div className="py-8">
+          <div className="text-center">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-50">
+              <CheckCircle2 className="h-10 w-10 text-green-600" />
             </div>
 
-            <h3 className="
-              text-slate-900
-              font-bold
-              text-xl
-              mb-2
-            ">
-              Something went wrong
-            </h3>
+            <h2 className="mt-5 text-2xl font-bold text-slate-900">
+              {toolId === 'jpg-to-pdf'
+                ? 'PDF Created!'
+                : 'Conversion Complete!'}
+            </h2>
 
-            <p className="
-              text-slate-500
-              text-sm
-              mb-6
-            ">
-              Please try again with your files.
+            <p className="mt-2 text-sm text-slate-500">
+              Your file is ready to download.
             </p>
+          </div>
 
-            <button
-              type="button"
-              onClick={clearAllFiles}
-              className="
-                inline-flex
-                items-center
-                gap-2
-                px-6 py-3
-                rounded-lg
-                bg-blue-600
-                hover:bg-blue-700
-                text-white
-                text-sm
-                font-semibold
-              "
-            >
-              <RotateCcw className="w-4 h-4" />
-              Try Again
-            </button>
-          </motion.div>
-        )}
+          {/* PDF RESULT */}
 
-      </AnimatePresence>
+          {pdfResult && (
+            <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50">
+                  <FileText className="h-6 w-6 text-red-500" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {pdfResult.filename}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-400">
+                    {pdfResult.pageCount}{' '}
+                    page
+                    {pdfResult.pageCount !== 1
+                      ? 's'
+                      : ''}{' '}
+                    •{' '}
+                    {formatBytes(
+                      pdfResult.pdfSize
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                <div className="rounded-xl bg-slate-50 p-3 text-center">
+                  <p className="text-xs text-slate-400">
+                    Original
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {formatBytes(
+                      pdfResult.originalSize
+                    )}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-3 text-center">
+                  <p className="text-xs text-slate-400">
+                    PDF
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {formatBytes(
+                      pdfResult.pdfSize
+                    )}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-green-50 p-3 text-center">
+                  <p className="text-xs text-green-600">
+                    Saved
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-green-700">
+                    {savings}%
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const resultFile =
+                    files.find(
+                      (item) =>
+                        item.result
+                    );
+
+                  if (resultFile) {
+                    downloadResult(
+                      resultFile
+                    );
+                  }
+                }}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700"
+              >
+                Download PDF
+              </button>
+            </div>
+          )}
+
+          {/* OTHER RESULTS */}
+
+          {!pdfResult &&
+            completedFiles.length > 0 && (
+              <div className="mx-auto mt-8 max-w-xl space-y-3">
+                {completedFiles.map(
+                  (item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4"
+                    >
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-green-50">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-800">
+                          {
+                            item
+                              .result
+                              ?.filename
+                          }
+                        </p>
+
+                        <p className="text-xs text-slate-400">
+                          {item.result
+                            ? formatBytes(
+                                item
+                                  .result
+                                  .blob
+                                  .size
+                              )
+                            : ''}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadResult(
+                            item
+                          )
+                        }
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-700"
+                      >
+                        Download
+                      </button>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
+          {/* DOWNLOAD ZIP */}
+
+          {completedFiles.length > 1 &&
+            !pdfResult && (
+              <button
+                type="button"
+                onClick={downloadAllAsZip}
+                className="mx-auto mt-4 flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Download All as ZIP
+              </button>
+            )}
+
+          {/* RESET */}
+
+          <button
+            type="button"
+            onClick={clearAllFiles}
+            className="mx-auto mt-4 flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Convert More
+          </button>
+        </div>
+      )}
+
+      {/* ERROR */}
+
+      {state === 'error' && (
+        <div className="py-12 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+            <AlertCircle className="h-8 w-8 text-red-500" />
+          </div>
+
+          <h2 className="mt-5 text-xl font-bold text-slate-900">
+            Something went wrong
+          </h2>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Please try again with your files.
+          </p>
+
+          <button
+            type="button"
+            onClick={clearAllFiles}
+            className="mx-auto mt-6 flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Try Again
+          </button>
+        </div>
+      )}
     </div>
   );
 }
