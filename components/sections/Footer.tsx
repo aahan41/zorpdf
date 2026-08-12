@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import {
   Zap,
   Globe,
@@ -46,8 +47,8 @@ const footerColumns = [
   {
     title: 'Company',
     links: [
-      { label: 'About Us', href: '#' },
-      { label: 'Contact Us', href: '#' },
+      { label: 'About Us', href: '/about' },
+      { label: 'Contact Us', href: '/contact' },
     ],
   },
 ];
@@ -105,16 +106,28 @@ export default function Footer() {
                 {col.title}
               </h4>
               <ul className="space-y-2.5">
-                {col.links.map((link) => (
-                  <li key={link.label}>
-                    <button
-                      onClick={() => handleLinkClick(link.href)}
-                      className="text-slate-500 hover:text-blue-600 text-sm transition-colors text-left"
-                    >
-                      {link.label}
-                    </button>
-                  </li>
-                ))}
+                {col.links.map((link) => {
+                  const isRoute = link.href.startsWith('/') && !link.href.startsWith('/#');
+                  return (
+                    <li key={link.label}>
+                      {isRoute ? (
+                        <Link
+                          href={link.href}
+                          className="text-slate-500 hover:text-blue-600 text-sm transition-colors text-left"
+                        >
+                          {link.label}
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => handleLinkClick(link.href)}
+                          className="text-slate-500 hover:text-blue-600 text-sm transition-colors text-left"
+                        >
+                          {link.label}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
