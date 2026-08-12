@@ -72,13 +72,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="relative mt-12 overflow-hidden bg-gradient-to-b from-white via-blue-50/40 to-blue-50/70">
-      {/* Soft background accents — matching hero section */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-blue-100/40 blur-3xl" />
-        <div className="absolute top-1/4 right-1/4 w-[350px] h-[350px] rounded-full bg-blue-50 blur-2xl" />
-      </div>
-
+    <footer className="relative mt-12 overflow-hidden bg-blue-50">
       <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 pt-14 pb-8">
         {/* Top: Brand + Link Columns */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-8 mb-10">
@@ -145,7 +139,7 @@ export default function Footer() {
         <div className="flex flex-col lg:flex-row lg:items-center gap-6">
           {/* Left: Language + Social */}
           <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start lg:flex-shrink-0">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 text-slate-700 hover:border-blue-200 hover:text-blue-700 transition-colors text-sm whitespace-nowrap">
+            <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-blue-100 text-slate-700 hover:border-blue-200 hover:text-blue-700 transition-colors text-sm whitespace-nowrap">
               <Globe className="w-4 h-4 text-blue-600" />
               English
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -157,7 +151,7 @@ export default function Footer() {
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
                 aria-label="Facebook"
-                className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
               >
                 <Facebook className="w-4 h-4" />
               </motion.a>
@@ -166,7 +160,7 @@ export default function Footer() {
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
                 aria-label="Instagram"
-                className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
               >
                 <Instagram className="w-4 h-4" />
               </motion.a>
@@ -175,20 +169,20 @@ export default function Footer() {
 
           {/* Center: Stats + Google Play Badge — single line, never wraps */}
           <div className="flex-1 min-w-0 overflow-x-auto">
-            <div className="flex items-center justify-center lg:justify-center gap-6 flex-nowrap w-max mx-auto">
+            <div className="flex items-center justify-center gap-4 sm:gap-6 flex-nowrap w-max mx-auto">
               {stats.map((stat) => (
                 <div key={stat.label} className="flex flex-col items-center text-center flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mb-1.5">
-                    <stat.icon className="w-4 h-4 text-blue-600" strokeWidth={1.5} />
+                  <div className="w-7 h-7 rounded-full bg-white border border-blue-100 flex items-center justify-center mb-1">
+                    <stat.icon className="w-3.5 h-3.5 text-blue-600" strokeWidth={1.5} />
                   </div>
-                  <span className="text-slate-900 font-bold text-sm leading-tight whitespace-nowrap">{stat.value}</span>
-                  <span className="text-slate-500 text-[11px] leading-tight mt-0.5 whitespace-nowrap">{stat.label}</span>
+                  <span className="text-slate-900 font-bold text-xs sm:text-sm leading-tight whitespace-nowrap">{stat.value}</span>
+                  <span className="text-slate-500 text-[10px] leading-tight mt-0.5 whitespace-nowrap">{stat.label}</span>
                 </div>
               ))}
 
               <a
                 href="#"
-                className="flex items-center gap-2.5 px-4 py-2 rounded-lg bg-blue-50 border border-blue-100 hover:border-blue-200 transition-colors whitespace-nowrap flex-shrink-0"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-blue-100 hover:border-blue-200 transition-colors whitespace-nowrap flex-shrink-0"
               >
                 <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
                   <Play className="w-3 h-3 text-white fill-white ml-0.5" />
