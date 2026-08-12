@@ -142,9 +142,9 @@ export default function Footer() {
         <div className="border-t border-blue-100 mb-7" />
 
         {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 items-center gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6">
           {/* Left: Language + Social */}
-          <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start">
+          <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start lg:flex-shrink-0">
             <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 text-slate-700 hover:border-blue-200 hover:text-blue-700 transition-colors text-sm whitespace-nowrap">
               <Globe className="w-4 h-4 text-blue-600" />
               English
@@ -173,36 +173,36 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Center: Stats + Google Play Badge */}
-          <div className="flex items-center justify-center gap-6 flex-wrap">
-            <div className="flex items-center gap-6 flex-wrap justify-center">
+          {/* Center: Stats + Google Play Badge — single line, never wraps */}
+          <div className="flex-1 min-w-0 overflow-x-auto">
+            <div className="flex items-center justify-center lg:justify-center gap-6 flex-nowrap w-max mx-auto">
               {stats.map((stat) => (
-                <div key={stat.label} className="flex flex-col items-center text-center">
+                <div key={stat.label} className="flex flex-col items-center text-center flex-shrink-0">
                   <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mb-1.5">
                     <stat.icon className="w-4 h-4 text-blue-600" strokeWidth={1.5} />
                   </div>
-                  <span className="text-slate-900 font-bold text-sm leading-tight">{stat.value}</span>
-                  <span className="text-slate-500 text-[11px] leading-tight mt-0.5">{stat.label}</span>
+                  <span className="text-slate-900 font-bold text-sm leading-tight whitespace-nowrap">{stat.value}</span>
+                  <span className="text-slate-500 text-[11px] leading-tight mt-0.5 whitespace-nowrap">{stat.label}</span>
                 </div>
               ))}
-            </div>
 
-            <a
-              href="#"
-              className="flex items-center gap-2.5 px-4 py-2 rounded-lg bg-blue-50 border border-blue-100 hover:border-blue-200 transition-colors whitespace-nowrap"
-            >
-              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-                <Play className="w-3 h-3 text-white fill-white ml-0.5" />
-              </div>
-              <div className="flex flex-col leading-tight">
-                <span className="text-slate-500 text-[9px] uppercase tracking-wide">Get it on</span>
-                <span className="text-slate-900 text-sm font-semibold">Google Play</span>
-              </div>
-            </a>
+              <a
+                href="#"
+                className="flex items-center gap-2.5 px-4 py-2 rounded-lg bg-blue-50 border border-blue-100 hover:border-blue-200 transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
+                  <Play className="w-3 h-3 text-white fill-white ml-0.5" />
+                </div>
+                <div className="flex flex-col leading-tight">
+                  <span className="text-slate-500 text-[9px] uppercase tracking-wide">Get it on</span>
+                  <span className="text-slate-900 text-sm font-semibold">Google Play</span>
+                </div>
+              </a>
+            </div>
           </div>
 
           {/* Right: Copyright */}
-          <p className="text-slate-400 text-xs text-center lg:text-right whitespace-nowrap">
+          <p className="text-slate-400 text-xs text-center lg:text-right whitespace-nowrap lg:flex-shrink-0">
             &copy; 2026 ZorPDF. All Rights Reserved.
           </p>
         </div>
