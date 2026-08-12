@@ -8,10 +8,6 @@ import {
   ChevronDown,
   Facebook,
   Instagram,
-  Clock,
-  Lock,
-  Star,
-  Infinity as InfinityIcon,
   Play,
 } from 'lucide-react';
 
@@ -21,7 +17,6 @@ const footerColumns = [
     links: [
       { label: 'Home', href: '/' },
       { label: 'Features', href: '/#features' },
-      { label: 'Tools', href: '/#tools' },
       { label: 'FAQ', href: '/#faq' },
     ],
   },
@@ -51,13 +46,6 @@ const footerColumns = [
       { label: 'Contact Us', href: '/contact' },
     ],
   },
-];
-
-const stats = [
-  { icon: Clock, value: '< 3s', label: 'Avg. Conversion Time' },
-  { icon: Lock, value: '256-bit', label: 'SSL Encryption' },
-  { icon: Star, value: '4.9/5', label: 'User Rating' },
-  { icon: InfinityIcon, value: 'Unlimited', label: 'Daily Conversions' },
 ];
 
 export default function Footer() {
@@ -97,6 +85,12 @@ export default function Footer() {
             <p className="text-slate-500 text-sm leading-relaxed max-w-[240px]">
               Fast, secure and professional PDF tools for everyday document conversion.
             </p>
+            <a
+              href="mailto:support@zorpdf.com"
+              className="inline-block text-blue-600 hover:text-blue-700 text-sm font-medium mt-3 transition-colors"
+            >
+              support@zorpdf.com
+            </a>
           </div>
 
           {/* Five Link Columns */}
@@ -165,19 +159,6 @@ export default function Footer() {
             >
               <Instagram className="w-4 h-4" />
             </motion.a>
-          </div>
-
-          {/* Stat Blocks */}
-          <div className="flex items-center gap-6 flex-wrap">
-            {stats.map((stat) => (
-              <div key={stat.label} className="flex flex-col items-center text-center">
-                <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mb-1.5">
-                  <stat.icon className="w-4 h-4 text-blue-600" strokeWidth={1.5} />
-                </div>
-                <span className="text-slate-900 font-bold text-sm leading-tight">{stat.value}</span>
-                <span className="text-slate-500 text-[11px] leading-tight mt-0.5">{stat.label}</span>
-              </div>
-            ))}
           </div>
 
           {/* Google Play Badge */}
