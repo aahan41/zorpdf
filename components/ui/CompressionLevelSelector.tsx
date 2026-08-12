@@ -55,8 +55,20 @@ export default function CompressionLevelSelector({
   onChange,
 }: CompressionLevelSelectorProps) {
   return (
-    <div className="space-y-3">
-      <label className="text-white font-medium text-sm">Compression Level</label>
+    <div className="w-full">
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <label className="text-slate-700 font-semibold text-sm">
+          Compression Level
+        </label>
+
+        <span className="text-xs text-slate-400">
+          Choose your preferred quality
+        </span>
+      </div>
+
+      {/* Options */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {compressionOptions.map((option) => {
           const isSelected = value === option.id;
@@ -65,47 +77,106 @@ export default function CompressionLevelSelector({
           return (
             <motion.button
               key={option.id}
+              type="button"
               onClick={() => onChange(option.id)}
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ y: -2 }}
               whileTap={{ scale: 0.98 }}
-              className={`relative p-4 rounded-xl border transition-all text-left ${
-                isSelected
-                  ? 'bg-blue-600/20 border-blue-500/50 shadow-lg shadow-blue-900/20'
-                  : 'bg-slate-800/30 border-white/10 hover:border-white/20 hover:bg-slate-800/50'
-              }`}
+              transition={{ duration: 0.15 }}
+              className={`
+                relative w-full text-left p-4 rounded-xl
+                border transition-all duration-200
+                ${
+                  isSelected
+                    ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 shadow-sm'
+                    : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                }
+              `}
             >
-              {option.recommended && !isSelected && (
-                <span className="absolute -top-2 -right-2 px-2 py-0.5 text-[10px] font-bold bg-blue-500 text-white rounded-full">
+
+              {/* Popular badge */}
+              {option.recommended && (
+                <span
+                  className={`
+                    absolute -top-2 right-3
+                    px-2 py-0.5 rounded-full
+                    text-[10px] font-bold
+                    ${
+                      isSelected
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-blue-100 text-blue-600'
+                    }
+                  `}
+                >
                   Popular
                 </span>
               )}
 
               <div className="flex items-start gap-3">
+
+                {/* Icon */}
                 <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    isSelected
-                      ? 'bg-blue-500/20 border border-blue-500/30'
-                      : 'bg-slate-700/50 border border-white/10'
-                  }`}
+                  className={`
+                    w-10 h-10 rounded-lg
+                    flex items-center justify-center
+                    flex-shrink-0 border
+                    ${
+                      isSelected
+                        ? 'bg-blue-100 border-blue-200'
+                        : 'bg-slate-50 border-slate-200'
+                    }
+                  `}
                 >
                   <Icon
-                    className={`w-5 h-5 ${isSelected ? 'text-blue-400' : 'text-slate-400'}`}
+                    className={`
+                      w-5 h-5
+                      ${
+                        isSelected
+                          ? 'text-blue-600'
+                          : 'text-slate-400'
+                      }
+                    `}
                   />
                 </div>
 
+                {/* Text */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+
+                  <div className="flex items-center gap-1.5">
                     <span
-                      className={`font-semibold text-sm ${
-                        isSelected ? 'text-white' : 'text-slate-300'
-                      }`}
+                      className={`
+                        text-sm font-semibold
+                        ${
+                          isSelected
+                            ? 'text-blue-700'
+                            : 'text-slate-700'
+                        }
+                      `}
                     >
                       {option.label}
                     </span>
-                    {isSelected && <Check className="w-4 h-4 text-blue-400" />}
+
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    )}
                   </div>
-                  <p className="text-slate-500 text-xs mt-1">{option.description}</p>
-                  <p className="text-slate-600 text-xs mt-1">{option.quality}</p>
+
+                  <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+                    {option.description}
+                  </p>
+
+                  <p
+                    className={`
+                      text-xs mt-1 font-medium
+                      ${
+                        isSelected
+                          ? 'text-blue-600'
+                          : 'text-slate-400'
+                      }
+                    `}
+                  >
+                    {option.quality}
+                  </p>
+
                 </div>
               </div>
             </motion.button>
@@ -113,14 +184,24 @@ export default function CompressionLevelSelector({
         })}
       </div>
 
-      {/* Info box */}
-      <div className="mt-4 p-3 rounded-lg bg-blue-900/10 border border-blue-500/20">
-        <p className="text-slate-400 text-xs leading-relaxed">
-          <strong className="text-blue-400">Smart Compression:</strong> Images are automatically
-          analyzed for document content. Text and details are preserved with adaptive quality
-          settings. Maximum dimensions: 1200px width for balanced mode.
-        </p>
+      {/* Smart Compression */}
+      <div className="mt-4 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200">
+        <div className="flex items-start gap-2">
+
+          <Zap className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+
+          <p className="text-slate-500 text-xs leading-relaxed">
+            <strong className="text-slate-700">
+              Smart Compression:
+            </strong>{' '}
+            Images are automatically analyzed for document content.
+            Text and details are preserved with adaptive quality
+            settings. Maximum dimensions: 1200px width for balanced mode.
+          </p>
+
+        </div>
       </div>
+
     </div>
   );
 }
