@@ -366,7 +366,14 @@ export default function UploadSection({
     event.preventDefault();
     setIsDragging(false);
 
-    if (event.dataTransfer.files) {
+    const isRealFileDrop =
+      event.dataTransfer.types?.includes('Files');
+
+    if (
+      isRealFileDrop &&
+      event.dataTransfer.files &&
+      event.dataTransfer.files.length > 0
+    ) {
       addFiles(event.dataTransfer.files);
     }
   };
@@ -909,7 +916,8 @@ export default function UploadSection({
                             <img
                               src={item.thumbnail}
                               alt={item.file.name}
-                              className="h-full w-full object-cover"
+                              draggable={false}
+                              className="h-full w-full select-none object-cover"
                             />
                           ) : (
                             <FileText className="h-8 w-8 text-blue-600" />
