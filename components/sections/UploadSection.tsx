@@ -840,6 +840,91 @@ export default function UploadSection({
     }
 
     /*
+     * PDF TO JPG
+     */
+
+    if (toolId === 'pdf-to-jpg') {
+      const { convertPdfToImages, createZipFromImages } =
+        await import('@/lib/pdfToImage');
+
+      let failed = false;
+
+      for (const item of files) {
+        updateFile(item.id, {
+          status: 'converting',
+          progress: 10,
+        });
+
+        try {
+          const { images, totalPages } =
+            await convertPdfToImages(
+              item.file,
+              (current, total) => {
+                const progress =
+                  total > 0
+                    ? Math.round(
+                        (current / total) * 100
+                      )
+                    : 0;
+
+                updateFile(item.id, {
+                  progress,
+                });
+              }
+            );
+
+          if (totalPages === 1) {
+            updateFile(item.id, {
+              status: 'done',
+              progress: 100,
+              result: {
+                blob: images[0].blob,
+                filename: images[0].filename,
+              },
+            });
+          } else {
+            const zipBlob =
+              await createZipFromImages(images);
+
+            const baseName =
+              item.file.name.replace(
+                /\.[^/.]+$/,
+                ''
+              );
+
+            updateFile(item.id, {
+              status: 'done',
+              progress: 100,
+              result: {
+                blob: zipBlob,
+                filename: `${baseName}-pages.zip`,
+              },
+            });
+          }
+        } catch (error) {
+          console.error(
+            'PDF to JPG failed:',
+            error
+          );
+
+          failed = true;
+
+          updateFile(item.id, {
+            status: 'error',
+            error:
+              'Could not convert this PDF.',
+          });
+        }
+      }
+
+      setState(
+        failed ? 'error' : 'done'
+      );
+
+      return;
+    }
+
+    /*
      * OTHER TOOLS
      *
      * Keep the UI working while the
