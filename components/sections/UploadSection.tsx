@@ -35,7 +35,6 @@ import {
 } from '@/lib/imageCompression';
 
 import { estimatePdfSize } from '@/lib/pdfEstimator';
-import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
 
 interface UploadSectionProps {
   toolId: ToolId;
@@ -718,18 +717,6 @@ export default function UploadSection({
       state === 'loading' ||
       state === 'selected' ? (
         <div>
-          {toolId === 'jpg-to-pdf' &&
-            files.length > 0 && (
-              <div className="mb-6">
-                <CompressionLevelSelector
-                  value={compressionLevel}
-                  onChange={
-                    setCompressionLevel
-                  }
-                />
-              </div>
-            )}
-
           {/* TOP ACTION BUTTONS */}
 
           <div className="flex items-center justify-center gap-3 mb-6">
