@@ -18,7 +18,7 @@ export default function ToolPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pt-20">
         <button
           onClick={() => router.push('/')}
           className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors mb-6 text-sm"
