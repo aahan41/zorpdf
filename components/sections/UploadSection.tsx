@@ -1013,7 +1013,7 @@ export default function UploadSection({
               className={`
                 flex-1
                 min-w-0
-                min-h-[220px]
+                min-h-[300px]
                 rounded-xl
                 flex
                 items-center
@@ -1041,7 +1041,7 @@ export default function UploadSection({
               `}
             >
               {files.length === 0 ? (
-                <p className="font-semibold text-blue-200">
+                <p className="text-lg font-semibold text-blue-200">
                   {isDragging
                     ? 'Drop files here'
                     : 'Drop Your Files Here'}
@@ -1115,54 +1115,50 @@ export default function UploadSection({
                             <FileText className="h-8 w-8 text-blue-600" />
                           )}
                         </div>
-                      </div>
 
-                      {toolId === 'jpg-to-pdf' && (
-                        <button
-                          type="button"
-                          onPointerDown={(event) =>
-                            event.stopPropagation()
-                          }
-                          onClick={() =>
-                            downloadSingleImageAsPdf(
-                              item
-                            )
-                          }
-                          disabled={
-                            downloadingId === item.id ||
-                            item.status !== 'ready'
-                          }
-                          className="
-                            mx-auto
-                            mt-2
-                            flex
-                            items-center
-                            justify-center
-                            gap-1.5
-                            rounded-full
-                            border
-                            border-slate-200
-                            bg-white
-                            px-4
-                            py-1.5
-                            text-[11px]
-                            font-bold
-                            text-slate-700
-                            shadow-sm
-                            transition
-                            hover:bg-slate-50
-                            disabled:cursor-not-allowed
-                            disabled:opacity-60
-                          "
-                        >
-                          {downloadingId === item.id ? (
-                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
-                          ) : (
-                            <ArrowDownCircle className="h-3.5 w-3.5" />
-                          )}
-                          DOWNLOAD
-                        </button>
-                      )}
+                        {toolId === 'jpg-to-pdf' && (
+                          <button
+                            type="button"
+                            onPointerDown={(event) =>
+                              event.stopPropagation()
+                            }
+                            onClick={() =>
+                              downloadSingleImageAsPdf(
+                                item
+                              )
+                            }
+                            disabled={
+                              downloadingId === item.id ||
+                              item.status !== 'ready'
+                            }
+                            className="
+                              flex
+                              w-full
+                              items-center
+                              justify-center
+                              gap-1.5
+                              border-t
+                              border-slate-200
+                              bg-slate-50
+                              py-2
+                              text-[11px]
+                              font-bold
+                              text-slate-700
+                              transition
+                              hover:bg-slate-100
+                              disabled:cursor-not-allowed
+                              disabled:opacity-60
+                            "
+                          >
+                            {downloadingId === item.id ? (
+                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                            ) : (
+                              <ArrowDownCircle className="h-3.5 w-3.5" />
+                            )}
+                            DOWNLOAD
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
