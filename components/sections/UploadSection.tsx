@@ -81,6 +81,18 @@ interface FileItem {
 const MAX_FILES = 100;
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
+/*
+ * --------------------------------------------------
+ * CAROUSEL
+ * --------------------------------------------------
+ *
+ * 5 cards:
+ *
+ * 170 * 5 = 850
+ * 12 * 4 = 48
+ * Total = 898px
+ */
+
 const CARD_WIDTH = 170;
 const CARD_GAP = 12;
 const VISIBLE_CARDS = 5;
@@ -89,7 +101,14 @@ const CAROUSEL_WIDTH =
   CARD_WIDTH * VISIBLE_CARDS +
   CARD_GAP * (VISIBLE_CARDS - 1);
 
-const DRAG_START_DISTANCE = 5;
+/*
+ * Drag tab/start threshold.
+ *
+ * Small enough for smooth dragging,
+ * large enough to prevent accidental drag
+ * when simply clicking a card.
+ */
+const DRAG_START_DISTANCE = 4;
 
 function createId(): string {
   return `${Date.now()}-${Math.random()
@@ -126,9 +145,9 @@ export default function UploadSection({
     useState<string | null>(null);
 
   /*
-   * ==================================================
-   * REORDER DRAG STATE
-   * ==================================================
+   * --------------------------------------------------
+   * CARD REORDER STATE
+   * --------------------------------------------------
    */
 
   const [reorderDragId, setReorderDragId] =
@@ -138,20 +157,15 @@ export default function UploadSection({
     useState<string | null>(null);
 
   /*
-   * IMPORTANT:
-   *
-   * id = original card being dragged.
-   *
-   * lastOverId = last card that pointer was over.
-   *
-   * id NEVER changes during drag.
+   * This ref keeps drag information outside React
+   * state so pointermove doesn't create renders.
    */
   const reorderSessionRef = useRef<{
     id: string;
     startX: number;
     startY: number;
     active: boolean;
-    lastOverId: string;
+    currentTargetId: string;
   } | null>(null);
 
   const fileInputRef =
@@ -161,9 +175,9 @@ export default function UploadSection({
     useRef<HTMLDivElement>(null);
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * HELPERS
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const updateFile = (
@@ -220,9 +234,9 @@ export default function UploadSection({
   };
 
   /*
-   * ==================================================
-   * REORDER FILES
-   * ==================================================
+   * --------------------------------------------------
+   * REORDER
+   * --------------------------------------------------
    */
 
   const reorderFiles = (
@@ -258,19 +272,26 @@ export default function UploadSection({
       const next = [...current];
 
       const [draggedItem] =
-        next.splice(
-          draggedIndex,
-          1
-        );
+        next.splice(draggedIndex, 1);
 
       /*
-       * Insert directly at target position.
+       * After removing the dragged card,
+       * calculate the target index again.
        *
-       * This makes the card position change
-       * immediately without animation.
+       * This avoids the common off-by-one jump
+       * while dragging left/right.
        */
+      const newTargetIndex =
+        next.findIndex(
+          (item) => item.id === targetId
+        );
+
+      if (newTargetIndex === -1) {
+        return current;
+      }
+
       next.splice(
-        targetIndex,
+        newTargetIndex,
         0,
         draggedItem
       );
@@ -280,23 +301,20 @@ export default function UploadSection({
   };
 
   /*
-   * ==================================================
-   * FULL CARD DRAG / REORDER
-   * ==================================================
+   * --------------------------------------------------
+   * FULL CARD POINTER DRAG
+   * --------------------------------------------------
    *
    * User can grab:
    *
    * - image
    * - header
-   * - card body
    * - empty card area
    *
-   * Only buttons are excluded.
+   * Whole card is draggable.
    *
-   * No blur.
-   * No opacity animation.
-   * No scale animation.
-   * No shadow animation.
+   * Only buttons are excluded.
+   * --------------------------------------------------
    */
 
   const startReorderDrag = (
@@ -314,8 +332,7 @@ export default function UploadSection({
     }
 
     /*
-     * Don't start reorder when clicking
-     * interactive controls.
+     * Never start reorder from buttons/inputs.
      */
     const target =
       event.target as HTMLElement | null;
@@ -329,9 +346,7 @@ export default function UploadSection({
     }
 
     /*
-     * Prevent browser native image/text
-     * dragging and scrolling while pointer
-     * is being used for reorder.
+     * Don't let browser start image/native drag.
      */
     event.preventDefault();
 
@@ -340,12 +355,16 @@ export default function UploadSection({
       startX: event.clientX,
       startY: event.clientY,
       active: false,
-      lastOverId: id,
+      currentTargetId: id,
     };
 
     reorderSessionRef.current =
       session;
 
+    /*
+     * Keep existing document styles so they
+     * can be restored after drag.
+     */
     const previousUserSelect =
       document.body.style.userSelect;
 
@@ -354,124 +373,6 @@ export default function UploadSection({
 
     const previousTouchAction =
       document.body.style.touchAction;
-
-    const handlePointerMove = (
-      moveEvent: globalThis.PointerEvent
-    ) => {
-      const currentSession =
-        reorderSessionRef.current;
-
-      if (!currentSession) {
-        return;
-      }
-
-      const deltaX =
-        moveEvent.clientX -
-        currentSession.startX;
-
-      const deltaY =
-        moveEvent.clientY -
-        currentSession.startY;
-
-      const distance = Math.sqrt(
-        deltaX * deltaX +
-          deltaY * deltaY
-      );
-
-      /*
-       * Don't activate drag for a simple click.
-       */
-      if (
-        !currentSession.active &&
-        distance < DRAG_START_DISTANCE
-      ) {
-        return;
-      }
-
-      /*
-       * Start actual reorder drag.
-       */
-      if (!currentSession.active) {
-        currentSession.active = true;
-
-        document.body.style.userSelect =
-          'none';
-
-        document.body.style.cursor =
-          'grabbing';
-
-        document.body.style.touchAction =
-          'none';
-
-        setReorderDragId(
-          currentSession.id
-        );
-
-        setReorderOverId(
-          currentSession.id
-        );
-      }
-
-      /*
-       * Find card under current pointer.
-       */
-      const element =
-        document.elementFromPoint(
-          moveEvent.clientX,
-          moveEvent.clientY
-        ) as HTMLElement | null;
-
-      const card =
-        element?.closest(
-          '[data-file-id]'
-        ) as HTMLElement | null;
-
-      const targetId =
-        card?.getAttribute(
-          'data-file-id'
-        );
-
-      /*
-       * Pointer is outside cards.
-       */
-      if (!targetId) {
-        return;
-      }
-
-      /*
-       * Same target as last event.
-       *
-       * Nothing needs to be updated.
-       *
-       * This is important for performance.
-       */
-      if (
-        targetId ===
-        currentSession.lastOverId
-      ) {
-        return;
-      }
-
-      /*
-       * IMPORTANT:
-       *
-       * Always use the ORIGINAL dragged ID.
-       *
-       * Never replace it with targetId.
-       */
-      reorderFiles(
-        currentSession.id,
-        targetId
-      );
-
-      /*
-       * Remember current hover target.
-       */
-      currentSession.lastOverId =
-        targetId;
-
-      setReorderOverId(targetId);
-    };
 
     const cleanup = () => {
       document.body.style.userSelect =
@@ -505,13 +406,117 @@ export default function UploadSection({
       setReorderOverId(null);
     };
 
+    const handlePointerMove = (
+      moveEvent: globalThis.PointerEvent
+    ) => {
+      const currentSession =
+        reorderSessionRef.current;
+
+      if (!currentSession) {
+        return;
+      }
+
+      const deltaX =
+        moveEvent.clientX -
+        currentSession.startX;
+
+      const deltaY =
+        moveEvent.clientY -
+        currentSession.startY;
+
+      const distance = Math.sqrt(
+        deltaX * deltaX +
+          deltaY * deltaY
+      );
+
+      /*
+       * Wait for actual movement.
+       */
+      if (
+        !currentSession.active &&
+        distance < DRAG_START_DISTANCE
+      ) {
+        return;
+      }
+
+      /*
+       * Activate drag once.
+       */
+      if (!currentSession.active) {
+        currentSession.active = true;
+
+        document.body.style.userSelect =
+          'none';
+
+        document.body.style.cursor =
+          'grabbing';
+
+        document.body.style.touchAction =
+          'none';
+
+        setReorderDragId(
+          currentSession.id
+        );
+
+        setReorderOverId(
+          currentSession.id
+        );
+      }
+
+      /*
+       * Find card under pointer.
+       */
+      const element =
+        document.elementFromPoint(
+          moveEvent.clientX,
+          moveEvent.clientY
+        ) as HTMLElement | null;
+
+      const card =
+        element?.closest(
+          '[data-file-id]'
+        ) as HTMLElement | null;
+
+      const targetId =
+        card?.getAttribute(
+          'data-file-id'
+        );
+
+      if (
+        !targetId ||
+        targetId ===
+          currentSession.currentTargetId
+      ) {
+        return;
+      }
+
+      /*
+       * Reorder only when crossing into
+       * another card.
+       *
+       * This keeps pointermove lightweight.
+       */
+      reorderFiles(
+        currentSession.id,
+        targetId
+      );
+
+      currentSession.currentTargetId =
+        targetId;
+
+      setReorderOverId(targetId);
+    };
+
     function handlePointerUp() {
       cleanup();
     }
 
     window.addEventListener(
       'pointermove',
-      handlePointerMove
+      handlePointerMove,
+      {
+        passive: false,
+      }
     );
 
     window.addEventListener(
@@ -526,9 +531,9 @@ export default function UploadSection({
   };
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * LOAD IMAGE INFORMATION
-   * ==================================================
+   * --------------------------------------------------
    */
 
   useEffect(() => {
@@ -617,9 +622,9 @@ export default function UploadSection({
   }, [files, toolId]);
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * ESTIMATED PDF SIZE
-   * ==================================================
+   * --------------------------------------------------
    */
 
   useEffect(() => {
@@ -665,9 +670,9 @@ export default function UploadSection({
   ]);
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * ADD FILES
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const addFiles = (
@@ -725,9 +730,9 @@ export default function UploadSection({
   };
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * INPUT
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const handleInputChange = (
@@ -741,9 +746,9 @@ export default function UploadSection({
   };
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * OUTER FILE DRAG & DROP
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const handleDragOver = (
@@ -788,9 +793,9 @@ export default function UploadSection({
   };
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * SINGLE IMAGE DOWNLOAD
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const downloadSingleImageAsPdf =
@@ -854,9 +859,9 @@ export default function UploadSection({
     };
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * NORMAL DOWNLOAD
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const downloadResult = (
@@ -891,9 +896,9 @@ export default function UploadSection({
   };
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * ZIP
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const downloadAllAsZip =
@@ -964,9 +969,9 @@ export default function UploadSection({
     };
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * PROCESS FILES
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const processFiles = async () => {
@@ -1306,9 +1311,9 @@ export default function UploadSection({
   };
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * DERIVED VALUES
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const totalSize =
@@ -1333,9 +1338,9 @@ export default function UploadSection({
     );
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * CAROUSEL NAVIGATION
-   * ==================================================
+   * --------------------------------------------------
    */
 
   const goPrev = () => {
@@ -1383,9 +1388,9 @@ export default function UploadSection({
       : 0;
 
   /*
-   * ==================================================
+   * --------------------------------------------------
    * RENDER
-   * ==================================================
+   * --------------------------------------------------
    */
 
   return (
@@ -1486,14 +1491,15 @@ export default function UploadSection({
             onDrop={handleDrop}
             className={`
               relative
-              rounded-2xl
+              mx-auto
+              w-full
               px-2
               py-3
               transition-all
               ${
                 files.length === 0 ||
                 isDragging
-                  ? 'min-h-[250px] border-2 border-dashed'
+                  ? 'max-w-[898px] min-h-[200px] rounded-2xl border-2 border-dashed'
                   : 'min-h-0'
               }
               ${
@@ -1505,10 +1511,12 @@ export default function UploadSection({
               }
             `}
           >
-            {/* EMPTY DROP AREA */}
+            {/* =======================================
+                EMPTY DROP AREA
+            ======================================== */}
 
             {files.length === 0 ? (
-              <div className="flex min-h-[230px] items-center justify-center">
+              <div className="flex min-h-[170px] items-center justify-center">
                 <p
                   className={`
                     text-base
@@ -1526,13 +1534,21 @@ export default function UploadSection({
                 </p>
               </div>
             ) : (
-              /*
-               * =====================================
-               * CAROUSEL
-               * =====================================
-               */
+              /* =====================================
+                 CAROUSEL
+              ===================================== */
 
-              <div className="relative flex w-full items-center justify-center">
+              <div
+                className="
+                  relative
+                  mx-auto
+                  flex
+                  w-full
+                  max-w-[982px]
+                  items-center
+                  justify-center
+                "
+              >
                 {/* LEFT ARROW */}
 
                 <button
@@ -1563,7 +1579,7 @@ export default function UploadSection({
                 </button>
 
                 {/* ===================================
-                    FIVE CARD VIEWPORT
+                    EXACT 5-CARD VIEWPORT
                 ==================================== */}
 
                 <div
@@ -1621,13 +1637,28 @@ export default function UploadSection({
                             select-none
                             touch-none
                             cursor-grab
+                            will-change-transform
                             ${
                               reorderDragId ===
                               item.id
-                                ? 'z-50 cursor-grabbing'
+                                ? 'z-50 scale-[1.025] cursor-grabbing'
+                                : ''
+                            }
+                            ${
+                              reorderOverId ===
+                                item.id &&
+                              reorderDragId !==
+                                item.id
+                                ? 'scale-[1.01]'
                                 : ''
                             }
                           `}
+                          style={{
+                            WebkitUserSelect:
+                              'none',
+                            WebkitTouchCallout:
+                              'none',
+                          }}
                         >
                           {/* CARD */}
 
@@ -1655,6 +1686,8 @@ export default function UploadSection({
                                 text-white
                               "
                             >
+                              {/* VISUAL GRIP ONLY */}
+
                               <div
                                 className="
                                   flex
@@ -2045,9 +2078,9 @@ export default function UploadSection({
         </div>
       ) : null}
 
-      {/* ==================================================
+      {/* ===========================================
           CONVERTING
-      ================================================== */}
+      =========================================== */}
 
       {state ===
         'converting' && (
@@ -2070,9 +2103,9 @@ export default function UploadSection({
         </div>
       )}
 
-      {/* ==================================================
+      {/* ===========================================
           DONE
-      ================================================== */}
+      =========================================== */}
 
       {state === 'done' && (
         <div className="py-8">
@@ -2340,9 +2373,9 @@ export default function UploadSection({
         </div>
       )}
 
-      {/* ==================================================
+      {/* ===========================================
           ERROR
-      ================================================== */}
+      =========================================== */}
 
       {state === 'error' && (
         <div className="py-12 text-center">
