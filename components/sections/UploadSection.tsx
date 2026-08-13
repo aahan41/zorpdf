@@ -970,14 +970,14 @@ export default function UploadSection({
 
   const goPrev = () => {
     scrollContainerRef.current?.scrollBy({
-      left: -190,
+      left: -225,
       behavior: 'smooth',
     });
   };
 
   const goNext = () => {
     scrollContainerRef.current?.scrollBy({
-      left: 190,
+      left: 225,
       behavior: 'smooth',
     });
   };
@@ -1150,7 +1150,7 @@ export default function UploadSection({
                         touchAction: 'none',
                       }}
                       className={`
-                        w-[170px]
+                        w-[205px]
                         shrink-0
                         cursor-grab
                         transition-all
@@ -1187,7 +1187,7 @@ export default function UploadSection({
                           <XCircle className="h-3.5 w-3.5" />
                         </button>
 
-                        <div className="flex h-24 w-full items-center justify-center bg-slate-100">
+                        <div className="flex h-28 w-full items-center justify-center bg-slate-100">
                           {toolId === 'jpg-to-pdf' &&
                           item.thumbnail ? (
                             <img
