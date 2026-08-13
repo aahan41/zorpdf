@@ -868,14 +868,14 @@ export default function UploadSection({
 
   const goPrev = () => {
     scrollContainerRef.current?.scrollBy({
-      left: -240,
+      left: -190,
       behavior: 'smooth',
     });
   };
 
   const goNext = () => {
     scrollContainerRef.current?.scrollBy({
-      left: 240,
+      left: 190,
       behavior: 'smooth',
     });
   };
@@ -996,7 +996,7 @@ export default function UploadSection({
               className={`
                 flex-1
                 min-w-0
-                min-h-[280px]
+                min-h-[220px]
                 rounded-xl
                 border-2
                 border-dashed
@@ -1034,7 +1034,7 @@ export default function UploadSection({
                       key={item.id}
                       data-file-id={item.id}
                       className={`
-                        w-[220px]
+                        w-[170px]
                         shrink-0
                         transition-opacity
                         ${
@@ -1051,20 +1051,20 @@ export default function UploadSection({
                       `}
                     >
                       <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                        <div className="flex items-center gap-1 truncate bg-slate-800/90 px-1.5 py-1.5 text-[11px] font-semibold text-white">
-                          <span
-                            onPointerDown={(event) =>
-                              startReorderDrag(
-                                event,
-                                item.id
-                              )
-                            }
-                            style={{
-                              touchAction: 'none',
-                            }}
-                            className="flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white active:cursor-grabbing"
-                          >
-                            <GripVertical className="h-4 w-4" />
+                        <div
+                          onPointerDown={(event) =>
+                            startReorderDrag(
+                              event,
+                              item.id
+                            )
+                          }
+                          style={{
+                            touchAction: 'none',
+                          }}
+                          className="flex cursor-grab items-center gap-1 truncate bg-slate-800/90 px-1.5 py-1.5 text-[11px] font-semibold text-white active:cursor-grabbing"
+                        >
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center text-white/70">
+                            <GripVertical className="h-3.5 w-3.5" />
                           </span>
 
                           <span className="truncate">
@@ -1074,16 +1074,19 @@ export default function UploadSection({
 
                         <button
                           type="button"
+                          onPointerDown={(event) =>
+                            event.stopPropagation()
+                          }
                           onClick={() =>
                             removeFile(item.id)
                           }
                           aria-label="Remove file"
-                          className="absolute right-1.5 top-9 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow transition hover:bg-red-50 hover:text-red-600"
+                          className="absolute right-1.5 top-8 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow transition hover:bg-red-50 hover:text-red-600"
                         >
                           <XCircle className="h-3.5 w-3.5" />
                         </button>
 
-                        <div className="flex h-44 w-full items-center justify-center bg-slate-100">
+                        <div className="flex h-24 w-full items-center justify-center bg-slate-100">
                           {toolId === 'jpg-to-pdf' &&
                           item.thumbnail ? (
                             <img
@@ -1093,7 +1096,7 @@ export default function UploadSection({
                               className="h-full w-full select-none object-cover"
                             />
                           ) : (
-                            <FileText className="h-12 w-12 text-blue-600" />
+                            <FileText className="h-8 w-8 text-blue-600" />
                           )}
                         </div>
                       </div>
