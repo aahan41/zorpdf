@@ -3,14 +3,19 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
+  ArrowDownCircle,
   ArrowRight,
+  ArrowUpCircle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   File,
   FileText,
   Layers,
   RotateCcw,
   Trash2,
   Upload,
+  XCircle,
   Zap,
 } from 'lucide-react';
 
@@ -91,6 +96,8 @@ export default function UploadSection({
     min: number;
     max: number;
   } | null>(null);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -664,6 +671,28 @@ export default function UploadSection({
         item.result
     );
 
+  useEffect(() => {
+    if (currentIndex > files.length - 1) {
+      setCurrentIndex(
+        files.length > 0 ? files.length - 1 : 0
+      );
+    }
+  }, [files.length, currentIndex]);
+
+  const goPrev = () => {
+    setCurrentIndex((index) =>
+      index > 0 ? index - 1 : index
+    );
+  };
+
+  const goNext = () => {
+    setCurrentIndex((index) =>
+      index < files.length - 1 ? index + 1 : index
+    );
+  };
+
+  const currentFile = files[currentIndex];
+
   const pdfResult = files.find(
     (item) => item.pdfResult
   )?.pdfResult;
@@ -701,83 +730,195 @@ export default function UploadSection({
               </div>
             )}
 
-          {/* UPLOAD CARD */}
+          {/* TOP ACTION BUTTONS */}
 
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`
-              rounded-2xl
-              border
-              bg-white
-              transition-all
-              ${
-                isDragging
-                  ? 'border-blue-500 bg-blue-50 shadow-lg'
-                  : 'border-slate-200 shadow-sm'
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <button
+              type="button"
+              onClick={() =>
+                fileInputRef.current?.click()
               }
-            `}
-          >
-            <div className="py-12 px-6 text-center">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50">
-                <Upload className="h-8 w-8 text-blue-600" />
-              </div>
+              className="
+                inline-flex
+                items-center
+                gap-2
+                rounded-lg
+                bg-blue-600
+                px-6
+                py-3
+                text-sm
+                font-bold
+                text-white
+                shadow-sm
+                transition
+                hover:bg-blue-700
+              "
+            >
+              <ArrowUpCircle className="h-4 w-4" />
+              UPLOAD FILES
+            </button>
 
-              <h2 className="text-xl font-bold text-slate-900">
-                {isDragging
-                  ? 'Drop files here'
-                  : 'Upload Files'}
-              </h2>
+            <button
+              type="button"
+              onClick={clearAllFiles}
+              disabled={files.length === 0}
+              className="
+                inline-flex
+                items-center
+                gap-2
+                rounded-lg
+                bg-red-100
+                px-6
+                py-3
+                text-sm
+                font-bold
+                text-red-400
+                shadow-sm
+                transition
+                hover:bg-red-200
+                disabled:cursor-not-allowed
+                disabled:opacity-60
+              "
+            >
+              <XCircle className="h-4 w-4" />
+              CLEAR
+            </button>
 
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                Drag & drop your files here or
-                choose files from your device.
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  fileInputRef.current?.click()
-                }
-                className="
-                  mt-6
-                  inline-flex
-                  items-center
-                  gap-2
-                  rounded-lg
-                  bg-blue-600
-                  px-7
-                  py-3
-                  text-sm
-                  font-bold
-                  text-white
-                  shadow-sm
-                  transition
-                  hover:bg-blue-700
-                "
-              >
-                <Upload className="h-4 w-4" />
-                UPLOAD FILES
-              </button>
-
-              <p className="mt-4 text-xs text-slate-400">
-                Supported: {tool.accept} •
-                Max 50MB per file
-              </p>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept={tool.accept}
-                onChange={
-                  handleInputChange
-                }
-                className="hidden"
-              />
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={tool.accept}
+              onChange={handleInputChange}
+              className="hidden"
+            />
           </div>
+
+          {/* DROP ZONE */}
+
+          <div className="relative flex items-center gap-2 sm:gap-4">
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={
+                files.length === 0 ||
+                currentIndex === 0
+              }
+              aria-label="Previous file"
+              className="
+                shrink-0
+                text-red-300
+                transition
+                hover:text-red-400
+                disabled:cursor-not-allowed
+                disabled:opacity-30
+              "
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </button>
+
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`
+                flex-1
+                min-h-[220px]
+                rounded-xl
+                border-2
+                border-dashed
+                flex
+                items-center
+                justify-center
+                px-6
+                py-10
+                text-center
+                transition-all
+                ${
+                  isDragging
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-blue-200 bg-white'
+                }
+              `}
+            >
+              {files.length === 0 ? (
+                <p className="font-semibold text-blue-200">
+                  {isDragging
+                    ? 'Drop files here'
+                    : 'Drop Your Files Here'}
+                </p>
+              ) : (
+                currentFile && (
+                  <div className="w-full max-w-sm">
+                    {toolId === 'jpg-to-pdf' &&
+                    currentFile.thumbnail ? (
+                      <div className="mx-auto mb-4 h-40 w-full overflow-hidden rounded-lg bg-slate-100">
+                        <img
+                          src={currentFile.thumbnail}
+                          alt={currentFile.file.name}
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-blue-50">
+                        <FileText className="h-8 w-8 text-blue-600" />
+                      </div>
+                    )}
+
+                    <p className="truncate text-sm font-semibold text-slate-800">
+                      {currentFile.file.name}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-400">
+                      {formatBytes(currentFile.file.size)}
+                      {' • '}
+                      File {currentIndex + 1} of {files.length}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeFile(currentFile.id)
+                      }
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={
+                files.length === 0 ||
+                currentIndex >= files.length - 1
+              }
+              aria-label="Next file"
+              className="
+                shrink-0
+                text-red-300
+                transition
+                hover:text-red-400
+                disabled:cursor-not-allowed
+                disabled:opacity-30
+              "
+            >
+              <ChevronRight className="h-8 w-8" />
+            </button>
+          </div>
+
+          {files.length > 0 && (
+            <p className="mt-3 text-center text-xs text-slate-400">
+              {files.length} file
+              {files.length !== 1 ? 's' : ''} selected
+              {' • '}
+              {formatBytes(totalSize)}
+            </p>
+          )}
 
           {/* LOADING */}
 
@@ -797,233 +938,103 @@ export default function UploadSection({
             </div>
           )}
 
-          {/* FILE LIST */}
+          {/* ESTIMATE */}
 
-          {files.length > 0 && (
-            <div className="mt-5">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <File className="h-5 w-5 text-blue-600" />
+          {toolId === 'jpg-to-pdf' &&
+            estimatedSize &&
+            readyImages.length > 0 && (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Original
+                      </p>
 
-                  <span className="text-sm font-semibold text-slate-800">
-                    {files.length} file
-                    {files.length !== 1
-                      ? 's'
-                      : ''}{' '}
-                    selected
-                  </span>
+                      <p className="text-sm font-bold text-slate-800">
+                        {formatBytes(totalSize)}
+                      </p>
+                    </div>
 
-                  <span className="text-xs text-slate-400">
-                    ({formatBytes(totalSize)})
-                  </span>
+                    <ArrowRight className="h-4 w-4 text-slate-300" />
+
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Estimated PDF
+                      </p>
+
+                      <p className="text-sm font-bold text-green-600">
+                        {formatBytes(estimatedSize.min)}
+                        {' - '}
+                        {formatBytes(estimatedSize.max)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2">
+                    <Zap className="h-4 w-4 text-green-600" />
+
+                    <span className="text-xs font-semibold text-green-700">
+                      Smart Compression
+                    </span>
+                  </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={clearAllFiles}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  CLEAR
-                </button>
               </div>
+            )}
 
-              {/* IMAGE THUMBNAILS */}
+          {/* COMBINE / CONVERT */}
 
-              {toolId === 'jpg-to-pdf' &&
-                readyImages.length > 0 && (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                      {readyImages.map(
-                        (item, index) => (
-                          <div
-                            key={item.id}
-                            className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white"
-                          >
-                            <div className="aspect-[4/3] bg-slate-100">
-                              <img
-                                src={
-                                  item.thumbnail
-                                }
-                                alt={
-                                  item.file.name
-                                }
-                                className="h-full w-full object-cover"
-                              />
-                            </div>
-
-                            <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold text-slate-700 shadow">
-                              {index + 1}
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeFile(
-                                  item.id
-                                )
-                              }
-                              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-500 shadow transition hover:bg-red-50 hover:text-red-600"
-                              aria-label="Remove file"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-
-                            <div className="truncate px-3 py-2 text-xs text-slate-500">
-                              {item.file.name}
-                            </div>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              {/* NON IMAGE FILES */}
-
-              {toolId !== 'jpg-to-pdf' && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="space-y-2.5">
-                    {files.map((item, index) => (
-                      <div
-                        key={item.id}
-                        className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-200 hover:shadow-md"
-                      >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-                          {index + 1}
-                        </div>
-
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-                          <FileText className="h-5 w-5 text-blue-600" />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-800">
-                            {item.file.name}
-                          </p>
-
-                          <p className="text-xs text-slate-400">
-                            {formatBytes(
-                              item.file.size
-                            )}
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeFile(
-                              item.id
-                            )
-                          }
-                          className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                          aria-label="Remove file"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ESTIMATE */}
-
-              {toolId === 'jpg-to-pdf' &&
-                estimatedSize &&
-                readyImages.length > 0 && (
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <p className="text-xs text-slate-400">
-                            Original
-                          </p>
-
-                          <p className="text-sm font-bold text-slate-800">
-                            {formatBytes(
-                              totalSize
-                            )}
-                          </p>
-                        </div>
-
-                        <ArrowRight className="h-4 w-4 text-slate-300" />
-
-                        <div>
-                          <p className="text-xs text-slate-400">
-                            Estimated PDF
-                          </p>
-
-                          <p className="text-sm font-bold text-green-600">
-                            {formatBytes(
-                              estimatedSize.min
-                            )}
-                            {' - '}
-                            {formatBytes(
-                              estimatedSize.max
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2">
-                        <Zap className="h-4 w-4 text-green-600" />
-
-                        <span className="text-xs font-semibold text-green-700">
-                          Smart Compression
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              {/* COMBINE / CONVERT */}
-
-              <button
-                type="button"
-                onClick={processFiles}
-                disabled={
-                  files.length === 0 ||
-                  (toolId === 'jpg-to-pdf' &&
-                    readyImages.length === 0)
-                }
-                className="
-                  mt-4
-                  flex
-                  w-full
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-xl
-                  bg-blue-600
-                  py-3.5
-                  text-sm
-                  font-bold
-                  text-white
-                  shadow-sm
-                  transition
-                  hover:bg-blue-700
-                  disabled:cursor-not-allowed
-                  disabled:bg-slate-300
-                "
-              >
-                {toolId === 'jpg-to-pdf' ? (
-                  <>
-                    <Layers className="h-5 w-5" />
-                    COMBINE
-                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white/20 px-1.5 text-xs">
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={processFiles}
+              disabled={
+                files.length === 0 ||
+                (toolId === 'jpg-to-pdf' &&
+                  readyImages.length === 0)
+              }
+              className="
+                inline-flex
+                items-center
+                justify-center
+                gap-2
+                rounded-lg
+                bg-slate-400
+                px-8
+                py-3
+                text-sm
+                font-bold
+                text-white
+                shadow-sm
+                transition
+                enabled:bg-blue-600
+                enabled:hover:bg-blue-700
+                disabled:cursor-not-allowed
+                disabled:opacity-70
+              "
+            >
+              {toolId === 'jpg-to-pdf' ? (
+                <>
+                  <ArrowDownCircle className="h-4 w-4" />
+                  COMBINE
+                  {readyImages.length > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-xs">
                       {readyImages.length}
                     </span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-5 w-5" />
-                    Convert to {tool.to}
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+                  )}
+                </>
+              ) : (
+                <>
+                  <ArrowDownCircle className="h-4 w-4" />
+                  {`CONVERT TO ${tool.to.toUpperCase()}`}
+                </>
+              )}
+            </button>
+          </div>
+
+          <p className="mt-3 text-center text-xs text-slate-400">
+            Supported: {tool.accept} • Max 50MB per file
+          </p>
         </div>
       ) : null}
 
