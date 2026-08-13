@@ -9,12 +9,9 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  File,
   FileText,
   Layers,
   RotateCcw,
-  Trash2,
-  Upload,
   XCircle,
   Zap,
 } from 'lucide-react';
@@ -96,9 +93,12 @@ export default function UploadSection({
     max: number;
   } | null>(null);
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [downloadingId, setDownloadingId] =
+    useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef =
+    useRef<HTMLDivElement>(null);
 
   /*
    * --------------------------------------------------
@@ -368,6 +368,56 @@ export default function UploadSection({
 
     if (event.dataTransfer.files) {
       addFiles(event.dataTransfer.files);
+    }
+  };
+
+  /*
+   * --------------------------------------------------
+   * SINGLE FILE DOWNLOAD (jpg-to-pdf grid button)
+   * --------------------------------------------------
+   */
+
+  const downloadSingleImageAsPdf = async (
+    item: FileItem
+  ) => {
+    if (!item.thumbnail || !item.width || !item.height) {
+      return;
+    }
+
+    setDownloadingId(item.id);
+
+    try {
+      const result = await mergeImagesToPdf(
+        [
+          {
+            id: item.id,
+            file: item.file,
+            thumbnail: item.thumbnail,
+            width: item.width,
+            height: item.height,
+          },
+        ],
+        compressionLevel
+      );
+
+      const url = URL.createObjectURL(result.blob);
+      const anchor = document.createElement('a');
+
+      anchor.href = url;
+      anchor.download = result.filename;
+
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(
+        'Single file download failed:',
+        error
+      );
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -670,27 +720,19 @@ export default function UploadSection({
         item.result
     );
 
-  useEffect(() => {
-    if (currentIndex > files.length - 1) {
-      setCurrentIndex(
-        files.length > 0 ? files.length - 1 : 0
-      );
-    }
-  }, [files.length, currentIndex]);
-
   const goPrev = () => {
-    setCurrentIndex((index) =>
-      index > 0 ? index - 1 : index
-    );
+    scrollContainerRef.current?.scrollBy({
+      left: -190,
+      behavior: 'smooth',
+    });
   };
 
   const goNext = () => {
-    setCurrentIndex((index) =>
-      index < files.length - 1 ? index + 1 : index
-    );
+    scrollContainerRef.current?.scrollBy({
+      left: 190,
+      behavior: 'smooth',
+    });
   };
-
-  const currentFile = files[currentIndex];
 
   const pdfResult = files.find(
     (item) => item.pdfResult
@@ -787,11 +829,8 @@ export default function UploadSection({
             <button
               type="button"
               onClick={goPrev}
-              disabled={
-                files.length === 0 ||
-                currentIndex === 0
-              }
-              aria-label="Previous file"
+              disabled={files.length === 0}
+              aria-label="Scroll left"
               className="
                 shrink-0
                 text-red-300
@@ -816,9 +855,13 @@ export default function UploadSection({
                 border-dashed
                 flex
                 items-center
-                justify-center
-                px-6
-                py-10
+                ${
+                  files.length === 0
+                    ? 'justify-center'
+                    : ''
+                }
+                px-4
+                py-6
                 text-center
                 transition-all
                 ${
@@ -835,56 +878,93 @@ export default function UploadSection({
                     : 'Drop Your Files Here'}
                 </p>
               ) : (
-                currentFile && (
-                  <div className="w-full max-w-sm">
-                    {toolId === 'jpg-to-pdf' &&
-                    currentFile.thumbnail ? (
-                      <div className="mx-auto mb-4 h-40 w-full overflow-hidden rounded-lg bg-slate-100">
-                        <img
-                          src={currentFile.thumbnail}
-                          alt={currentFile.file.name}
-                          className="h-full w-full object-contain"
-                        />
-                      </div>
-                    ) : (
-                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-blue-50">
-                        <FileText className="h-8 w-8 text-blue-600" />
-                      </div>
-                    )}
-
-                    <p className="truncate text-sm font-semibold text-slate-800">
-                      {currentFile.file.name}
-                    </p>
-
-                    <p className="mt-1 text-xs text-slate-400">
-                      {formatBytes(currentFile.file.size)}
-                      {' • '}
-                      File {currentIndex + 1} of {files.length}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeFile(currentFile.id)
-                      }
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                <div
+                  ref={scrollContainerRef}
+                  className="flex w-full gap-4 overflow-x-auto scroll-smooth py-1 px-1"
+                >
+                  {files.map((item) => (
+                    <div
+                      key={item.id}
+                      className="relative w-[170px] shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Remove
-                    </button>
-                  </div>
-                )
+                      <div className="truncate bg-slate-800/90 px-2 py-1.5 text-[11px] font-semibold text-white">
+                        {item.file.name}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeFile(item.id)
+                        }
+                        aria-label="Remove file"
+                        className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow transition hover:bg-red-50 hover:text-red-600"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                      </button>
+
+                      <div className="flex h-24 w-full items-center justify-center bg-slate-100">
+                        {toolId === 'jpg-to-pdf' &&
+                        item.thumbnail ? (
+                          <img
+                            src={item.thumbnail}
+                            alt={item.file.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <FileText className="h-8 w-8 text-blue-600" />
+                        )}
+                      </div>
+
+                      {toolId === 'jpg-to-pdf' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadSingleImageAsPdf(
+                              item
+                            )
+                          }
+                          disabled={
+                            downloadingId === item.id ||
+                            item.status !== 'ready'
+                          }
+                          className="
+                            flex
+                            w-full
+                            items-center
+                            justify-center
+                            gap-1
+                            border-t
+                            border-slate-100
+                            bg-slate-50
+                            py-1.5
+                            text-[11px]
+                            font-bold
+                            text-slate-600
+                            transition
+                            hover:bg-slate-100
+                            disabled:cursor-not-allowed
+                            disabled:opacity-60
+                          "
+                        >
+                          {downloadingId === item.id ? (
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                          ) : (
+                            <ArrowDownCircle className="h-3.5 w-3.5" />
+                          )}
+                          DOWNLOAD
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
             <button
               type="button"
               onClick={goNext}
-              disabled={
-                files.length === 0 ||
-                currentIndex >= files.length - 1
-              }
-              aria-label="Next file"
+              disabled={files.length === 0}
+              aria-label="Scroll right"
               className="
                 shrink-0
                 text-red-300
