@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  GripVertical,
   Layers,
   RotateCcw,
   XCircle,
@@ -96,6 +97,12 @@ export default function UploadSection({
   const [downloadingId, setDownloadingId] =
     useState<string | null>(null);
 
+  const [reorderDragId, setReorderDragId] =
+    useState<string | null>(null);
+
+  const [reorderOverId, setReorderOverId] =
+    useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef =
     useRef<HTMLDivElement>(null);
@@ -147,6 +154,42 @@ export default function UploadSection({
         setState('idle');
         setEstimatedSize(null);
       }
+
+      return next;
+    });
+  };
+
+  const reorderFiles = (
+    draggedId: string,
+    targetId: string
+  ) => {
+    if (draggedId === targetId) {
+      return;
+    }
+
+    setFiles((current) => {
+      const draggedIndex = current.findIndex(
+        (item) => item.id === draggedId
+      );
+
+      const targetIndex = current.findIndex(
+        (item) => item.id === targetId
+      );
+
+      if (
+        draggedIndex === -1 ||
+        targetIndex === -1
+      ) {
+        return current;
+      }
+
+      const next = [...current];
+      const [draggedItem] = next.splice(
+        draggedIndex,
+        1
+      );
+
+      next.splice(targetIndex, 0, draggedItem);
 
       return next;
     });
@@ -353,7 +396,10 @@ export default function UploadSection({
     event: React.DragEvent<HTMLDivElement>
   ) => {
     event.preventDefault();
-    setIsDragging(true);
+
+    if (event.dataTransfer.types?.includes('Files')) {
+      setIsDragging(true);
+    }
   };
 
   const handleDragLeave = () => {
@@ -856,6 +902,7 @@ export default function UploadSection({
               onDrop={handleDrop}
               className={`
                 flex-1
+                min-w-0
                 min-h-[220px]
                 rounded-xl
                 border-2
@@ -892,11 +939,105 @@ export default function UploadSection({
                   {files.map((item) => (
                     <div
                       key={item.id}
-                      className="w-[170px] shrink-0"
+                      data-file-id={item.id}
+                      className={`
+                        w-[170px]
+                        shrink-0
+                        transition-opacity
+                        ${
+                          reorderDragId === item.id
+                            ? 'opacity-40'
+                            : 'opacity-100'
+                        }
+                        ${
+                          reorderOverId === item.id &&
+                          reorderDragId !== item.id
+                            ? 'ring-2 ring-blue-400 rounded-lg'
+                            : ''
+                        }
+                      `}
                     >
                       <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                        <div className="truncate bg-slate-800/90 px-2 py-1.5 text-[11px] font-semibold text-white">
-                          {item.file.name}
+                        <div className="flex items-center gap-1 truncate bg-slate-800/90 px-1.5 py-1.5 text-[11px] font-semibold text-white">
+                          <span
+                            onPointerDown={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+
+                              (
+                                event.currentTarget as HTMLElement
+                              ).setPointerCapture(
+                                event.pointerId
+                              );
+
+                              setReorderDragId(item.id);
+                            }}
+                            onPointerMove={(event) => {
+                              const target =
+                                document.elementFromPoint(
+                                  event.clientX,
+                                  event.clientY
+                                ) as HTMLElement | null;
+
+                              const cardEl =
+                                target?.closest(
+                                  '[data-file-id]'
+                                ) as HTMLElement | null;
+
+                              const targetId =
+                                cardEl?.getAttribute(
+                                  'data-file-id'
+                                ) ?? null;
+
+                              if (targetId) {
+                                setReorderOverId(
+                                  targetId
+                                );
+                              }
+                            }}
+                            onPointerUp={(event) => {
+                              (
+                                event.currentTarget as HTMLElement
+                              ).releasePointerCapture(
+                                event.pointerId
+                              );
+
+                              setReorderDragId(
+                                (dragId) => {
+                                  setReorderOverId(
+                                    (overId) => {
+                                      if (
+                                        dragId &&
+                                        overId &&
+                                        dragId !== overId
+                                      ) {
+                                        reorderFiles(
+                                          dragId,
+                                          overId
+                                        );
+                                      }
+                                      return null;
+                                    }
+                                  );
+                                  return null;
+                                }
+                              );
+                            }}
+                            onPointerCancel={() => {
+                              setReorderDragId(null);
+                              setReorderOverId(null);
+                            }}
+                            style={{
+                              touchAction: 'none',
+                            }}
+                            className="flex h-5 w-5 shrink-0 cursor-grab items-center justify-center rounded text-white/70 hover:text-white active:cursor-grabbing"
+                          >
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </span>
+
+                          <span className="truncate">
+                            {item.file.name}
+                          </span>
                         </div>
 
                         <button
