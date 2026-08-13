@@ -219,6 +219,19 @@ export default function UploadSection({
     setReorderDragId(id);
     setReorderOverId(id);
 
+    // While dragging, block text selection and show a
+    // grabbing cursor everywhere so it actually feels
+    // like a drag, not a dead click.
+    const previousUserSelect =
+      document.body.style.userSelect;
+    const previousCursor =
+      document.body.style.cursor;
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'grabbing';
+
+    let currentDragId = id;
+
     const handlePointerMove = (
       moveEvent: PointerEvent
     ) => {
@@ -236,12 +249,27 @@ export default function UploadSection({
         'data-file-id'
       );
 
-      if (targetId) {
+      // Live-swap: the moment the pointer crosses onto
+      // a different card, move the dragged file into
+      // that slot right away instead of waiting for
+      // pointer-up. This is what makes it visually feel
+      // like a real drag instead of a "select two things,
+      // then jump" interaction.
+      if (
+        targetId &&
+        targetId !== currentDragId
+      ) {
+        reorderFiles(currentDragId, targetId);
         setReorderOverId(targetId);
       }
     };
 
     const endDrag = () => {
+      document.body.style.userSelect =
+        previousUserSelect;
+      document.body.style.cursor =
+        previousCursor;
+
       window.removeEventListener(
         'pointermove',
         handlePointerMove
@@ -255,19 +283,8 @@ export default function UploadSection({
         handlePointerUp
       );
 
-      setReorderDragId((dragId) => {
-        setReorderOverId((overId) => {
-          if (
-            dragId &&
-            overId &&
-            dragId !== overId
-          ) {
-            reorderFiles(dragId, overId);
-          }
-          return null;
-        });
-        return null;
-      });
+      setReorderDragId(null);
+      setReorderOverId(null);
     };
 
     function handlePointerUp() {
@@ -998,8 +1015,6 @@ export default function UploadSection({
                 min-w-0
                 min-h-[220px]
                 rounded-xl
-                border-2
-                border-dashed
                 flex
                 items-center
                 ${
@@ -1012,9 +1027,16 @@ export default function UploadSection({
                 text-center
                 transition-all
                 ${
+                  files.length === 0 || isDragging
+                    ? 'border-2 border-dashed'
+                    : 'border-2 border-transparent'
+                }
+                ${
                   isDragging
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-blue-200 bg-white'
+                    : files.length === 0
+                    ? 'border-blue-200 bg-white'
+                    : 'bg-transparent'
                 }
               `}
             >
@@ -1033,36 +1055,30 @@ export default function UploadSection({
                     <div
                       key={item.id}
                       data-file-id={item.id}
+                      onPointerDown={(event) =>
+                        startReorderDrag(
+                          event,
+                          item.id
+                        )
+                      }
+                      style={{
+                        touchAction: 'none',
+                      }}
                       className={`
                         w-[170px]
                         shrink-0
-                        transition-opacity
+                        cursor-grab
+                        transition-all
+                        active:cursor-grabbing
                         ${
                           reorderDragId === item.id
-                            ? 'opacity-40'
-                            : 'opacity-100'
-                        }
-                        ${
-                          reorderOverId === item.id &&
-                          reorderDragId !== item.id
-                            ? 'ring-2 ring-blue-400 rounded-lg'
-                            : ''
+                            ? 'z-10 scale-105 opacity-90 drop-shadow-xl'
+                            : 'scale-100 opacity-100'
                         }
                       `}
                     >
                       <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                        <div
-                          onPointerDown={(event) =>
-                            startReorderDrag(
-                              event,
-                              item.id
-                            )
-                          }
-                          style={{
-                            touchAction: 'none',
-                          }}
-                          className="flex cursor-grab items-center gap-1 truncate bg-slate-800/90 px-1.5 py-1.5 text-[11px] font-semibold text-white active:cursor-grabbing"
-                        >
+                        <div className="flex items-center gap-1 truncate bg-slate-800/90 px-1.5 py-1.5 text-[11px] font-semibold text-white">
                           <span className="flex h-5 w-5 shrink-0 items-center justify-center text-white/70">
                             <GripVertical className="h-3.5 w-3.5" />
                           </span>
@@ -1104,6 +1120,9 @@ export default function UploadSection({
                       {toolId === 'jpg-to-pdf' && (
                         <button
                           type="button"
+                          onPointerDown={(event) =>
+                            event.stopPropagation()
+                          }
                           onClick={() =>
                             downloadSingleImageAsPdf(
                               item
@@ -1255,8 +1274,8 @@ export default function UploadSection({
                 items-center
                 justify-center
                 gap-2
-                rounded-lg
-                bg-slate-400
+                rounded-full
+                bg-slate-300
                 px-8
                 py-3
                 text-sm
@@ -1264,8 +1283,8 @@ export default function UploadSection({
                 text-white
                 shadow-sm
                 transition
-                enabled:bg-blue-600
-                enabled:hover:bg-blue-700
+                enabled:bg-slate-800
+                enabled:hover:bg-slate-900
                 disabled:cursor-not-allowed
                 disabled:opacity-70
               "
