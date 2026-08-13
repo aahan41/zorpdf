@@ -11,7 +11,6 @@ import {
   ChevronRight,
   FileText,
   GripVertical,
-  Layers,
   RotateCcw,
   XCircle,
   Zap,
@@ -19,7 +18,10 @@ import {
 
 import type { Tool, ToolId } from './ToolsGrid';
 import type { CompressionLevel } from '@/lib/imageCompression';
-import type { ImageProcessingResult, MergeResult } from '@/lib/pdfMerger';
+import type {
+  ImageProcessingResult,
+  MergeResult,
+} from '@/lib/pdfMerger';
 
 import {
   loadImageInfo,
@@ -79,6 +81,7 @@ export default function UploadSection({
   >('idle');
 
   const [files, setFiles] = useState<FileItem[]>([]);
+
   const [compressionLevel, setCompressionLevel] =
     useState<CompressionLevel>('balanced');
 
@@ -104,6 +107,7 @@ export default function UploadSection({
     useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const scrollContainerRef =
     useRef<HTMLDivElement>(null);
 
@@ -138,6 +142,10 @@ export default function UploadSection({
       loaded: 0,
       total: 0,
     });
+
+    setDownloadingId(null);
+    setReorderDragId(null);
+    setReorderOverId(null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -184,6 +192,7 @@ export default function UploadSection({
       }
 
       const next = [...current];
+
       const [draggedItem] = next.splice(
         draggedIndex,
         1
@@ -197,15 +206,7 @@ export default function UploadSection({
 
   /*
    * --------------------------------------------------
-   * REORDER DRAG (window-level pointer tracking)
-   *
-   * Instead of relying on setPointerCapture on the
-   * tiny grip handle (unreliable across browsers,
-   * especially once the pointer leaves the handle's
-   * hit area), we attach the move/up listeners to the
-   * window as soon as the drag starts. This makes the
-   * drag work no matter where the pointer travels,
-   * including outside the card or the scroll container.
+   * CARD REORDER DRAG
    * --------------------------------------------------
    */
 
@@ -219,11 +220,9 @@ export default function UploadSection({
     setReorderDragId(id);
     setReorderOverId(id);
 
-    // While dragging, block text selection and show a
-    // grabbing cursor everywhere so it actually feels
-    // like a drag, not a dead click.
     const previousUserSelect =
       document.body.style.userSelect;
+
     const previousCursor =
       document.body.style.cursor;
 
@@ -245,28 +244,34 @@ export default function UploadSection({
         '[data-file-id]'
       ) as HTMLElement | null;
 
-      const targetId = cardEl?.getAttribute(
-        'data-file-id'
-      );
+      const targetId =
+        cardEl?.getAttribute('data-file-id');
 
-      // Live-swap: the moment the pointer crosses onto
-      // a different card, move the dragged file into
-      // that slot right away instead of waiting for
-      // pointer-up. This is what makes it visually feel
-      // like a real drag instead of a "select two things,
-      // then jump" interaction.
       if (
         targetId &&
         targetId !== currentDragId
       ) {
-        reorderFiles(currentDragId, targetId);
+        reorderFiles(
+          currentDragId,
+          targetId
+        );
+
+        /*
+         * Important:
+         * Update current dragged position.
+         * This prevents repeated swaps with
+         * the previous target.
+         */
+        currentDragId = targetId;
+
         setReorderOverId(targetId);
       }
     };
 
-    const endDrag = () => {
+    const handlePointerUp = () => {
       document.body.style.userSelect =
         previousUserSelect;
+
       document.body.style.cursor =
         previousCursor;
 
@@ -274,10 +279,12 @@ export default function UploadSection({
         'pointermove',
         handlePointerMove
       );
+
       window.removeEventListener(
         'pointerup',
         handlePointerUp
       );
+
       window.removeEventListener(
         'pointercancel',
         handlePointerUp
@@ -287,18 +294,16 @@ export default function UploadSection({
       setReorderOverId(null);
     };
 
-    function handlePointerUp() {
-      endDrag();
-    }
-
     window.addEventListener(
       'pointermove',
       handlePointerMove
     );
+
     window.addEventListener(
       'pointerup',
       handlePointerUp
     );
+
     window.addEventListener(
       'pointercancel',
       handlePointerUp
@@ -334,11 +339,17 @@ export default function UploadSection({
         total: pendingFiles.length,
       });
 
-      for (let index = 0; index < pendingFiles.length; index++) {
+      for (
+        let index = 0;
+        index < pendingFiles.length;
+        index++
+      ) {
         const item = pendingFiles[index];
 
         try {
-          const info = await loadImageInfo(item.file);
+          const info = await loadImageInfo(
+            item.file
+          );
 
           if (cancelled) {
             return;
@@ -359,7 +370,8 @@ export default function UploadSection({
           if (!cancelled) {
             updateFile(item.id, {
               status: 'error',
-              error: 'Could not read this image.',
+              error:
+                'Could not read this image.',
             });
           }
         }
@@ -386,7 +398,7 @@ export default function UploadSection({
 
   /*
    * --------------------------------------------------
-   * UPDATE ESTIMATED PDF SIZE
+   * ESTIMATED PDF SIZE
    * --------------------------------------------------
    */
 
@@ -454,7 +466,8 @@ export default function UploadSection({
     }
 
     const invalidSize = incoming.filter(
-      (file) => file.size > MAX_FILE_SIZE
+      (file) =>
+        file.size > MAX_FILE_SIZE
     );
 
     if (invalidSize.length > 0) {
@@ -498,7 +511,7 @@ export default function UploadSection({
 
   /*
    * --------------------------------------------------
-   * DRAG AND DROP
+   * DRAG & DROP FILE UPLOAD
    * --------------------------------------------------
    */
 
@@ -507,7 +520,11 @@ export default function UploadSection({
   ) => {
     event.preventDefault();
 
-    if (event.dataTransfer.types?.includes('Files')) {
+    if (
+      event.dataTransfer.types?.includes(
+        'Files'
+      )
+    ) {
       setIsDragging(true);
     }
   };
@@ -523,70 +540,87 @@ export default function UploadSection({
     setIsDragging(false);
 
     const isRealFileDrop =
-      event.dataTransfer.types?.includes('Files');
+      event.dataTransfer.types?.includes(
+        'Files'
+      );
 
     if (
       isRealFileDrop &&
       event.dataTransfer.files &&
       event.dataTransfer.files.length > 0
     ) {
-      addFiles(event.dataTransfer.files);
+      addFiles(
+        event.dataTransfer.files
+      );
     }
   };
 
   /*
    * --------------------------------------------------
-   * SINGLE FILE DOWNLOAD (jpg-to-pdf grid button)
+   * DOWNLOAD SINGLE IMAGE AS PDF
    * --------------------------------------------------
    */
 
-  const downloadSingleImageAsPdf = async (
-    item: FileItem
-  ) => {
-    if (!item.thumbnail || !item.width || !item.height) {
-      return;
-    }
+  const downloadSingleImageAsPdf =
+    async (item: FileItem) => {
+      if (
+        !item.thumbnail ||
+        !item.width ||
+        !item.height
+      ) {
+        return;
+      }
 
-    setDownloadingId(item.id);
+      setDownloadingId(item.id);
 
-    try {
-      const result = await mergeImagesToPdf(
-        [
-          {
-            id: item.id,
-            file: item.file,
-            thumbnail: item.thumbnail,
-            width: item.width,
-            height: item.height,
-          },
-        ],
-        compressionLevel
-      );
+      try {
+        const result =
+          await mergeImagesToPdf(
+            [
+              {
+                id: item.id,
+                file: item.file,
+                thumbnail:
+                  item.thumbnail,
+                width: item.width,
+                height: item.height,
+              },
+            ],
+            compressionLevel
+          );
 
-      const url = URL.createObjectURL(result.blob);
-      const anchor = document.createElement('a');
+        const url =
+          URL.createObjectURL(
+            result.blob
+          );
 
-      anchor.href = url;
-      anchor.download = result.filename;
+        const anchor =
+          document.createElement('a');
 
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
+        anchor.href = url;
+        anchor.download =
+          result.filename;
 
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error(
-        'Single file download failed:',
-        error
-      );
-    } finally {
-      setDownloadingId(null);
-    }
-  };
+        document.body.appendChild(anchor);
+
+        anchor.click();
+
+        anchor.remove();
+
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error(
+          'Single file download failed:',
+          error
+        );
+      } finally {
+        setDownloadingId(null);
+      }
+    };
 
   /*
    * --------------------------------------------------
-   * DOWNLOAD
+   * DOWNLOAD RESULT
    * --------------------------------------------------
    */
 
@@ -597,19 +631,23 @@ export default function UploadSection({
       return;
     }
 
-    const url = URL.createObjectURL(
-      item.result.blob
-    );
+    const url =
+      URL.createObjectURL(
+        item.result.blob
+      );
 
     const anchor =
       document.createElement('a');
 
     anchor.href = url;
+
     anchor.download =
       item.result.filename;
 
     document.body.appendChild(anchor);
+
     anchor.click();
+
     anchor.remove();
 
     URL.revokeObjectURL(url);
@@ -622,11 +660,12 @@ export default function UploadSection({
    */
 
   const downloadAllAsZip = async () => {
-    const completed = files.filter(
-      (item) =>
-        item.status === 'done' &&
-        item.result
-    );
+    const completed =
+      files.filter(
+        (item) =>
+          item.status === 'done' &&
+          item.result
+      );
 
     if (completed.length === 0) {
       return;
@@ -659,10 +698,14 @@ export default function UploadSection({
         document.createElement('a');
 
       anchor.href = url;
-      anchor.download = `converted-files-${Date.now()}.zip`;
+
+      anchor.download =
+        `converted-files-${Date.now()}.zip`;
 
       document.body.appendChild(anchor);
+
       anchor.click();
+
       anchor.remove();
 
       URL.revokeObjectURL(url);
@@ -715,7 +758,8 @@ export default function UploadSection({
           readyItems.map((item) => ({
             id: item.id,
             file: item.file,
-            thumbnail: item.thumbnail!,
+            thumbnail:
+              item.thumbnail!,
             width: item.width!,
             height: item.height!,
           }));
@@ -732,35 +776,46 @@ export default function UploadSection({
               const progress =
                 total > 0
                   ? Math.round(
-                      (current / total) *
+                      (current /
+                        total) *
                         100
                     )
                   : 0;
 
-              updateFile(imageId, {
-                progress,
-              });
+              updateFile(
+                imageId,
+                {
+                  progress,
+                }
+              );
             }
           );
 
-        updateFile(readyItems[0].id, {
-          status: 'done',
-          progress: 100,
-          result: {
-            blob: result.blob,
-            filename: result.filename,
-          },
-          pdfResult: result,
-        });
+        updateFile(
+          readyItems[0].id,
+          {
+            status: 'done',
+            progress: 100,
+            result: {
+              blob: result.blob,
+              filename:
+                result.filename,
+            },
+            pdfResult: result,
+          }
+        );
 
         readyItems
           .slice(1)
           .forEach((item) => {
-            updateFile(item.id, {
-              status: 'done',
-              progress: 100,
-              pdfResult: result,
-            });
+            updateFile(
+              item.id,
+              {
+                status: 'done',
+                progress: 100,
+                pdfResult: result,
+              }
+            );
           });
 
         setState('done');
@@ -770,13 +825,18 @@ export default function UploadSection({
           error
         );
 
-        readyItems.forEach((item) => {
-          updateFile(item.id, {
-            status: 'error',
-            error:
-              'PDF creation failed.',
-          });
-        });
+        readyItems.forEach(
+          (item) => {
+            updateFile(
+              item.id,
+              {
+                status: 'error',
+                error:
+                  'PDF creation failed.',
+              }
+            );
+          }
+        );
 
         setState('error');
       }
@@ -844,8 +904,12 @@ export default function UploadSection({
      */
 
     if (toolId === 'pdf-to-jpg') {
-      const { convertPdfToImages, createZipFromImages } =
-        await import('@/lib/pdfToImage');
+      const {
+        convertPdfToImages,
+        createZipFromImages,
+      } = await import(
+        '@/lib/pdfToImage'
+      );
 
       let failed = false;
 
@@ -856,35 +920,55 @@ export default function UploadSection({
         });
 
         try {
-          const { images, totalPages } =
+          const {
+            images,
+            totalPages,
+          } =
             await convertPdfToImages(
               item.file,
-              (current, total) => {
+              (
+                current,
+                total
+              ) => {
                 const progress =
                   total > 0
                     ? Math.round(
-                        (current / total) * 100
+                        (current /
+                          total) *
+                          100
                       )
                     : 0;
 
-                updateFile(item.id, {
-                  progress,
-                });
+                updateFile(
+                  item.id,
+                  {
+                    progress,
+                  }
+                );
               }
             );
 
           if (totalPages === 1) {
-            updateFile(item.id, {
-              status: 'done',
-              progress: 100,
-              result: {
-                blob: images[0].blob,
-                filename: images[0].filename,
-              },
-            });
+            updateFile(
+              item.id,
+              {
+                status: 'done',
+                progress: 100,
+                result: {
+                  blob:
+                    images[0]
+                      .blob,
+                  filename:
+                    images[0]
+                      .filename,
+                },
+              }
+            );
           } else {
             const zipBlob =
-              await createZipFromImages(images);
+              await createZipFromImages(
+                images
+              );
 
             const baseName =
               item.file.name.replace(
@@ -892,14 +976,17 @@ export default function UploadSection({
                 ''
               );
 
-            updateFile(item.id, {
-              status: 'done',
-              progress: 100,
-              result: {
-                blob: zipBlob,
-                filename: `${baseName}-pages.zip`,
-              },
-            });
+            updateFile(
+              item.id,
+              {
+                status: 'done',
+                progress: 100,
+                result: {
+                  blob: zipBlob,
+                  filename: `${baseName}-pages.zip`,
+                },
+              }
+            );
           }
         } catch (error) {
           console.error(
@@ -909,11 +996,14 @@ export default function UploadSection({
 
           failed = true;
 
-          updateFile(item.id, {
-            status: 'error',
-            error:
-              'Could not convert this PDF.',
-          });
+          updateFile(
+            item.id,
+            {
+              status: 'error',
+              error:
+                'Could not convert this PDF.',
+            }
+          );
         }
       }
 
@@ -926,9 +1016,6 @@ export default function UploadSection({
 
     /*
      * OTHER TOOLS
-     *
-     * Keep the UI working while the
-     * individual converter is implemented.
      */
 
     files.forEach((item) => {
@@ -968,23 +1055,30 @@ export default function UploadSection({
         item.result
     );
 
+  /*
+   * --------------------------------------------------
+   * CAROUSEL
+   * --------------------------------------------------
+   */
+
   const goPrev = () => {
     scrollContainerRef.current?.scrollBy({
-      left: -225,
+      left: -250,
       behavior: 'smooth',
     });
   };
 
   const goNext = () => {
     scrollContainerRef.current?.scrollBy({
-      left: 225,
+      left: 250,
       behavior: 'smooth',
     });
   };
 
-  const pdfResult = files.find(
-    (item) => item.pdfResult
-  )?.pdfResult;
+  const pdfResult =
+    files.find(
+      (item) => item.pdfResult
+    )?.pdfResult;
 
   const savings =
     pdfResult &&
@@ -1003,13 +1097,15 @@ export default function UploadSection({
 
   return (
     <div className="w-full">
-      {state === 'idle' ||
-      state === 'loading' ||
-      state === 'selected' ? (
+      {(state === 'idle' ||
+        state === 'loading' ||
+        state === 'selected') && (
         <div>
-          {/* TOP ACTION BUTTONS */}
+          {/* -----------------------------------------
+              TOP BUTTONS
+          ----------------------------------------- */}
 
-          <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="mb-5 flex items-center justify-center gap-3">
             <button
               type="button"
               onClick={() =>
@@ -1018,17 +1114,19 @@ export default function UploadSection({
               className="
                 inline-flex
                 items-center
+                justify-center
                 gap-2
-                rounded-lg
+                rounded-md
                 bg-blue-600
-                px-6
-                py-3
+                px-5
+                py-2.5
                 text-sm
                 font-bold
                 text-white
                 shadow-sm
-                transition
+                transition-all
                 hover:bg-blue-700
+                hover:shadow-md
               "
             >
               <ArrowUpCircle className="h-4 w-4" />
@@ -1038,23 +1136,25 @@ export default function UploadSection({
             <button
               type="button"
               onClick={clearAllFiles}
-              disabled={files.length === 0}
+              disabled={
+                files.length === 0
+              }
               className="
                 inline-flex
                 items-center
+                justify-center
                 gap-2
-                rounded-lg
+                rounded-md
                 bg-red-100
-                px-6
-                py-3
+                px-5
+                py-2.5
                 text-sm
                 font-bold
-                text-red-400
-                shadow-sm
-                transition
+                text-red-500
+                transition-all
                 hover:bg-red-200
                 disabled:cursor-not-allowed
-                disabled:opacity-60
+                disabled:opacity-50
               "
             >
               <XCircle className="h-4 w-4" />
@@ -1071,140 +1171,291 @@ export default function UploadSection({
             />
           </div>
 
-          {/* DROP ZONE */}
+          {/* -----------------------------------------
+              FILE CAROUSEL
+          ----------------------------------------- */}
 
-          <div className="relative flex items-center gap-2 sm:gap-4">
+          <div
+            className="
+              relative
+              flex
+              w-full
+              items-center
+              gap-2
+              sm:gap-3
+            "
+          >
+            {/* LEFT ARROW */}
+
             <button
               type="button"
               onClick={goPrev}
-              disabled={files.length === 0}
+              disabled={
+                files.length === 0
+              }
               aria-label="Scroll left"
               className="
+                flex
+                h-12
+                w-12
                 shrink-0
+                items-center
+                justify-center
+                rounded-full
                 text-red-300
-                transition
+                transition-all
+                hover:bg-red-50
                 hover:text-red-400
-                disabled:cursor-not-allowed
-                disabled:opacity-30
+                disabled:pointer-events-none
+                disabled:opacity-20
               "
             >
-              <ChevronLeft className="h-8 w-8" />
+              <ChevronLeft
+                className="h-10 w-10"
+                strokeWidth={2.2}
+              />
             </button>
+
+            {/* DROP / CARDS AREA */}
 
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={`
-                flex-1
+                relative
                 min-w-0
-                min-h-[300px]
+                flex-1
+                overflow-hidden
                 rounded-xl
-                flex
-                items-center
-                ${
-                  files.length === 0
-                    ? 'justify-center'
-                    : ''
-                }
-                px-4
-                py-6
-                text-center
                 transition-all
                 ${
-                  files.length === 0 || isDragging
-                    ? 'border-2 border-dashed'
-                    : 'border-2 border-transparent'
+                  files.length === 0
+                    ? 'min-h-[250px]'
+                    : 'min-h-[190px]'
                 }
                 ${
                   isDragging
-                    ? 'border-blue-500 bg-blue-50'
+                    ? 'border-2 border-blue-500 bg-blue-50/70'
                     : files.length === 0
-                    ? 'border-blue-200 bg-white'
-                    : 'bg-transparent'
+                    ? 'border-2 border-dashed border-blue-200 bg-white'
+                    : 'border border-transparent bg-transparent'
                 }
               `}
             >
               {files.length === 0 ? (
-                <p className="text-lg font-semibold text-blue-200">
-                  {isDragging
-                    ? 'Drop files here'
-                    : 'Drop Your Files Here'}
-                </p>
+                <div className="flex min-h-[250px] items-center justify-center">
+                  <p className="text-base font-semibold text-blue-200">
+                    {isDragging
+                      ? 'Drop files here'
+                      : 'Drop Your Files Here'}
+                  </p>
+                </div>
               ) : (
                 <div
                   ref={scrollContainerRef}
-                  className="flex w-full gap-4 overflow-x-auto scroll-smooth py-1 px-1"
+                  className="
+                    flex
+                    w-full
+                    gap-3
+                    overflow-x-auto
+                    scroll-smooth
+                    px-1
+                    py-2
+                    [scrollbar-width:none]
+                    [&::-webkit-scrollbar]:hidden
+                  "
                 >
                   {files.map((item) => (
                     <div
                       key={item.id}
                       data-file-id={item.id}
-                      onPointerDown={(event) =>
+                      onPointerDown={(
+                        event
+                      ) =>
                         startReorderDrag(
                           event,
                           item.id
                         )
                       }
                       style={{
-                        touchAction: 'none',
+                        touchAction:
+                          'none',
                       }}
                       className={`
-                        w-[205px]
+                        w-[168px]
                         shrink-0
                         cursor-grab
+                        select-none
                         transition-all
+                        duration-150
                         active:cursor-grabbing
                         ${
-                          reorderDragId === item.id
-                            ? 'z-10 scale-105 opacity-90 drop-shadow-xl'
-                            : 'scale-100 opacity-100'
+                          reorderDragId ===
+                          item.id
+                            ? 'z-20 scale-[1.03] opacity-90 shadow-xl'
+                            : ''
+                        }
+                        ${
+                          reorderOverId ===
+                          item.id &&
+                          reorderDragId !==
+                            item.id
+                            ? 'ring-2 ring-blue-300'
+                            : ''
                         }
                       `}
                     >
-                      <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                        <div className="flex items-center gap-1 truncate bg-slate-800/90 px-1.5 py-1.5 text-[11px] font-semibold text-white">
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center text-white/70">
-                            <GripVertical className="h-3.5 w-3.5" />
-                          </span>
+                      <div
+                        className="
+                          relative
+                          overflow-hidden
+                          rounded-xl
+                          border
+                          border-slate-200
+                          bg-white
+                          shadow-sm
+                          transition-all
+                          hover:border-slate-300
+                          hover:shadow-md
+                        "
+                      >
+                        {/* FILE NAME HEADER */}
+
+                        <div
+                          className="
+                            flex
+                            h-7
+                            items-center
+                            gap-1
+                            bg-slate-800
+                            px-1.5
+                            text-[10px]
+                            font-semibold
+                            text-white
+                          "
+                        >
+                          <GripVertical
+                            className="
+                              h-3.5
+                              w-3.5
+                              shrink-0
+                              text-white/60
+                            "
+                          />
 
                           <span className="truncate">
                             {item.file.name}
                           </span>
                         </div>
 
+                        {/* REMOVE */}
+
                         <button
                           type="button"
-                          onPointerDown={(event) =>
+                          onPointerDown={(
+                            event
+                          ) =>
                             event.stopPropagation()
                           }
                           onClick={() =>
-                            removeFile(item.id)
+                            removeFile(
+                              item.id
+                            )
                           }
                           aria-label="Remove file"
-                          className="absolute right-1.5 top-8 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow transition hover:bg-red-50 hover:text-red-600"
+                          className="
+                            absolute
+                            right-1
+                            top-1
+                            z-10
+                            flex
+                            h-5
+                            w-5
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-white/95
+                            text-slate-500
+                            shadow-sm
+                            transition-all
+                            hover:bg-red-50
+                            hover:text-red-600
+                          "
                         >
                           <XCircle className="h-3.5 w-3.5" />
                         </button>
 
-                        <div className="flex h-28 w-full items-center justify-center bg-slate-100">
-                          {toolId === 'jpg-to-pdf' &&
+                        {/* THUMBNAIL */}
+
+                        <div
+                          className="
+                            flex
+                            h-[118px]
+                            w-full
+                            items-center
+                            justify-center
+                            overflow-hidden
+                            bg-slate-100
+                          "
+                        >
+                          {toolId ===
+                            'jpg-to-pdf' &&
                           item.thumbnail ? (
                             <img
-                              src={item.thumbnail}
-                              alt={item.file.name}
-                              draggable={false}
-                              className="h-full w-full select-none object-cover"
+                              src={
+                                item.thumbnail
+                              }
+                              alt={
+                                item.file
+                                  .name
+                              }
+                              draggable={
+                                false
+                              }
+                              className="
+                                h-full
+                                w-full
+                                select-none
+                                object-cover
+                              "
                             />
                           ) : (
-                            <FileText className="h-8 w-8 text-blue-600" />
+                            <FileText className="h-9 w-9 text-blue-500" />
+                          )}
+
+                          {/* LOADING OVERLAY */}
+
+                          {item.status ===
+                            'loading' && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                            </div>
+                          )}
+
+                          {/* CONVERTING OVERLAY */}
+
+                          {item.status ===
+                            'converting' && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/55">
+                              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+
+                              <span className="mt-1 text-[9px] font-bold text-white">
+                                {item.progress}%
+                              </span>
+                            </div>
                           )}
                         </div>
 
-                        {toolId === 'jpg-to-pdf' && (
+                        {/* DOWNLOAD */}
+
+                        {toolId ===
+                          'jpg-to-pdf' && (
                           <button
                             type="button"
-                            onPointerDown={(event) =>
+                            onPointerDown={(
+                              event
+                            ) =>
                               event.stopPropagation()
                             }
                             onClick={() =>
@@ -1213,35 +1464,48 @@ export default function UploadSection({
                               )
                             }
                             disabled={
-                              downloadingId === item.id ||
-                              item.status !== 'ready'
+                              downloadingId ===
+                                item.id ||
+                              item.status !==
+                                'ready'
                             }
                             className="
                               flex
+                              h-8
                               w-full
                               items-center
                               justify-center
                               gap-1.5
                               border-t
                               border-slate-200
-                              bg-slate-50
-                              py-2
-                              text-[11px]
+                              bg-white
+                              text-[10px]
                               font-bold
                               text-slate-700
-                              transition
-                              hover:bg-slate-100
+                              transition-all
+                              hover:bg-slate-50
                               disabled:cursor-not-allowed
-                              disabled:opacity-60
+                              disabled:opacity-50
                             "
                           >
-                            {downloadingId === item.id ? (
+                            {downloadingId ===
+                            item.id ? (
                               <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
                             ) : (
                               <ArrowDownCircle className="h-3.5 w-3.5" />
                             )}
+
                             DOWNLOAD
                           </button>
+                        )}
+
+                        {/* ERROR */}
+
+                        {item.status ===
+                          'error' && (
+                          <div className="border-t border-red-100 bg-red-50 px-2 py-1.5 text-center text-[9px] font-medium text-red-600">
+                            {item.error}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1250,28 +1514,47 @@ export default function UploadSection({
               )}
             </div>
 
+            {/* RIGHT ARROW */}
+
             <button
               type="button"
               onClick={goNext}
-              disabled={files.length === 0}
+              disabled={
+                files.length === 0
+              }
               aria-label="Scroll right"
               className="
+                flex
+                h-12
+                w-12
                 shrink-0
+                items-center
+                justify-center
+                rounded-full
                 text-red-300
-                transition
+                transition-all
+                hover:bg-red-50
                 hover:text-red-400
-                disabled:cursor-not-allowed
-                disabled:opacity-30
+                disabled:pointer-events-none
+                disabled:opacity-20
               "
             >
-              <ChevronRight className="h-8 w-8" />
+              <ChevronRight
+                className="h-10 w-10"
+                strokeWidth={2.2}
+              />
             </button>
           </div>
 
+          {/* FILE COUNT */}
+
           {files.length > 0 && (
-            <p className="mt-3 text-center text-xs text-slate-400">
+            <p className="mt-2 text-center text-xs text-slate-400">
               {files.length} file
-              {files.length !== 1 ? 's' : ''} selected
+              {files.length !== 1
+                ? 's'
+                : ''}{' '}
+              selected
               {' • '}
               {formatBytes(totalSize)}
             </p>
@@ -1280,22 +1563,26 @@ export default function UploadSection({
           {/* LOADING */}
 
           {state === 'loading' && (
-            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+            <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5">
               <div className="flex items-center gap-3">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
 
-                <span className="text-sm text-blue-700">
+                <span className="text-xs text-blue-700">
                   Loading images...
                   {' '}
-                  {loadingProgress.loaded}
+                  {
+                    loadingProgress.loaded
+                  }
                   {' / '}
-                  {loadingProgress.total}
+                  {
+                    loadingProgress.total
+                  }
                 </span>
               </div>
             </div>
           )}
 
-          {/* ESTIMATE */}
+          {/* ESTIMATED PDF */}
 
           {toolId === 'jpg-to-pdf' &&
             estimatedSize &&
@@ -1309,7 +1596,9 @@ export default function UploadSection({
                       </p>
 
                       <p className="text-sm font-bold text-slate-800">
-                        {formatBytes(totalSize)}
+                        {formatBytes(
+                          totalSize
+                        )}
                       </p>
                     </div>
 
@@ -1321,9 +1610,13 @@ export default function UploadSection({
                       </p>
 
                       <p className="text-sm font-bold text-green-600">
-                        {formatBytes(estimatedSize.min)}
+                        {formatBytes(
+                          estimatedSize.min
+                        )}
                         {' - '}
-                        {formatBytes(estimatedSize.max)}
+                        {formatBytes(
+                          estimatedSize.max
+                        )}
                       </p>
                     </div>
                   </div>
@@ -1339,16 +1632,18 @@ export default function UploadSection({
               </div>
             )}
 
-          {/* COMBINE / CONVERT */}
+          {/* COMBINE */}
 
-          <div className="mt-6 flex justify-center">
+          <div className="mt-5 flex justify-center">
             <button
               type="button"
               onClick={processFiles}
               disabled={
                 files.length === 0 ||
-                (toolId === 'jpg-to-pdf' &&
-                  readyImages.length === 0)
+                (toolId ===
+                  'jpg-to-pdf' &&
+                  readyImages.length ===
+                    0)
               }
               className="
                 inline-flex
@@ -1363,39 +1658,57 @@ export default function UploadSection({
                 font-bold
                 text-white
                 shadow-sm
-                transition
+                transition-all
                 enabled:bg-slate-800
                 enabled:hover:bg-slate-900
                 disabled:cursor-not-allowed
                 disabled:opacity-70
               "
             >
-              {toolId === 'jpg-to-pdf' ? (
+              <ArrowDownCircle className="h-4 w-4" />
+
+              {toolId ===
+              'jpg-to-pdf' ? (
                 <>
-                  <ArrowDownCircle className="h-4 w-4" />
                   COMBINE
-                  {readyImages.length > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-xs">
-                      {readyImages.length}
+
+                  {readyImages.length >
+                    0 && (
+                    <span
+                      className="
+                        flex
+                        h-5
+                        min-w-5
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-white/20
+                        px-1.5
+                        text-xs
+                      "
+                    >
+                      {
+                        readyImages.length
+                      }
                     </span>
                   )}
                 </>
               ) : (
-                <>
-                  <ArrowDownCircle className="h-4 w-4" />
-                  {`CONVERT TO ${tool.to.toUpperCase()}`}
-                </>
+                `CONVERT TO ${tool.to.toUpperCase()}`
               )}
             </button>
           </div>
 
-          <p className="mt-3 text-center text-xs text-slate-400">
-            Supported: {tool.accept} • Max 50MB per file
+          <p className="mt-2 text-center text-xs text-slate-400">
+            Supported: {tool.accept} • Max
+            50MB per file
           </p>
         </div>
-      ) : null}
+      )}
 
-      {/* CONVERTING */}
+      {/* -----------------------------------------
+          CONVERTING
+      ----------------------------------------- */}
 
       {state === 'converting' && (
         <div className="py-16 text-center">
@@ -1404,19 +1717,22 @@ export default function UploadSection({
           </div>
 
           <h2 className="text-xl font-bold text-slate-900">
-            {toolId === 'jpg-to-pdf'
+            {toolId ===
+            'jpg-to-pdf'
               ? 'Creating your PDF...'
               : 'Converting your files...'}
           </h2>
 
           <p className="mt-2 text-sm text-slate-500">
-            Please wait while your files are
-            being processed.
+            Please wait while your
+            files are being processed.
           </p>
         </div>
       )}
 
-      {/* DONE */}
+      {/* -----------------------------------------
+          DONE
+      ----------------------------------------- */}
 
       {state === 'done' && (
         <div className="py-8">
@@ -1426,13 +1742,15 @@ export default function UploadSection({
             </div>
 
             <h2 className="mt-5 text-2xl font-bold text-slate-900">
-              {toolId === 'jpg-to-pdf'
+              {toolId ===
+              'jpg-to-pdf'
                 ? 'PDF Created!'
                 : 'Conversion Complete!'}
             </h2>
 
             <p className="mt-2 text-sm text-slate-500">
-              Your file is ready to download.
+              Your file is ready to
+              download.
             </p>
           </div>
 
@@ -1447,13 +1765,18 @@ export default function UploadSection({
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-900">
-                    {pdfResult.filename}
+                    {
+                      pdfResult.filename
+                    }
                   </p>
 
                   <p className="mt-1 text-xs text-slate-400">
-                    {pdfResult.pageCount}{' '}
+                    {
+                      pdfResult.pageCount
+                    }{' '}
                     page
-                    {pdfResult.pageCount !== 1
+                    {pdfResult.pageCount !==
+                    1
                       ? 's'
                       : ''}{' '}
                     •{' '}
@@ -1515,7 +1838,22 @@ export default function UploadSection({
                     );
                   }
                 }}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700"
+                className="
+                  mt-5
+                  flex
+                  w-full
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-xl
+                  bg-blue-600
+                  py-3.5
+                  text-sm
+                  font-bold
+                  text-white
+                  transition
+                  hover:bg-blue-700
+                "
               >
                 Download PDF
               </button>
@@ -1525,13 +1863,23 @@ export default function UploadSection({
           {/* OTHER RESULTS */}
 
           {!pdfResult &&
-            completedFiles.length > 0 && (
+            completedFiles.length >
+              0 && (
               <div className="mx-auto mt-8 max-w-xl space-y-3">
                 {completedFiles.map(
                   (item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4"
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                        rounded-xl
+                        border
+                        border-slate-200
+                        bg-white
+                        p-4
+                      "
                     >
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-green-50">
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -1565,7 +1913,17 @@ export default function UploadSection({
                             item
                           )
                         }
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-700"
+                        className="
+                          rounded-lg
+                          bg-blue-600
+                          px-4
+                          py-2
+                          text-xs
+                          font-bold
+                          text-white
+                          transition
+                          hover:bg-blue-700
+                        "
                       >
                         Download
                       </button>
@@ -1575,14 +1933,35 @@ export default function UploadSection({
               </div>
             )}
 
-          {/* DOWNLOAD ZIP */}
+          {/* ZIP */}
 
-          {completedFiles.length > 1 &&
+          {completedFiles.length >
+            1 &&
             !pdfResult && (
               <button
                 type="button"
-                onClick={downloadAllAsZip}
-                className="mx-auto mt-4 flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                onClick={
+                  downloadAllAsZip
+                }
+                className="
+                  mx-auto
+                  mt-4
+                  flex
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  px-6
+                  py-3
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                  transition
+                  hover:bg-slate-50
+                "
               >
                 Download All as ZIP
               </button>
@@ -1593,7 +1972,23 @@ export default function UploadSection({
           <button
             type="button"
             onClick={clearAllFiles}
-            className="mx-auto mt-4 flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
+            className="
+              mx-auto
+              mt-4
+              flex
+              items-center
+              justify-center
+              gap-2
+              rounded-xl
+              bg-slate-100
+              px-6
+              py-3
+              text-sm
+              font-semibold
+              text-slate-600
+              transition
+              hover:bg-slate-200
+            "
           >
             <RotateCcw className="h-4 w-4" />
             Convert More
@@ -1601,7 +1996,9 @@ export default function UploadSection({
         </div>
       )}
 
-      {/* ERROR */}
+      {/* -----------------------------------------
+          ERROR
+      ----------------------------------------- */}
 
       {state === 'error' && (
         <div className="py-12 text-center">
@@ -1614,13 +2011,29 @@ export default function UploadSection({
           </h2>
 
           <p className="mt-2 text-sm text-slate-500">
-            Please try again with your files.
+            Please try again with your
+            files.
           </p>
 
           <button
             type="button"
             onClick={clearAllFiles}
-            className="mx-auto mt-6 flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            className="
+              mx-auto
+              mt-6
+              flex
+              items-center
+              gap-2
+              rounded-xl
+              bg-blue-600
+              px-6
+              py-3
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-blue-700
+            "
           >
             <RotateCcw className="h-4 w-4" />
             Try Again
