@@ -885,34 +885,36 @@ export default function UploadSection({
                   {files.map((item) => (
                     <div
                       key={item.id}
-                      className="relative w-[170px] shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+                      className="w-[170px] shrink-0"
                     >
-                      <div className="truncate bg-slate-800/90 px-2 py-1.5 text-[11px] font-semibold text-white">
-                        {item.file.name}
-                      </div>
+                      <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div className="truncate bg-slate-800/90 px-2 py-1.5 text-[11px] font-semibold text-white">
+                          {item.file.name}
+                        </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeFile(item.id)
-                        }
-                        aria-label="Remove file"
-                        className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow transition hover:bg-red-50 hover:text-red-600"
-                      >
-                        <XCircle className="h-3.5 w-3.5" />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeFile(item.id)
+                          }
+                          aria-label="Remove file"
+                          className="absolute right-1.5 top-8 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow transition hover:bg-red-50 hover:text-red-600"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </button>
 
-                      <div className="flex h-24 w-full items-center justify-center bg-slate-100">
-                        {toolId === 'jpg-to-pdf' &&
-                        item.thumbnail ? (
-                          <img
-                            src={item.thumbnail}
-                            alt={item.file.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <FileText className="h-8 w-8 text-blue-600" />
-                        )}
+                        <div className="flex h-24 w-full items-center justify-center bg-slate-100">
+                          {toolId === 'jpg-to-pdf' &&
+                          item.thumbnail ? (
+                            <img
+                              src={item.thumbnail}
+                              alt={item.file.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <FileText className="h-8 w-8 text-blue-600" />
+                          )}
+                        </div>
                       </div>
 
                       {toolId === 'jpg-to-pdf' && (
@@ -928,20 +930,24 @@ export default function UploadSection({
                             item.status !== 'ready'
                           }
                           className="
+                            mx-auto
+                            mt-2
                             flex
-                            w-full
                             items-center
                             justify-center
-                            gap-1
-                            border-t
-                            border-slate-100
-                            bg-slate-50
+                            gap-1.5
+                            rounded-full
+                            border
+                            border-slate-200
+                            bg-white
+                            px-4
                             py-1.5
                             text-[11px]
                             font-bold
-                            text-slate-600
+                            text-slate-700
+                            shadow-sm
                             transition
-                            hover:bg-slate-100
+                            hover:bg-slate-50
                             disabled:cursor-not-allowed
                             disabled:opacity-60
                           "
