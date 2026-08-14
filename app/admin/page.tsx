@@ -38,6 +38,8 @@ export default function AdminPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [last7Days, setLast7Days] = useState<DayCount[]>([]);
@@ -48,8 +50,33 @@ export default function AdminPage() {
     }
   }, [authLoading, user, router]);
 
+  // Verify the logged-in user actually has admin rights.
+  // Anyone can sign up and log in normally, but only a profile
+  // with is_admin = true is allowed to see this page.
   useEffect(() => {
-    if (!user) return;
+    if (authLoading || !user) return;
+
+    const checkAdmin = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error || !data?.is_admin) {
+        router.replace('/');
+        return;
+      }
+
+      setIsAdmin(true);
+      setCheckingAdmin(false);
+    };
+
+    checkAdmin();
+  }, [authLoading, user, router]);
+
+  useEffect(() => {
+    if (!user || !isAdmin) return;
 
     const load = async () => {
       setLoading(true);
@@ -105,7 +132,7 @@ export default function AdminPage() {
     load();
   }, [user]);
 
-  if (authLoading || !user) {
+  if (authLoading || !user || checkingAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
