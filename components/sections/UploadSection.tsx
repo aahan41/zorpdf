@@ -1963,7 +1963,7 @@ export default function UploadSection({
             estimatedSize &&
             readyImages.length >
               0 && (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+              <div className="mx-auto mt-4 max-w-[898px] rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div>
