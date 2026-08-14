@@ -97,10 +97,15 @@ export default function SignUpPage() {
         return;
       }
 
-      // Save user profile information
+      // Save user profile information.
+      // NOTE: a database trigger (handle_new_user) already creates a bare
+      // profiles row (id, phone, email) the moment the auth user is
+      // created, with `on conflict (id) do nothing`. Using upsert here
+      // (instead of insert) means we fill in full_name/mobile on that
+      // same row instead of failing with a duplicate-key error.
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: authData.user.id,
           full_name: fullName.trim(),
           mobile: cleanMobile,
