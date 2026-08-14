@@ -1493,14 +1493,15 @@ export default function UploadSection({
               relative
               mx-auto
               w-full
+              min-h-[241px]
               px-2
               py-3
               transition-all
               ${
                 files.length === 0 ||
                 isDragging
-                  ? 'max-w-[898px] min-h-[200px] rounded-2xl border-2 border-dashed'
-                  : 'min-h-0'
+                  ? 'max-w-[898px] rounded-2xl border-2 border-dashed'
+                  : ''
               }
               ${
                 isDragging
@@ -1516,7 +1517,7 @@ export default function UploadSection({
             ======================================== */}
 
             {files.length === 0 ? (
-              <div className="flex min-h-[170px] items-center justify-center">
+              <div className="flex h-[217px] items-center justify-center">
                 <p
                   className={`
                     text-base
