@@ -17,7 +17,7 @@ export default function ToolPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pt-20">
         <button
           onClick={() => router.push('/')}
@@ -27,7 +27,9 @@ export default function ToolPage() {
           Back to all tools
         </button>
 
-        <UploadSection toolId={toolId} tool={tool} />
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6 sm:p-8 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_18px_40px_-20px_rgba(15,23,42,0.15)]">
+          <UploadSection toolId={toolId} tool={tool} />
+        </div>
       </div>
     </div>
   );
