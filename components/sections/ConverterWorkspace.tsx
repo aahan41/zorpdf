@@ -44,9 +44,25 @@ const generateId = () => Math.random().toString(36).substring(2, 15);
 
 const JPG_TO_PDF_ACCEPT = '.jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf';
 
-const getFileType = (file: File): 'image' | 'pdf' => {
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-  return isPdf ? 'pdf' : 'image';
+const getFileType = (file: File): 'image' | 'pdf' | null => {
+  const name = file.name.toLowerCase();
+
+  if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+    return 'pdf';
+  }
+
+  if (
+    file.type === 'image/jpeg' ||
+    file.type === 'image/jpg' ||
+    file.type === 'image/png' ||
+    name.endsWith('.jpg') ||
+    name.endsWith('.jpeg') ||
+    name.endsWith('.png')
+  ) {
+    return 'image';
+  }
+
+  return null;
 };
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
@@ -239,13 +255,28 @@ export default function ConverterWorkspace() {
       return;
     }
 
-    const newFileItems: FileItem[] = fileArray.map(file => ({
-      id: generateId(),
-      file,
-      fileType: getFileType(file),
-      status: 'pending' as const,
-      progress: 0,
-    }));
+    const newFileItems: FileItem[] = fileArray
+      .map(file => {
+        const fileType = getFileType(file);
+
+        if (!fileType) {
+          return null;
+        }
+
+        return {
+          id: generateId(),
+          file,
+          fileType,
+          status: 'pending' as const,
+          progress: 0,
+        };
+      })
+      .filter((item): item is FileItem => item !== null);
+
+    if (newFileItems.length === 0) {
+      alert('Please select JPG, JPEG, PNG or PDF files.');
+      return;
+    }
 
     if (activeTab === 'jpg-to-pdf') {
       setState('loading');
@@ -574,7 +605,7 @@ export default function ConverterWorkspace() {
                       </p>
                       <p className="text-slate-500 text-xs mb-3">
                         {activeTab === 'jpg-to-pdf'
-                          ? `Up to ${MAX_FILES} JPG, PNG or PDF files`
+                          ? `Up to ${MAX_FILES} JPG, JPEG, PNG or PDF files`
                           : 'or click to browse'}
                       </p>
                       <button
