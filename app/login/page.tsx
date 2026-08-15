@@ -54,15 +54,8 @@ export default function LoginPage() {
       }
 
       /*
-       * =====================================================
-       * STEP 1
-       * Find the email connected to this mobile number.
-       *
-       * We use the secure RPC instead of directly reading
-       * profiles because profiles has RLS enabled.
-       * =====================================================
+       * Find account email using mobile number.
        */
-
       const {
         data: emailData,
         error: emailError,
@@ -95,12 +88,8 @@ export default function LoginPage() {
       }
 
       /*
-       * =====================================================
-       * STEP 2
-       * Login through Supabase Auth.
-       * =====================================================
+       * Supabase Auth login.
        */
-
       const {
         data: loginData,
         error: loginError,
@@ -123,12 +112,8 @@ export default function LoginPage() {
       }
 
       /*
-       * =====================================================
-       * STEP 3
-       * Check the logged-in user's profile.
-       * =====================================================
+       * Load profile.
        */
-
       const {
         data: profile,
         error: profileError,
@@ -156,12 +141,8 @@ export default function LoginPage() {
       }
 
       /*
-       * =====================================================
-       * STEP 4
-       * Banned users cannot continue.
-       * =====================================================
+       * Block banned users.
        */
-
       if (profile?.is_banned === true) {
         await supabase.auth.signOut();
 
@@ -173,23 +154,21 @@ export default function LoginPage() {
       }
 
       /*
-       * =====================================================
-       * STEP 5
-       * Admin users go to /admin.
-       * Normal customers go to homepage.
-       * =====================================================
+       * ADMIN
        */
-
       if (profile?.is_admin === true) {
-        router.replace('/admin');
-      } else {
-        router.replace('/');
+        router.replace('/admin9415');
+        return;
       }
 
-    } catch (err) {
+      /*
+       * CUSTOMER
+       */
+      router.replace('/');
+    } catch (error) {
       console.error(
         'Login exception:',
-        err
+        error
       );
 
       setError(
@@ -216,7 +195,6 @@ export default function LoginPage() {
         {/* Heading */}
 
         <div className="mb-6 text-center">
-
           <h1 className="text-2xl font-bold text-slate-900">
             ZorPDF
           </h1>
@@ -228,10 +206,9 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-slate-500">
             Sign in to your account
           </p>
-
         </div>
 
-        {/* Card */}
+        {/* Login Card */}
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50">
 
@@ -243,7 +220,6 @@ export default function LoginPage() {
             {/* Mobile */}
 
             <div className="flex flex-col gap-2">
-
               <label
                 htmlFor="mobile"
                 className="text-sm font-medium text-slate-700"
@@ -278,13 +254,11 @@ export default function LoginPage() {
                 />
 
               </div>
-
             </div>
 
             {/* Password */}
 
             <div className="flex flex-col gap-2">
-
               <label
                 htmlFor="password"
                 className="text-sm font-medium text-slate-700"
@@ -320,12 +294,7 @@ export default function LoginPage() {
                     )
                   }
                   disabled={loading}
-                  aria-label={
-                    showPassword
-                      ? 'Hide password'
-                      : 'Show password'
-                  }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 disabled:opacity-50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -335,7 +304,6 @@ export default function LoginPage() {
                 </button>
 
               </div>
-
             </div>
 
             {/* Error */}
@@ -346,7 +314,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Login */}
+            {/* Login Button */}
 
             <button
               type="submit"
@@ -368,16 +336,14 @@ export default function LoginPage() {
           {/* Signup */}
 
           <div className="mt-6 border-t border-slate-100 pt-5 text-center text-sm text-slate-500">
-
             Don't have an account?{' '}
 
             <Link
               href="/signup"
-              className="font-medium text-blue-600 transition hover:text-blue-700"
+              className="font-medium text-blue-600 hover:text-blue-700"
             >
               Sign up
             </Link>
-
           </div>
 
         </div>
@@ -385,18 +351,15 @@ export default function LoginPage() {
         {/* Back */}
 
         <p className="mt-6 text-center text-xs text-slate-400">
-
           <Link
             href="/"
-            className="transition hover:text-slate-600"
+            className="hover:text-slate-600"
           >
             ← Back to ZorPDF
           </Link>
-
         </p>
 
       </div>
-
     </main>
   );
 }
