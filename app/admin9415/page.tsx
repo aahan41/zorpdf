@@ -12,14 +12,42 @@ import {
   Search,
   Shield,
   ShieldCheck,
+  TrendingUp,
   UserCheck,
   UserX,
   Users,
   Zap,
 } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/authContext';
+
+type DayCount = {
+  date: string;
+  label: string;
+  visitors: number;
+};
+
+function startOfTodayISO(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function daysAgoISO(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
 
 type Profile = {
   id: string;
@@ -45,6 +73,11 @@ export default function Admin9415Page() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [search, setSearch] = useState('');
+
+  const [loadingVisits, setLoadingVisits] = useState(true);
+  const [todayVisits, setTodayVisits] = useState(0);
+  const [totalVisits, setTotalVisits] = useState(0);
+  const [last7Days, setLast7Days] = useState<DayCount[]>([]);
   const [actionLoading, setActionLoading] =
     useState<string | null>(null);
   const [menuOpen, setMenuOpen] =
@@ -150,6 +183,68 @@ export default function Admin9415Page() {
 
   /*
    * =====================================================
+   * LOAD VISITOR ANALYTICS
+   * =====================================================
+   */
+
+  const loadVisits = async () => {
+    setLoadingVisits(true);
+
+    try {
+      const [todayRes, totalRes, weekRes] = await Promise.all([
+        supabase
+          .from('page_visits')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', startOfTodayISO()),
+
+        supabase
+          .from('page_visits')
+          .select('id', { count: 'exact', head: true }),
+
+        supabase
+          .from('page_visits')
+          .select('created_at')
+          .gte('created_at', daysAgoISO(6)),
+      ]);
+
+      setTodayVisits(todayRes.count ?? 0);
+      setTotalVisits(totalRes.count ?? 0);
+
+      const buckets = new Map<string, number>();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        buckets.set(key, 0);
+      }
+
+      (weekRes.data || []).forEach((row: { created_at: string }) => {
+        const key = row.created_at.slice(0, 10);
+        if (buckets.has(key)) {
+          buckets.set(key, (buckets.get(key) || 0) + 1);
+        }
+      });
+
+      const chartData: DayCount[] = Array.from(buckets.entries()).map(
+        ([date, visitors]) => ({
+          date,
+          label: new Date(date).toLocaleDateString('en-US', {
+            weekday: 'short',
+          }),
+          visitors,
+        })
+      );
+
+      setLast7Days(chartData);
+    } catch (error) {
+      console.error('Visit analytics error:', error);
+    } finally {
+      setLoadingVisits(false);
+    }
+  };
+
+  /*
+   * =====================================================
    * LOAD AFTER ADMIN AUTHENTICATION
    * =====================================================
    */
@@ -164,6 +259,7 @@ export default function Admin9415Page() {
     }
 
     loadUsers();
+    loadVisits();
   }, [
     authLoading,
     user,
@@ -509,6 +605,93 @@ export default function Admin9415Page() {
             and administrator accounts.
           </p>
 
+        </div>
+
+        {/* VISITOR ANALYTICS */}
+
+        <div className="mb-8">
+          <h3 className="mb-3 text-lg font-bold text-slate-900">
+            Visitor Analytics
+          </h3>
+
+          {loadingVisits ? (
+            <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Users className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">
+                      Today
+                    </span>
+                  </div>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">
+                    {todayVisits}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    unique visitors so far today
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">
+                      All time
+                    </span>
+                  </div>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">
+                    {totalVisits}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    total recorded visits
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
+                <p className="mb-4 text-sm font-semibold text-slate-700">
+                  Last 7 days
+                </p>
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={last7Days}>
+                      <XAxis
+                        dataKey="label"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#94a3b8' }}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#94a3b8' }}
+                        width={28}
+                      />
+                      <Tooltip
+                        cursor={{ fill: '#f1f5f9' }}
+                        contentStyle={{
+                          borderRadius: 10,
+                          border: '1px solid #e2e8f0',
+                          fontSize: 12,
+                        }}
+                      />
+                      <Bar
+                        dataKey="visitors"
+                        fill="#2563eb"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={36}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* STATISTICS */}
