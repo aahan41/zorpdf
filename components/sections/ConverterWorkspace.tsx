@@ -255,23 +255,23 @@ export default function ConverterWorkspace() {
       return;
     }
 
-    const newFileItems: FileItem[] = fileArray
-      .map(file => {
-        const fileType = getFileType(file);
+    const newFileItems: FileItem[] = [];
 
-        if (!fileType) {
-          return null;
-        }
+    for (const file of fileArray) {
+      const fileType = getFileType(file);
 
-        return {
-          id: generateId(),
-          file,
-          fileType,
-          status: 'pending' as const,
-          progress: 0,
-        };
-      })
-      .filter((item): item is FileItem => item !== null);
+      if (!fileType) {
+        continue;
+      }
+
+      newFileItems.push({
+        id: generateId(),
+        file,
+        fileType,
+        status: 'pending',
+        progress: 0,
+      });
+    }
 
     if (newFileItems.length === 0) {
       alert('Please select JPG, JPEG, PNG or PDF files.');
