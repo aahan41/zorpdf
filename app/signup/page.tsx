@@ -66,9 +66,7 @@ export default function SignupPage() {
       }
 
       if (password.length < 6) {
-        setError(
-          'Password must be at least 6 characters long.'
-        );
+        setError('Password must be at least 6 characters long.');
         return;
       }
 
@@ -78,97 +76,43 @@ export default function SignupPage() {
       }
 
       /*
-       * STEP 1
-       * Check whether this mobile number already exists.
+       * Supabase Auth account creation.
        *
-       * This prevents an existing customer from accidentally
-       * creating another account with the same mobile number.
+       * The database trigger automatically creates
+       * the corresponding profiles row.
        */
-      const { data: existingMobile, error: mobileError } =
-        await supabase
-          .from('profiles')
-          .select('id, email, mobile')
-          .eq('mobile', cleanMobile)
-          .maybeSingle();
-
-      if (mobileError) {
-        console.error('Mobile check error:', mobileError);
-
-        setError(
-          'Unable to verify this mobile number. Please try again.'
-        );
-
-        return;
-      }
-
-      if (existingMobile) {
-        setError(
-          'An account with this mobile number already exists. Please sign in instead.'
-        );
-
-        return;
-      }
-
-      /*
-       * STEP 2
-       * Check whether the email already exists in profiles.
-       */
-      const { data: existingEmail, error: emailCheckError } =
-        await supabase
-          .from('profiles')
-          .select('id, email')
-          .ilike('email', cleanEmail)
-          .maybeSingle();
-
-      if (emailCheckError) {
-        console.error(
-          'Email check error:',
-          emailCheckError
-        );
-
-        setError(
-          'Unable to verify this email address. Please try again.'
-        );
-
-        return;
-      }
-
-      if (existingEmail) {
-        setError(
-          'An account with this email already exists. Please sign in instead.'
-        );
-
-        return;
-      }
-
-      /*
-       * STEP 3
-       * Create the Supabase Auth account.
-       */
-      const {
-        data: authData,
-        error: signupError,
-      } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: {
-          data: {
-            full_name: cleanName,
-            mobile: cleanMobile,
+      const { data, error: signupError } =
+        await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: {
+              full_name: cleanName,
+              mobile: cleanMobile,
+            },
           },
-        },
-      });
+        });
 
       if (signupError) {
         console.error('Signup error:', signupError);
 
+        const message = signupError.message.toLowerCase();
+
         if (
-          signupError.message
-            .toLowerCase()
-            .includes('already registered')
+          message.includes('already registered') ||
+          message.includes('already exists') ||
+          message.includes('user already registered')
         ) {
           setError(
-            'An account with this email already exists. Please sign in instead.'
+            'This email is already registered. Please sign in instead.'
+          );
+        } else if (
+          message.includes('duplicate') ||
+          message.includes('unique') ||
+          message.includes('profiles_mobile')
+        ) {
+          setError(
+            'This mobile number is already registered. Please sign in instead.'
           );
         } else {
           setError(
@@ -180,61 +124,18 @@ export default function SignupPage() {
         return;
       }
 
-      if (!authData.user) {
+      if (!data.user) {
         setError(
-          'Account creation failed. Please try again.'
+          'Account could not be created. Please try again.'
         );
-
         return;
       }
 
       /*
-       * STEP 4
-       * Create/update the profile.
-       *
-       * The authenticated user's ID is always used as
-       * the profile identity.
+       * Email confirmation ON:
+       * Supabase returns a user but no active session.
        */
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            id: authData.user.id,
-            full_name: cleanName,
-            email: cleanEmail,
-            mobile: cleanMobile,
-          },
-          {
-            onConflict: 'id',
-          }
-        );
-
-      if (profileError) {
-        console.error(
-          'Profile creation error:',
-          profileError
-        );
-
-        /*
-         * Do NOT delete the Auth user automatically.
-         *
-         * Automatic deletion from the client is unsafe.
-         * The account remains available and can be repaired
-         * from the database if necessary.
-         */
-        setError(
-          'Your account was created, but your profile could not be completed. Please contact support.'
-        );
-
-        return;
-      }
-
-      /*
-       * STEP 5
-       * If email confirmation is enabled in Supabase,
-       * session will be null.
-       */
-      if (!authData.session) {
+      if (!data.session) {
         setSuccess(
           'Account created successfully. Please verify your email, then sign in.'
         );
@@ -247,8 +148,8 @@ export default function SignupPage() {
       }
 
       /*
-       * If email confirmation is disabled,
-       * user is already logged in.
+       * Email confirmation OFF:
+       * User is immediately logged in.
        */
       setSuccess(
         'Account created successfully. Redirecting...'
@@ -257,11 +158,11 @@ export default function SignupPage() {
       setTimeout(() => {
         router.replace('/');
       }, 800);
-    } catch (error) {
-      console.error('Signup exception:', error);
+    } catch (err) {
+      console.error('Signup exception:', err);
 
       setError(
-        'Something went wrong while creating your account. Please try again.'
+        'Something went wrong. Please try again.'
       );
     } finally {
       setLoading(false);
@@ -272,6 +173,8 @@ export default function SignupPage() {
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4 py-10">
       <div className="mx-auto flex min-h-[80vh] max-w-md items-center justify-center">
         <div className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+
+          {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8 text-center text-white">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold backdrop-blur">
               Z
@@ -286,7 +189,9 @@ export default function SignupPage() {
             </p>
           </div>
 
+          {/* Form */}
           <div className="p-6 sm:p-8">
+
             {error && (
               <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
@@ -303,6 +208,8 @@ export default function SignupPage() {
               onSubmit={handleSignup}
               className="space-y-4"
             >
+
+              {/* Full Name */}
               <div>
                 <label
                   htmlFor="fullName"
@@ -320,11 +227,12 @@ export default function SignupPage() {
                     setFullName(e.target.value)
                   }
                   placeholder="Enter your full name"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   disabled={loading}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                 />
               </div>
 
+              {/* Mobile */}
               <div>
                 <label
                   htmlFor="mobile"
@@ -353,12 +261,13 @@ export default function SignupPage() {
                       )
                     }
                     placeholder="Enter mobile number"
-                    className="w-full bg-transparent px-4 py-3 outline-none"
                     disabled={loading}
+                    className="w-full bg-transparent px-4 py-3 outline-none"
                   />
                 </div>
               </div>
 
+              {/* Email */}
               <div>
                 <label
                   htmlFor="email"
@@ -376,11 +285,12 @@ export default function SignupPage() {
                     setEmail(e.target.value)
                   }
                   placeholder="Enter your email"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   disabled={loading}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                 />
               </div>
 
+              {/* Password */}
               <div>
                 <label
                   htmlFor="password"
@@ -403,23 +313,26 @@ export default function SignupPage() {
                       setPassword(e.target.value)
                     }
                     placeholder="Create a password"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-20 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     disabled={loading}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-20 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword((value) => !value)
+                      setShowPassword(
+                        (value) => !value
+                      )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600"
                     disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600"
                   >
                     {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </div>
 
+              {/* Confirm Password */}
               <div>
                 <label
                   htmlFor="confirmPassword"
@@ -444,8 +357,8 @@ export default function SignupPage() {
                       )
                     }
                     placeholder="Confirm your password"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-20 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     disabled={loading}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-20 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                   />
 
                   <button
@@ -455,8 +368,8 @@ export default function SignupPage() {
                         (value) => !value
                       )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600"
                     disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600"
                   >
                     {showConfirmPassword
                       ? 'Hide'
@@ -465,6 +378,7 @@ export default function SignupPage() {
                 </div>
               </div>
 
+              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
@@ -502,6 +416,7 @@ export default function SignupPage() {
                 ← Back to ZorPDF
               </Link>
             </div>
+
           </div>
         </div>
       </div>
