@@ -78,6 +78,14 @@ export default function Admin9415Page() {
   const [todayVisits, setTodayVisits] = useState(0);
   const [totalVisits, setTotalVisits] = useState(0);
   const [last7Days, setLast7Days] = useState<DayCount[]>([]);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newMobile, setNewMobile] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [addingUser, setAddingUser] = useState(false);
+  const [addUserError, setAddUserError] = useState('');
   const [actionLoading, setActionLoading] =
     useState<string | null>(null);
   const [menuOpen, setMenuOpen] =
@@ -240,6 +248,67 @@ export default function Admin9415Page() {
       console.error('Visit analytics error:', error);
     } finally {
       setLoadingVisits(false);
+    }
+  };
+
+  /*
+   * =====================================================
+   * ADD NEW CUSTOMER (via Edge Function)
+   * =====================================================
+   */
+
+  const handleAddCustomer = async () => {
+    setAddUserError('');
+
+    const cleanMobile = newMobile.replace(/\D/g, '');
+
+    if (!newName.trim()) {
+      setAddUserError('Please enter a full name.');
+      return;
+    }
+    if (cleanMobile.length !== 10) {
+      setAddUserError('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      setAddUserError('Please enter a valid email address.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setAddUserError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setAddingUser(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'create-customer',
+        {
+          body: {
+            fullName: newName.trim(),
+            mobile: cleanMobile,
+            email: newEmail.trim().toLowerCase(),
+            password: newPassword,
+          },
+        }
+      );
+
+      if (error || data?.error) {
+        setAddUserError(data?.error || error?.message || 'Could not create account.');
+        return;
+      }
+
+      setShowAddModal(false);
+      setNewName('');
+      setNewMobile('');
+      setNewEmail('');
+      setNewPassword('');
+      loadUsers();
+    } catch (err) {
+      setAddUserError('Something went wrong. Please try again.');
+    } finally {
+      setAddingUser(false);
     }
   };
 
@@ -749,21 +818,34 @@ export default function Admin9415Page() {
               </p>
             </div>
 
-            <div className="relative w-full sm:w-80">
+            <div className="flex items-center gap-3">
+              <div className="relative w-full sm:w-80">
 
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-              <input
-                value={search}
-                onChange={(e) =>
-                  setSearch(
-                    e.target.value
-                  )
-                }
-                placeholder="Search customer..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
+                <input
+                  value={search}
+                  onChange={(e) =>
+                    setSearch(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Search customer..."
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
 
+              </div>
+
+              <button
+                onClick={() => {
+                  setAddUserError('');
+                  setShowAddModal(true);
+                }}
+                className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+              >
+                <Users className="h-4 w-4" />
+                Add Customer
+              </button>
             </div>
 
           </div>
@@ -1068,6 +1150,95 @@ export default function Admin9415Page() {
         </div>
 
       </div>
+
+      {/* ADD CUSTOMER MODAL */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900">
+              Add New Customer
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Creates a login without affecting your admin session.
+            </p>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Full Name
+                </label>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Customer name"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Mobile Number
+                </label>
+                <input
+                  value={newMobile}
+                  onChange={(e) => setNewMobile(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="10-digit mobile number"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Email
+                </label>
+                <input
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="customer@email.com"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Password
+                </label>
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="At least 6 characters"
+                />
+              </div>
+
+              {addUserError && (
+                <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {addUserError}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddModal(false)}
+                disabled={addingUser}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCustomer}
+                disabled={addingUser}
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {addingUser && <Loader2 className="h-4 w-4 animate-spin" />}
+                Create Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </main>
   );
