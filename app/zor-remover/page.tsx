@@ -22,20 +22,26 @@ type ProcessState = 'idle' | 'processing' | 'done' | 'error';
 const DEMO_IMAGE = '/hero-image.png';
 
 export default function ZorRemoverPage() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [processState, setProcessState] =
     useState<ProcessState>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [progressPct, setProgressPct] = useState<number | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
       setProcessState('error');
+      setErrorMessage('Please select a valid image file.');
       return;
     }
     const url = URL.createObjectURL(file);
+    setSelectedFile(file);
     setSelectedImage(url);
     setResultImage(null);
+    setErrorMessage(null);
     setProcessState('idle');
   }, []);
 
@@ -61,22 +67,50 @@ export default function ZorRemoverPage() {
   };
 
   const removeBackground = async () => {
-    if (!selectedImage) return;
+    if (!selectedFile) return;
     setProcessState('processing');
-    /*
-      Demo processing.
-      Yahan baad mein real background-removal API connect
-      ki ja sakti hai.
-    */
-    setTimeout(() => {
-      setResultImage(selectedImage);
+    setErrorMessage(null);
+    setProgressPct(0);
+
+    try {
+      // Runs fully in the browser (no server, no API key, no cost).
+      // Loaded from a CDN at runtime (webpackIgnore) instead of being
+      // bundled by Next.js — its prebuilt WASM/worker files aren't
+      // compatible with Next's production minifier.
+      // Dynamic runtime import from a CDN URL (no local type declarations).
+      const imglyUrl = 'https://esm.sh/@imgly/background-removal@1.7.0';
+      // @ts-ignore
+      const imglyModule: any = await import(/* webpackIgnore: true */ imglyUrl);
+      const imglyRemoveBackground = imglyModule.removeBackground;
+
+      const resultBlob = await imglyRemoveBackground(selectedFile, {
+        device: 'cpu',
+        progress: (_key: string, current: number, total: number) => {
+          if (total > 0) {
+            setProgressPct(Math.round((current / total) * 100));
+          }
+        },
+      });
+
+      const url = URL.createObjectURL(resultBlob);
+      setResultImage(url);
       setProcessState('done');
-    }, 1200);
+    } catch (err) {
+      console.error('Background removal failed:', err);
+      setErrorMessage(
+        'Background removal failed. Please try a different image or try again.'
+      );
+      setProcessState('error');
+    } finally {
+      setProgressPct(null);
+    }
   };
 
   const resetImage = () => {
+    setSelectedFile(null);
     setSelectedImage(null);
     setResultImage(null);
+    setErrorMessage(null);
     setProcessState('idle');
   };
 
@@ -233,7 +267,9 @@ export default function ZorRemoverPage() {
                         {processState === 'processing' ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Removing Background...
+                            {progressPct !== null
+                              ? `Removing Background... ${progressPct}%`
+                              : 'Removing Background...'}
                           </>
                         ) : (
                           <>
@@ -243,6 +279,14 @@ export default function ZorRemoverPage() {
                         )}
                       </button>
                     )}
+
+                    {/* ================= ERROR ================= */}
+                    {processState === 'error' && errorMessage && (
+                      <p className="mt-3 text-center text-sm font-medium text-red-600">
+                        {errorMessage}
+                      </p>
+                    )}
+
                     {/* ================= RESULT ================= */}
                     {processState === 'done' && resultImage && (
                       <div className="mt-5">
@@ -269,9 +313,6 @@ export default function ZorRemoverPage() {
                             src={resultImage}
                             alt="Background removed result"
                             className="block aspect-[4/3] w-full object-contain"
-                            style={{
-                              mixBlendMode: 'multiply',
-                            }}
                           />
                         </div>
                         <button
