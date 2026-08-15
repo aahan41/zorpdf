@@ -18,7 +18,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const { user, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -50,8 +50,11 @@ export default function Navbar() {
     await signOut();
   };
 
-  const userEmail = user?.email ?? '';
-  const userInitial = userEmail.charAt(0).toUpperCase();
+  const displayName =
+    profile?.full_name?.trim() ||
+    profile?.mobile ||
+    'Account';
+  const userInitial = displayName.charAt(0).toUpperCase();
 
   return (
     <motion.nav
@@ -99,7 +102,7 @@ export default function Navbar() {
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {userInitial}
                     </div>
-                    <span className="max-w-[130px] truncate">{userEmail}</span>
+                    <span className="max-w-[130px] truncate">{displayName}</span>
                     <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -114,7 +117,7 @@ export default function Navbar() {
                       >
                         <div className="px-4 py-3 border-b border-slate-100">
                           <p className="text-xs text-slate-400">Signed in as</p>
-                          <p className="text-sm text-slate-900 font-medium truncate">{userEmail}</p>
+                          <p className="text-sm text-slate-900 font-medium truncate">{displayName}</p>
                         </div>
                         <button
                           onClick={handleSignOut}
@@ -198,7 +201,7 @@ export default function Navbar() {
                     <>
                       <div className="px-3 py-2">
                         <p className="text-xs text-slate-400">Signed in as</p>
-                        <p className="text-sm text-slate-900 font-medium truncate">{userEmail}</p>
+                        <p className="text-sm text-slate-900 font-medium truncate">{displayName}</p>
                       </div>
                       <button
                         onClick={handleSignOut}
