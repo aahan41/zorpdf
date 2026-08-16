@@ -42,22 +42,23 @@ interface FileItem {
 const MAX_FILES = 100;
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-const JPG_TO_PDF_ACCEPT = '.jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf';
+const JPG_TO_PDF_ACCEPT = '.jpg,.jpeg,.png,.pdf';
 
 const getFileType = (file: File): 'image' | 'pdf' | null => {
-  const name = file.name.toLowerCase();
+  const name = file.name.toLowerCase().trim();
+  const mime = (file.type || '').toLowerCase();
 
-  if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+  if (name.endsWith('.pdf') || mime === 'application/pdf') {
     return 'pdf';
   }
 
   if (
-    file.type === 'image/jpeg' ||
-    file.type === 'image/jpg' ||
-    file.type === 'image/png' ||
     name.endsWith('.jpg') ||
     name.endsWith('.jpeg') ||
-    name.endsWith('.png')
+    name.endsWith('.png') ||
+    mime === 'image/jpeg' ||
+    mime === 'image/jpg' ||
+    mime === 'image/png'
   ) {
     return 'image';
   }
@@ -132,8 +133,13 @@ const mergePdfAndImagesToPdf = async (
       }
     } else {
       const fileName = item.file.name.toLowerCase();
-      const pngFile = item.file.type === 'image/png' || fileName.endsWith('.png');
-      const jpgFile = item.file.type === 'image/jpeg' || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg');
+      const mimeType = (item.file.type || '').toLowerCase();
+      const pngFile = mimeType === 'image/png' || fileName.endsWith('.png');
+      const jpgFile =
+        mimeType === 'image/jpeg' ||
+        mimeType === 'image/jpg' ||
+        fileName.endsWith('.jpg') ||
+        fileName.endsWith('.jpeg');
 
       if (!pngFile && !jpgFile) {
         throw new Error(`${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`);
@@ -255,35 +261,42 @@ export default function ConverterWorkspace() {
       return;
     }
 
-    const newFileItems: FileItem[] = fileArray
-      .map(file => {
-        const fileType = getFileType(file);
+    const newFileItems: FileItem[] = [];
+    const unsupportedFiles: string[] = [];
 
-        if (!fileType) {
-          return null;
-        }
+    for (const file of fileArray) {
+      const fileType = getFileType(file);
 
-        return {
-          id: generateId(),
-          file,
-          fileType,
-          status: 'pending' as const,
-          progress: 0,
-        };
-      })
-      .filter((item): item is FileItem => item !== null);
+      if (!fileType) {
+        unsupportedFiles.push(file.name);
+        continue;
+      }
+
+      newFileItems.push({
+        id: generateId(),
+        file,
+        fileType,
+        status: 'pending',
+        progress: 0,
+      });
+    }
+
+    if (unsupportedFiles.length > 0) {
+      alert(
+        `Unsupported file${unsupportedFiles.length > 1 ? 's' : ''}: ${unsupportedFiles.join(', ')}\n\nSupported: JPG, JPEG, PNG and PDF.`
+      );
+    }
 
     if (newFileItems.length === 0) {
-      alert('Please select JPG, JPEG, PNG or PDF files.');
       return;
     }
 
     if (activeTab === 'jpg-to-pdf') {
       setState('loading');
-      // Existing ready files rakhne ke liye — naye items alag pass karo
-      const existingReady = files.filter(f => f.status === 'ready');
-      setFiles([...existingReady, ...newFileItems]);
-      await loadThumbnails(newFileItems, existingReady);
+
+      // Keep all existing files so JPG + PDF + PNG can be combined.
+      const existingFiles = [...files];
+      await loadThumbnails(newFileItems, existingFiles);
     } else {
       setFiles(prev => [...prev, ...newFileItems]);
       setState('selected');
@@ -605,7 +618,7 @@ export default function ConverterWorkspace() {
                       </p>
                       <p className="text-slate-500 text-xs mb-3">
                         {activeTab === 'jpg-to-pdf'
-                          ? `Up to ${MAX_FILES} JPG, JPEG, PNG or PDF files`
+                          ? `Up to ${MAX_FILES} JPG, PNG or PDF files`
                           : 'or click to browse'}
                       </p>
                       <button
