@@ -47,6 +47,10 @@ import { estimatePdfSize } from '@/lib/pdfEstimator';
 
 import { compressPdf } from '@/lib/pdfCompressor';
 
+import { getZorPdfFileName } from '@/lib/fileNaming';
+
+import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
+
 interface UploadSectionProps {
   toolId: ToolId;
   tool: Tool;
@@ -951,7 +955,7 @@ export default function UploadSection({
         anchor.href = url;
 
         anchor.download =
-          'zorPDF.com';
+          `zorPDF-converted-${Date.now()}.zip`;
 
         document.body.appendChild(
           anchor
@@ -1138,7 +1142,7 @@ export default function UploadSection({
                 blob:
                   compressed.blob,
                 filename:
-                  'zorPDF.com',
+                  getZorPdfFileName('jpg'),
               },
             }
           );
@@ -1252,7 +1256,7 @@ export default function UploadSection({
                 result: {
                   blob: zipBlob,
                   filename:
-                    'zorPDF.com',
+                    getZorPdfFileName('zip'),
                 },
               }
             );
@@ -1306,7 +1310,7 @@ export default function UploadSection({
             progress: 100,
             result: {
               blob: result.blob,
-              filename: 'zorPDF.com',
+              filename: getZorPdfFileName('pdf'),
             },
             pdfResult: result,
           });
@@ -2049,6 +2053,13 @@ export default function UploadSection({
                       Smart Compression
                     </span>
                   </div>
+                </div>
+
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <CompressionLevelSelector
+                    value={compressionLevel}
+                    onChange={setCompressionLevel}
+                  />
                 </div>
               </div>
             )}
