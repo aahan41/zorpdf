@@ -42,31 +42,25 @@ interface FileItem {
 const MAX_FILES = 100;
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-// JPG to PDF intentionally uses a broad picker filter.
-// Windows/browser file pickers can hide PDFs when a MIME-only filter is used.
-// We validate the actual file extension/type in addFiles() below.
-const JPG_TO_PDF_ACCEPT = '*/*';
+const JPG_TO_PDF_ACCEPT = '.jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf';
 
 const getFileType = (file: File): 'image' | 'pdf' | null => {
-  const fileName = file.name.toLowerCase();
+  const name = file.name.toLowerCase();
 
-  const isPdf =
-    file.type === 'application/pdf' ||
-    fileName.endsWith('.pdf');
+  if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+    return 'pdf';
+  }
 
-  if (isPdf) return 'pdf';
-
-  const isJpg =
+  if (
     file.type === 'image/jpeg' ||
     file.type === 'image/jpg' ||
-    fileName.endsWith('.jpg') ||
-    fileName.endsWith('.jpeg');
-
-  const isPng =
     file.type === 'image/png' ||
-    fileName.endsWith('.png');
-
-  if (isJpg || isPng) return 'image';
+    name.endsWith('.jpg') ||
+    name.endsWith('.jpeg') ||
+    name.endsWith('.png')
+  ) {
+    return 'image';
+  }
 
   return null;
 };
@@ -261,24 +255,28 @@ export default function ConverterWorkspace() {
       return;
     }
 
-    const newFileItems: FileItem[] = [];
-    for (const file of fileArray) {
-      const fileType = getFileType(file);
-      if (activeTab === 'jpg-to-pdf' && fileType === null) {
-        alert(`Unsupported file: ${file.name}\\n\\nJPG, JPEG, PNG and PDF files are allowed.`);
-        continue;
-      }
-      if (fileType === null) continue;
-      newFileItems.push({
-        id: generateId(),
-        file,
-        fileType,
-        status: 'pending',
-        progress: 0,
-      });
-    }
+    const newFileItems: FileItem[] = fileArray
+      .map(file => {
+        const fileType = getFileType(file);
 
-    if (newFileItems.length === 0) return;
+        if (!fileType) {
+          return null;
+        }
+
+        return {
+          id: generateId(),
+          file,
+          fileType,
+          status: 'pending' as const,
+          progress: 0,
+        };
+      })
+      .filter((item): item is FileItem => item !== null);
+
+    if (newFileItems.length === 0) {
+      alert('Please select JPG, JPEG, PNG or PDF files.');
+      return;
+    }
 
     if (activeTab === 'jpg-to-pdf') {
       setState('loading');
@@ -607,7 +605,7 @@ export default function ConverterWorkspace() {
                       </p>
                       <p className="text-slate-500 text-xs mb-3">
                         {activeTab === 'jpg-to-pdf'
-                          ? `Up to ${MAX_FILES} JPG, PNG or PDF files`
+                          ? `Up to ${MAX_FILES} JPG, JPEG, PNG or PDF files`
                           : 'or click to browse'}
                       </p>
                       <button
