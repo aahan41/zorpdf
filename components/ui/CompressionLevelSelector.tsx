@@ -16,7 +16,7 @@ interface CompressionOption {
 const compressionOptions: CompressionOption[] = [
   {
     id: 'low',
-    label: 'Low Compression',
+    label: 'Low',
     description: 'Best quality, larger file size',
     icon: Sparkles,
     quality: '85% quality',
@@ -31,14 +31,14 @@ const compressionOptions: CompressionOption[] = [
   },
   {
     id: 'high',
-    label: 'High Compression',
+    label: 'High',
     description: 'Smaller file, good quality',
     icon: Target,
     quality: '65% quality',
   },
   {
     id: 'ultra',
-    label: 'Ultra Compress',
+    label: 'Ultra',
     description: 'Smallest size, lower quality',
     icon: Minimize2,
     quality: '50% quality',
@@ -55,18 +55,7 @@ export default function CompressionLevelSelector({
   onChange,
 }: CompressionLevelSelectorProps) {
   return (
-    <div className="w-full max-w-md mx-auto">
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-slate-700 font-semibold text-xs">
-          Compression Level
-        </label>
-
-        <span className="text-[11px] text-slate-400">
-          Choose your preferred quality
-        </span>
-      </div>
+    <div className="w-full">
 
       {/* Options */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -111,7 +100,7 @@ export default function CompressionLevelSelector({
                 </span>
               )}
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-center text-center gap-1">
 
                 {/* Icon */}
                 <div
@@ -139,12 +128,12 @@ export default function CompressionLevelSelector({
                 </div>
 
                 {/* Text */}
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0">
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-center gap-1">
                     <span
                       className={`
-                        text-xs font-semibold truncate
+                        text-xs font-semibold whitespace-nowrap
                         ${
                           isSelected
                             ? 'text-blue-700'
@@ -178,23 +167,6 @@ export default function CompressionLevelSelector({
             </motion.button>
           );
         })}
-      </div>
-
-      {/* Smart Compression */}
-      <div className="mt-2.5 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
-        <div className="flex items-start gap-1.5">
-
-          <Zap className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
-
-          <p className="text-slate-500 text-[11px] leading-relaxed">
-            <strong className="text-slate-700">
-              Smart Compression:
-            </strong>{' '}
-            Images are automatically analyzed for document content,
-            text and details are preserved with adaptive quality.
-          </p>
-
-        </div>
       </div>
 
     </div>
