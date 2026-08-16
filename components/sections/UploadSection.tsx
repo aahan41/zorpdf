@@ -45,6 +45,8 @@ import {
 
 import { estimatePdfSize } from '@/lib/pdfEstimator';
 
+import { compressPdf } from '@/lib/pdfCompressor';
+
 interface UploadSectionProps {
   toolId: ToolId;
   tool: Tool;
@@ -1271,6 +1273,70 @@ export default function UploadSection({
                 'Could not convert this PDF.',
             }
           );
+        }
+      }
+
+      setState(
+        failed ? 'error' : 'done'
+      );
+
+      return;
+    }
+
+    /*
+     * PDF COMPRESSOR
+     */
+    if (toolId === 'pdf-compressor') {
+      let failed = false;
+
+      for (const item of files) {
+        updateFile(item.id, {
+          status: 'converting',
+          progress: 0,
+        });
+
+        try {
+          const result = await compressPdf(
+            item.file,
+            compressionLevel,
+            (current, total) => {
+              const progress =
+                total > 0
+                  ? Math.round(
+                      (current / total) * 100
+                    )
+                  : 0;
+
+              updateFile(item.id, {
+                progress,
+              });
+            }
+          );
+
+          updateFile(item.id, {
+            status: 'done',
+            progress: 100,
+            result: {
+              blob: result.blob,
+              filename: 'zorPDF.com',
+            },
+            pdfResult: result,
+          });
+        } catch (error) {
+          console.error(
+            'PDF compression failed:',
+            error
+          );
+
+          failed = true;
+
+          updateFile(item.id, {
+            status: 'error',
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Could not compress this PDF.',
+          });
         }
       }
 
