@@ -294,8 +294,9 @@ export default function ConverterWorkspace() {
     if (activeTab === 'jpg-to-pdf') {
       setState('loading');
 
-      // Keep all existing files so JPG + PDF + PNG can be combined.
+      // Preserve all existing files so JPG + PDF + PNG can be combined.
       const existingFiles = [...files];
+
       await loadThumbnails(newFileItems, existingFiles);
     } else {
       setFiles(prev => [...prev, ...newFileItems]);
