@@ -7,6 +7,11 @@ type PdfCompressionLevel =
   | CompressionLevel
   | 'medium';
 
+export type PdfCompressionResult =
+  MergeResult & {
+    compressedSize: number;
+  };
+
 function normalizeCompressionLevel(
   level: PdfCompressionLevel
 ): CompressionLevel {
@@ -20,9 +25,14 @@ function normalizeCompressionLevel(
 export async function compressPdf(
   file: File,
   level: PdfCompressionLevel = 'balanced'
-): Promise<MergeResult> {
+): Promise<PdfCompressionResult> {
   const compressionLevel =
     normalizeCompressionLevel(level);
+
+  const settings =
+    COMPRESSION_PRESETS[
+      compressionLevel
+    ];
 
   const pdfjsLib =
     await import('pdfjs-dist');
@@ -56,11 +66,6 @@ export async function compressPdf(
       'The PDF has no pages.'
     );
   }
-
-  const settings =
-    COMPRESSION_PRESETS[
-      compressionLevel
-    ];
 
   const outputPdf =
     await PDFDocument.create();
@@ -146,6 +151,12 @@ export async function compressPdf(
       canvas.height
     );
 
+    context.imageSmoothingEnabled =
+      true;
+
+    context.imageSmoothingQuality =
+      'high';
+
     await sourcePage.render({
       canvasContext: context,
       viewport,
@@ -170,8 +181,7 @@ export async function compressPdf(
               }
             },
             'image/jpeg',
-            settings.quality /
-              100
+            settings.quality / 100
           );
         }
       );
@@ -220,6 +230,10 @@ export async function compressPdf(
       }
     );
 
+  /*
+   * If the rebuilt PDF is larger than the
+   * original, keep the original file.
+   */
   const finalBlob =
     compressedBlob.size <
     file.size
@@ -232,22 +246,26 @@ export async function compressPdf(
           }
         );
 
+  const compressedSize =
+    finalBlob.size;
+
+  const compressionRatio =
+    compressedSize > 0
+      ? file.size /
+        compressedSize
+      : 1;
+
   return {
     blob: finalBlob,
     filename:
-      getZorPdfFileName(
-        'pdf'
-      ),
+      getZorPdfFileName('pdf'),
     pageCount:
       totalPages,
     originalSize:
       file.size,
     pdfSize:
-      finalBlob.size,
-    compressionRatio:
-      finalBlob.size > 0
-        ? file.size /
-          finalBlob.size
-        : 1,
+      compressedSize,
+    compressedSize,
+    compressionRatio,
   };
 }
