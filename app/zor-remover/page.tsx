@@ -167,7 +167,7 @@ export default function ZorRemoverPage() {
     // Start fetching the AI model right away so it's hopefully already
     // cached by the time the user hits "Remove Background".
     loadImgly()
-      .then((mod) => mod.preload?.({ model: 'isnet_quint8', device: 'cpu' }))
+      .then((mod) => mod.preload?.({ model: 'isnet_fp16', device: 'cpu' }))
       .catch(() => {});
   }, []);
 
@@ -199,7 +199,7 @@ export default function ZorRemoverPage() {
 
       const resultBlob = await imglyRemoveBackground(selectedFile, {
         device: 'cpu',
-        model: 'isnet_quint8',
+        model: 'isnet_fp16',
         progress: (key: string, current: number, total: number) => {
           if (total > 0) setProgressPct(Math.round((current / total) * 100));
           setProgressLabel(
@@ -457,9 +457,9 @@ export default function ZorRemoverPage() {
         /* ======================================================= */
         /* ==================  WORKSPACE VIEW  ===================== */
         /* ======================================================= */
-        <div className="flex min-h-[calc(100vh-64px)] flex-col">
+        <div className="flex min-h-[calc(100vh-56px)] flex-col pt-14">
           {/* ---------- Toolbar ---------- */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -671,8 +671,8 @@ export default function ZorRemoverPage() {
                   {processState === 'processing' && (
                     <p className="mt-2 text-center text-xs text-slate-400">
                       First removal on this device downloads a small AI model
-                      — it's cached after that and future images are much
-                      faster.
+                      for clean, sharp edges — it's cached after that and
+                      future images are much faster.
                     </p>
                   )}
                   {processState === 'error' && errorMessage && (
