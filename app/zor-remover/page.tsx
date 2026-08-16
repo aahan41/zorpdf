@@ -185,7 +185,10 @@ export default function ZorRemoverPage() {
     // Start fetching the AI model right away so it's hopefully already
     // cached by the time the user hits "Remove Background".
     loadImgly()
-      .then((mod) => mod.preload?.({ model: 'isnet_quint8', device: 'cpu' }))
+      .then((mod) => {
+        mod.preload?.({ model: 'isnet_fp16', device: 'cpu' }).catch(() => {});
+        mod.preload?.({ model: 'isnet_quint8', device: 'cpu' }).catch(() => {});
+      })
       .catch(() => {});
   }, []);
 
@@ -224,21 +227,24 @@ export default function ZorRemoverPage() {
         );
       };
 
-      // isnet_quint8 is small and reliable on CPU everywhere. If it ever
-      // fails for some reason, fall back to the library's own default
-      // rather than showing the user a hard error.
+      // isnet_fp16 gives cleaner edges around hair/face. If it ever fails
+      // to load or run (e.g. slow network, low memory), automatically
+      // fall back to the smaller isnet_quint8 model, which is proven
+      // reliable on CPU everywhere — the user should never see a hard
+      // failure just because the higher-quality model couldn't run.
       let resultBlob: Blob;
       try {
         resultBlob = await imglyRemoveBackground(selectedFile, {
           device: 'cpu',
-          model: 'isnet_quint8',
+          model: 'isnet_fp16',
           progress: onProgress,
         });
       } catch (firstErr) {
-        console.warn('isnet_quint8 failed, retrying with default model:', firstErr);
+        console.warn('isnet_fp16 failed, retrying with isnet_quint8:', firstErr);
         setProgressLabel('Retrying…');
         resultBlob = await imglyRemoveBackground(selectedFile, {
           device: 'cpu',
+          model: 'isnet_quint8',
           progress: onProgress,
         });
       }
