@@ -42,7 +42,7 @@ interface FileItem {
 const MAX_FILES = 100;
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-const JPG_TO_PDF_ACCEPT = '.jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf';
+const JPG_TO_PDF_ACCEPT = '.jpg,.jpeg,.png,.pdf';
 
 const getFileType = (file: File): 'image' | 'pdf' | null => {
   const name = file.name.toLowerCase();
@@ -328,10 +328,14 @@ export default function ConverterWorkspace() {
   const handleDragLeave = () => setIsDragging(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      addFiles(e.target.files);
-      e.target.value = '';
-    }
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    // accept attribute is only a picker hint; validate by extension/type in addFiles.
+    void addFiles(selectedFiles);
+
+    // Allow selecting the same file again after removing/retrying it.
+    e.target.value = '';
   };
 
   const updateFileProgress = (id: string, progress: number) => {
