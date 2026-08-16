@@ -1877,18 +1877,20 @@ export default function UploadSection({
           {/* FILE COUNT — moved here, this replaces the old "Supported..." line spot */}
 
           {files.length > 0 && (
-            <p className="mt-3 text-center text-xs text-slate-400">
-              {files.length}{' '}
-              file
-              {files.length !== 1
-                ? 's'
-                : ''}{' '}
-              selected
-              {' • '}
-              {formatBytes(
-                totalSize
-              )}
-            </p>
+            <div className="mt-3 flex justify-center">
+              <p className="rounded-full bg-slate-100 px-4 py-1.5 text-xs font-medium text-slate-500">
+                {files.length}{' '}
+                file
+                {files.length !== 1
+                  ? 's'
+                  : ''}{' '}
+                selected
+                {' • '}
+                {formatBytes(
+                  totalSize
+                )}
+              </p>
+            </div>
           )}
         </div>
       ) : null}
