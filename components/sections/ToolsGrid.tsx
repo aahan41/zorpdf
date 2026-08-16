@@ -35,13 +35,13 @@ export const tools: Tool[] = [
   {
     id: 'jpg-to-pdf',
     title: 'JPG to PDF',
-    description: 'Convert JPG images to PDF documents.',
+    description: 'Convert JPG images and existing PDF documents to a single PDF.',
     from: 'JPG',
     to: 'PDF',
     icon: Image,
     gradient: 'from-blue-50 to-blue-100/50',
     iconBg: 'from-blue-500 to-blue-700',
-    accept: '.jpg,.jpeg,.png',
+    accept: '.jpg,.jpeg,.png,.pdf',
   },
   {
     id: 'pdf-to-jpg',
@@ -129,27 +129,22 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
           }
         }}
       >
-        {/* Format badges */}
         <div className="flex items-center gap-2 mb-5">
           <span className="px-3 py-1 rounded-lg bg-white/70 text-slate-700 text-xs font-bold">
             {tool.from}
           </span>
-
           <ArrowRight className="w-4 h-4 text-slate-400" />
-
           <span className="px-3 py-1 rounded-lg bg-white/70 text-slate-700 text-xs font-bold">
             {tool.to}
           </span>
         </div>
 
-        {/* Icon */}
         <div
           className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${tool.iconBg} flex items-center justify-center mb-5 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}
         >
           <tool.icon className="w-8 h-8 text-white" />
         </div>
 
-        {/* Content */}
         <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">
           {tool.title}
         </h3>
@@ -158,10 +153,8 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
           {tool.description}
         </p>
 
-        {/* CTA Button */}
         <div className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold text-white flex items-center justify-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none">
           <span>Open Tool</span>
-
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </div>
       </div>
@@ -179,7 +172,6 @@ export default function ToolsGrid() {
   return (
     <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
-        {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -190,13 +182,11 @@ export default function ToolsGrid() {
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             File Converter
           </h2>
-
           <p className="text-slate-500 text-lg">
             Convert your files to any format you need
           </p>
         </motion.div>
 
-        {/* Tool cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {tools.map((tool) => (
             <ToolCard
