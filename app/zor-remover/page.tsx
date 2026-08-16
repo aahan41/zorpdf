@@ -167,7 +167,7 @@ export default function ZorRemoverPage() {
     // Start fetching the AI model right away so it's hopefully already
     // cached by the time the user hits "Remove Background".
     loadImgly()
-      .then((mod) => mod.preload?.({ model: 'isnet_fp16', device: 'cpu' }))
+      .then((mod) => mod.preload?.({ model: 'isnet_quint8', device: 'cpu' }))
       .catch(() => {});
   }, []);
 
@@ -197,18 +197,33 @@ export default function ZorRemoverPage() {
       const imglyModule = await loadImgly();
       const imglyRemoveBackground = imglyModule.removeBackground;
 
-      const resultBlob = await imglyRemoveBackground(selectedFile, {
-        device: 'cpu',
-        model: 'isnet_fp16',
-        progress: (key: string, current: number, total: number) => {
-          if (total > 0) setProgressPct(Math.round((current / total) * 100));
-          setProgressLabel(
-            key.startsWith('fetch')
-              ? 'Downloading AI model (first time only)…'
-              : 'Removing background…'
-          );
-        },
-      });
+      const onProgress = (key: string, current: number, total: number) => {
+        if (total > 0) setProgressPct(Math.round((current / total) * 100));
+        setProgressLabel(
+          key.startsWith('fetch')
+            ? 'Downloading AI model (first time only)…'
+            : 'Removing background…'
+        );
+      };
+
+      // isnet_quint8 is small and reliable on CPU everywhere. If it ever
+      // fails for some reason, fall back to the library's own default
+      // rather than showing the user a hard error.
+      let resultBlob: Blob;
+      try {
+        resultBlob = await imglyRemoveBackground(selectedFile, {
+          device: 'cpu',
+          model: 'isnet_quint8',
+          progress: onProgress,
+        });
+      } catch (firstErr) {
+        console.warn('isnet_quint8 failed, retrying with default model:', firstErr);
+        setProgressLabel('Retrying…');
+        resultBlob = await imglyRemoveBackground(selectedFile, {
+          device: 'cpu',
+          progress: onProgress,
+        });
+      }
 
       const url = URL.createObjectURL(resultBlob);
       setResultImage(url);
@@ -671,8 +686,8 @@ export default function ZorRemoverPage() {
                   {processState === 'processing' && (
                     <p className="mt-2 text-center text-xs text-slate-400">
                       First removal on this device downloads a small AI model
-                      for clean, sharp edges — it's cached after that and
-                      future images are much faster.
+                      — it's cached after that and future images are much
+                      faster.
                     </p>
                   )}
                   {processState === 'error' && errorMessage && (
