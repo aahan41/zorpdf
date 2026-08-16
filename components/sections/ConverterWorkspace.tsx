@@ -42,25 +42,31 @@ interface FileItem {
 const MAX_FILES = 100;
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-const JPG_TO_PDF_ACCEPT = '.jpg,.jpeg,.png,.pdf';
+// JPG to PDF intentionally uses a broad picker filter.
+// Windows/browser file pickers can hide PDFs when a MIME-only filter is used.
+// We validate the actual file extension/type in addFiles() below.
+const JPG_TO_PDF_ACCEPT = '*/*';
 
 const getFileType = (file: File): 'image' | 'pdf' | null => {
-  const name = file.name.toLowerCase();
+  const fileName = file.name.toLowerCase();
 
-  if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
-    return 'pdf';
-  }
+  const isPdf =
+    file.type === 'application/pdf' ||
+    fileName.endsWith('.pdf');
 
-  if (
+  if (isPdf) return 'pdf';
+
+  const isJpg =
     file.type === 'image/jpeg' ||
     file.type === 'image/jpg' ||
+    fileName.endsWith('.jpg') ||
+    fileName.endsWith('.jpeg');
+
+  const isPng =
     file.type === 'image/png' ||
-    name.endsWith('.jpg') ||
-    name.endsWith('.jpeg') ||
-    name.endsWith('.png')
-  ) {
-    return 'image';
-  }
+    fileName.endsWith('.png');
+
+  if (isJpg || isPng) return 'image';
 
   return null;
 };
@@ -256,14 +262,13 @@ export default function ConverterWorkspace() {
     }
 
     const newFileItems: FileItem[] = [];
-
     for (const file of fileArray) {
       const fileType = getFileType(file);
-
-      if (!fileType) {
+      if (activeTab === 'jpg-to-pdf' && fileType === null) {
+        alert(`Unsupported file: ${file.name}\\n\\nJPG, JPEG, PNG and PDF files are allowed.`);
         continue;
       }
-
+      if (fileType === null) continue;
       newFileItems.push({
         id: generateId(),
         file,
@@ -273,10 +278,7 @@ export default function ConverterWorkspace() {
       });
     }
 
-    if (newFileItems.length === 0) {
-      alert('Please select JPG, JPEG, PNG or PDF files.');
-      return;
-    }
+    if (newFileItems.length === 0) return;
 
     if (activeTab === 'jpg-to-pdf') {
       setState('loading');
@@ -328,14 +330,10 @@ export default function ConverterWorkspace() {
   const handleDragLeave = () => setIsDragging(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
-
-    // accept attribute is only a picker hint; validate by extension/type in addFiles.
-    void addFiles(selectedFiles);
-
-    // Allow selecting the same file again after removing/retrying it.
-    e.target.value = '';
+    if (e.target.files && e.target.files.length > 0) {
+      addFiles(e.target.files);
+      e.target.value = '';
+    }
   };
 
   const updateFileProgress = (id: string, progress: number) => {
@@ -609,7 +607,7 @@ export default function ConverterWorkspace() {
                       </p>
                       <p className="text-slate-500 text-xs mb-3">
                         {activeTab === 'jpg-to-pdf'
-                          ? `Up to ${MAX_FILES} JPG, JPEG, PNG or PDF files`
+                          ? `Up to ${MAX_FILES} JPG, PNG or PDF files`
                           : 'or click to browse'}
                       </p>
                       <button
