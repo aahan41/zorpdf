@@ -23,6 +23,8 @@ import {
   Plus,
   ArrowLeft,
   Scissors,
+  ZoomIn,
+  Move,
 } from 'lucide-react';
 import Navbar from '@/components/sections/Navbar';
 import Footer from '@/components/sections/Footer';
@@ -96,6 +98,45 @@ const DESIGN_TEMPLATES: DesignTemplate[] = [
   { id: 'social', label: 'Social Post', sub: '1080 × 1080', width: 1080, height: 1080 },
 ];
 
+// The on-screen frame's exact pixel box for a given template, computed in
+// JS instead of via CSS aspect-ratio — guarantees the preview always
+// visibly matches the chosen template's shape, regardless of any
+// surrounding flex/min-height/max-height layout.
+function getFrameBoxSize(tpl: DesignTemplate) {
+  const maxDim = 420;
+  const ratio = tpl.width / tpl.height;
+  return ratio >= 1
+    ? { width: maxDim, height: maxDim / ratio }
+    : { width: maxDim * ratio, height: maxDim };
+}
+
+// Shared contain-fit + zoom + pan math used by BOTH the live preview and
+// the canvas export, so what you see is exactly what you download.
+function computeCropBox(
+  frameW: number,
+  frameH: number,
+  imgW: number,
+  imgH: number,
+  zoom: number,
+  offsetX: number,
+  offsetY: number,
+  marginRatio = 0.08
+) {
+  const availW = frameW * (1 - marginRatio * 2);
+  const availH = frameH * (1 - marginRatio * 2);
+  const baseFit = Math.min(availW / imgW, availH / imgH);
+  const scale = baseFit * zoom;
+  const drawW = imgW * scale;
+  const drawH = imgH * scale;
+  const left = (frameW - drawW) / 2 + offsetX * frameW;
+  const top = (frameH - drawH) / 2 + offsetY * frameH;
+  return { left, top, drawW, drawH };
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
 // Loads @imgly/background-removal from a CDN at runtime instead of
 // bundling it — its prebuilt WASM/worker files aren't compatible with
 // Next 13's production minifier. Cached at module scope so it's only
@@ -127,6 +168,16 @@ export default function ZorRemoverPage() {
   const [contrast, setContrast] = useState(100);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [designTemplate, setDesignTemplate] = useState<DesignTemplate | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{
+    startX: number;
+    startY: number;
+    startOffX: number;
+    startOffY: number;
+  } | null>(null);
 
   // ============ Undo / redo ============
   const [history, setHistory] = useState<EditState[]>([]);
@@ -180,15 +231,15 @@ export default function ZorRemoverPage() {
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
     setDesignTemplate(null);
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setImgNaturalSize(null);
     setHistory([]);
     setFuture([]);
     // Start fetching the AI model right away so it's hopefully already
     // cached by the time the user hits "Remove Background".
     loadImgly()
-      .then((mod) => {
-        mod.preload?.({ model: 'isnet_fp16', device: 'cpu' }).catch(() => {});
-        mod.preload?.({ model: 'isnet_quint8', device: 'cpu' }).catch(() => {});
-      })
+      .then((mod) => mod.preload?.({ model: 'isnet_quint8', device: 'cpu' }))
       .catch(() => {});
   }, []);
 
@@ -227,24 +278,22 @@ export default function ZorRemoverPage() {
         );
       };
 
-      // isnet_fp16 gives cleaner edges around hair/face. If it ever fails
-      // to load or run (e.g. slow network, low memory), automatically
-      // fall back to the smaller isnet_quint8 model, which is proven
-      // reliable on CPU everywhere — the user should never see a hard
-      // failure just because the higher-quality model couldn't run.
+      // isnet_quint8 is small (fast to download and run) and reliable on
+      // CPU everywhere. If it ever fails for some reason, fall back to
+      // the higher-quality (but larger/slower) model as a last resort.
       let resultBlob: Blob;
       try {
         resultBlob = await imglyRemoveBackground(selectedFile, {
           device: 'cpu',
-          model: 'isnet_fp16',
+          model: 'isnet_quint8',
           progress: onProgress,
         });
       } catch (firstErr) {
-        console.warn('isnet_fp16 failed, retrying with isnet_quint8:', firstErr);
+        console.warn('isnet_quint8 failed, retrying with isnet_fp16:', firstErr);
         setProgressLabel('Retrying…');
         resultBlob = await imglyRemoveBackground(selectedFile, {
           device: 'cpu',
-          model: 'isnet_quint8',
+          model: 'isnet_fp16',
           progress: onProgress,
         });
       }
@@ -281,6 +330,9 @@ export default function ZorRemoverPage() {
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
     setDesignTemplate(null);
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setImgNaturalSize(null);
     setHistory([]);
     setFuture([]);
   };
@@ -296,6 +348,9 @@ export default function ZorRemoverPage() {
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
     setDesignTemplate(null);
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setImgNaturalSize(null);
     setHistory([]);
     setFuture([]);
   };
@@ -316,8 +371,8 @@ export default function ZorRemoverPage() {
       let ctx: CanvasRenderingContext2D;
 
       if (designTemplate) {
-        // Exact print/standard size: fit the cutout inside with a small
-        // margin, centered, on the chosen background color.
+        // Exact print/standard size — same fit+zoom+pan math as the
+        // live preview, so the download matches exactly what's shown.
         canvas = document.createElement('canvas');
         canvas.width = designTemplate.width;
         canvas.height = designTemplate.height;
@@ -328,17 +383,15 @@ export default function ZorRemoverPage() {
         ctx.fillStyle = bgColor === 'transparent' ? '#FFFFFF' : bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const marginRatio = 0.08;
-        const availW = canvas.width * (1 - marginRatio * 2);
-        const availH = canvas.height * (1 - marginRatio * 2);
-        const fitScale = Math.min(
-          availW / img.naturalWidth,
-          availH / img.naturalHeight
+        const box = computeCropBox(
+          canvas.width,
+          canvas.height,
+          img.naturalWidth,
+          img.naturalHeight,
+          cropZoom,
+          cropOffset.x,
+          cropOffset.y
         );
-        const drawW = img.naturalWidth * fitScale;
-        const drawH = img.naturalHeight * fitScale;
-        const dx = (canvas.width - drawW) / 2;
-        const dy = (canvas.height - drawH) / 2;
 
         ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
         if (shadowOn) {
@@ -346,7 +399,7 @@ export default function ZorRemoverPage() {
           ctx.shadowBlur = canvas.width * 0.03;
           ctx.shadowOffsetY = canvas.height * 0.015;
         }
-        ctx.drawImage(img, dx, dy, drawW, drawH);
+        ctx.drawImage(img, box.left, box.top, box.drawW, box.drawH);
       } else {
         const scale =
           size === 'preview'
@@ -692,50 +745,128 @@ export default function ZorRemoverPage() {
           <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:flex-row">
             {/* Canvas */}
             <div className="flex flex-1 flex-col items-center">
-              <div
-                className="relative flex max-h-[65vh] min-h-[320px] w-full max-w-lg items-center justify-center overflow-hidden rounded-2xl shadow-lg"
-                style={{
-                  ...(processState === 'done' && bgColor !== 'transparent'
-                    ? { backgroundColor: bgColor }
-                    : CHECKERBOARD_STYLE),
-                  ...(designTemplate
-                    ? {
-                        aspectRatio: `${designTemplate.width} / ${designTemplate.height}`,
-                        maxWidth: designTemplate.width >= designTemplate.height ? '32rem' : '22rem',
-                        margin: '0 auto',
-                      }
-                    : {}),
-                }}
-              >
-                <img
-                  src={resultImage ?? selectedImage ?? ''}
-                  alt="Editing preview"
-                  className={`block w-full object-contain ${
-                    designTemplate ? 'h-full p-6' : 'max-h-[65vh] p-4'
-                  }`}
-                  style={
-                    processState === 'done'
-                      ? {
-                          filter: `brightness(${brightness}%) contrast(${contrast}%)${
-                            shadowOn
-                              ? ' drop-shadow(0 18px 20px rgba(15,23,42,0.35))'
-                              : ''
-                          }`,
+              {designTemplate ? (
+                (() => {
+                  const frame = getFrameBoxSize(designTemplate);
+                  const box =
+                    imgNaturalSize &&
+                    computeCropBox(
+                      frame.width,
+                      frame.height,
+                      imgNaturalSize.w,
+                      imgNaturalSize.h,
+                      cropZoom,
+                      cropOffset.x,
+                      cropOffset.y
+                    );
+                  return (
+                    <div
+                      ref={frameRef}
+                      onPointerDown={(e) => {
+                        (e.target as Element).setPointerCapture(e.pointerId);
+                        dragStateRef.current = {
+                          startX: e.clientX,
+                          startY: e.clientY,
+                          startOffX: cropOffset.x,
+                          startOffY: cropOffset.y,
+                        };
+                      }}
+                      onPointerMove={(e) => {
+                        if (!dragStateRef.current || !frameRef.current) return;
+                        const rect = frameRef.current.getBoundingClientRect();
+                        const dx = (e.clientX - dragStateRef.current.startX) / rect.width;
+                        const dy = (e.clientY - dragStateRef.current.startY) / rect.height;
+                        setCropOffset({
+                          x: clamp(dragStateRef.current.startOffX + dx, -0.5, 0.5),
+                          y: clamp(dragStateRef.current.startOffY + dy, -0.5, 0.5),
+                        });
+                      }}
+                      onPointerUp={() => {
+                        dragStateRef.current = null;
+                      }}
+                      className="relative touch-none select-none overflow-hidden rounded-2xl shadow-lg"
+                      style={{
+                        width: frame.width,
+                        height: frame.height,
+                        cursor: dragStateRef.current ? 'grabbing' : 'grab',
+                        ...(bgColor !== 'transparent'
+                          ? { backgroundColor: bgColor }
+                          : CHECKERBOARD_STYLE),
+                      }}
+                    >
+                      <img
+                        src={resultImage ?? selectedImage ?? ''}
+                        alt="Editing preview"
+                        draggable={false}
+                        onLoad={(e) =>
+                          setImgNaturalSize({
+                            w: e.currentTarget.naturalWidth,
+                            h: e.currentTarget.naturalHeight,
+                          })
                         }
-                      : undefined
+                        className="pointer-events-none absolute"
+                        style={
+                          box
+                            ? {
+                                left: box.left,
+                                top: box.top,
+                                width: box.drawW,
+                                height: box.drawH,
+                                filter: `brightness(${brightness}%) contrast(${contrast}%)${
+                                  shadowOn
+                                    ? ' drop-shadow(0 18px 20px rgba(15,23,42,0.35))'
+                                    : ''
+                                }`,
+                              }
+                            : { opacity: 0 }
+                        }
+                      />
+                    </div>
+                  );
+                })()
+              ) : (
+                <div
+                  className="relative flex max-h-[65vh] min-h-[320px] w-full max-w-lg items-center justify-center overflow-hidden rounded-2xl shadow-lg"
+                  style={
+                    processState === 'done' && bgColor !== 'transparent'
+                      ? { backgroundColor: bgColor }
+                      : CHECKERBOARD_STYLE
                   }
-                />
-                {processState !== 'done' && (
-                  <button
-                    type="button"
-                    onClick={resetImage}
-                    className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
-                    aria-label="Remove image"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
+                >
+                  <img
+                    src={resultImage ?? selectedImage ?? ''}
+                    alt="Editing preview"
+                    onLoad={(e) =>
+                      setImgNaturalSize({
+                        w: e.currentTarget.naturalWidth,
+                        h: e.currentTarget.naturalHeight,
+                      })
+                    }
+                    className="block max-h-[65vh] w-full object-contain p-4"
+                    style={
+                      processState === 'done'
+                        ? {
+                            filter: `brightness(${brightness}%) contrast(${contrast}%)${
+                              shadowOn
+                                ? ' drop-shadow(0 18px 20px rgba(15,23,42,0.35))'
+                                : ''
+                            }`,
+                          }
+                        : undefined
+                    }
+                  />
+                  {processState !== 'done' && (
+                    <button
+                      type="button"
+                      onClick={resetImage}
+                      className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+                      aria-label="Remove image"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {processState !== 'done' && (
                 <div className="mt-5 w-full max-w-lg">
@@ -748,8 +879,10 @@ export default function ZorRemoverPage() {
                     {processState === 'processing' ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        {progressLabel || 'Removing Background...'}
-                        {progressPct !== null ? ` ${progressPct}%` : ''}
+                        {progressLabel || 'Preparing…'}
+                        {progressPct !== null && progressPct > 0
+                          ? ` ${progressPct}%`
+                          : ''}
                       </>
                     ) : (
                       <>
@@ -992,6 +1125,8 @@ export default function ZorRemoverPage() {
                             type="button"
                             onClick={() => {
                               pushHistory();
+                              setCropZoom(1);
+                              setCropOffset({ x: 0, y: 0 });
                               if (active) {
                                 setDesignTemplate(null);
                               } else {
@@ -1025,17 +1160,62 @@ export default function ZorRemoverPage() {
                         );
                       })}
                     </div>
+
                     {designTemplate && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          pushHistory();
-                          setDesignTemplate(null);
-                        }}
-                        className="mt-3 text-xs font-medium text-slate-500 underline hover:text-slate-700"
-                      >
-                        Remove frame — use original photo size
-                      </button>
+                      <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                          <Move className="h-3.5 w-3.5" />
+                          Drag the photo to reposition it in the frame.
+                        </div>
+                        <div>
+                          <div className="mb-1.5 flex items-center justify-between text-xs font-medium">
+                            <span className="flex items-center gap-1.5 text-slate-700">
+                              <ZoomIn className="h-3.5 w-3.5" />
+                              Zoom
+                            </span>
+                            <span className="text-slate-400">
+                              {Math.round(cropZoom * 100)}%
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={100}
+                            max={300}
+                            value={Math.round(cropZoom * 100)}
+                            onMouseDown={pushHistory}
+                            onTouchStart={pushHistory}
+                            onChange={(e) =>
+                              setCropZoom(Number(e.target.value) / 100)
+                            }
+                            className="w-full accent-blue-600"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            pushHistory();
+                            setCropZoom(1);
+                            setCropOffset({ x: 0, y: 0 });
+                          }}
+                          className="text-xs font-medium text-slate-500 underline hover:text-slate-700"
+                        >
+                          Reset position &amp; zoom
+                        </button>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              pushHistory();
+                              setDesignTemplate(null);
+                              setCropZoom(1);
+                              setCropOffset({ x: 0, y: 0 });
+                            }}
+                            className="text-xs font-medium text-slate-500 underline hover:text-slate-700"
+                          >
+                            Remove frame — use original photo size
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
