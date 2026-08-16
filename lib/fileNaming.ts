@@ -1,3 +1,4 @@
-export function getZorPdfFileName(_ext?: string): string {
-  return 'zorPDF.com';
+export function getZorPdfFileName(ext: string): string {
+  const cleanExt = ext.replace('.', '').toLowerCase();
+  return `zorPDF.com.${cleanExt}`;
 }
