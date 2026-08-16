@@ -12,14 +12,47 @@ import {
   Download,
   Image as ImageIcon,
   Zap,
+  Palette,
+  Wand2,
+  SlidersHorizontal,
+  Check,
 } from 'lucide-react';
 import Navbar from '@/components/sections/Navbar';
 import Footer from '@/components/sections/Footer';
 
 type ProcessState = 'idle' | 'processing' | 'done' | 'error';
+type EditorTab = 'background' | 'effects' | 'adjust';
 
 /* Attractive studio portrait */
 const DEMO_IMAGE = '/hero-image.png';
+
+const BG_COLORS = [
+  { label: 'Transparent', value: 'transparent' },
+  { label: 'White', value: '#FFFFFF' },
+  { label: 'Black', value: '#0F172A' },
+  { label: 'Blue', value: '#2563EB' },
+  { label: 'Green', value: '#16A34A' },
+  { label: 'Amber', value: '#F59E0B' },
+  { label: 'Red', value: '#DC2626' },
+  { label: 'Purple', value: '#7C3AED' },
+  { label: 'Pink', value: '#EC4899' },
+  { label: 'Sky', value: '#0EA5E9' },
+  { label: 'Light gray', value: '#F1F5F9' },
+  { label: 'Stone', value: '#78716C' },
+];
+
+// Loads @imgly/background-removal from a CDN at runtime instead of
+// bundling it — its prebuilt WASM/worker files aren't compatible with
+// Next 13's production minifier. Cached by the module scope so it's
+// only fetched once per page session.
+let imglyModulePromise: Promise<any> | null = null;
+function loadImgly() {
+  if (!imglyModulePromise) {
+    // @ts-ignore -- CDN URL has no local type declarations
+    imglyModulePromise = import(/* webpackIgnore: true */ 'https://esm.sh/@imgly/background-removal@1.7.0');
+  }
+  return imglyModulePromise;
+}
 
 export default function ZorRemoverPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -29,7 +62,15 @@ export default function ZorRemoverPage() {
     useState<ProcessState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [progressPct, setProgressPct] = useState<number | null>(null);
+  const [progressLabel, setProgressLabel] = useState<string>('');
   const [dragActive, setDragActive] = useState(false);
+
+  // ============ Editor state (Background / Effects / Adjust) ============
+  const [activeTab, setActiveTab] = useState<EditorTab>('background');
+  const [bgColor, setBgColor] = useState<string>('transparent');
+  const [shadowOn, setShadowOn] = useState(false);
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -43,6 +84,15 @@ export default function ZorRemoverPage() {
     setResultImage(null);
     setErrorMessage(null);
     setProcessState('idle');
+    setBgColor('transparent');
+    setShadowOn(false);
+    setBrightness(100);
+    setContrast(100);
+    // Start fetching the AI model in the background right away so it's
+    // hopefully already cached by the time the user hits "Remove Background".
+    loadImgly()
+      .then((mod) => mod.preload?.({ model: 'isnet_quint8', device: 'cpu' }))
+      .catch(() => {});
   }, []);
 
   const handleDrop = useCallback(
@@ -71,24 +121,26 @@ export default function ZorRemoverPage() {
     setProcessState('processing');
     setErrorMessage(null);
     setProgressPct(0);
+    setProgressLabel('Starting…');
 
     try {
       // Runs fully in the browser (no server, no API key, no cost).
-      // Loaded from a CDN at runtime (webpackIgnore) instead of being
-      // bundled by Next.js — its prebuilt WASM/worker files aren't
-      // compatible with Next's production minifier.
-      // Dynamic runtime import from a CDN URL (no local type declarations).
-      const imglyUrl = 'https://esm.sh/@imgly/background-removal@1.7.0';
-      // @ts-ignore
-      const imglyModule: any = await import(/* webpackIgnore: true */ imglyUrl);
+      const imglyModule = await loadImgly();
       const imglyRemoveBackground = imglyModule.removeBackground;
 
       const resultBlob = await imglyRemoveBackground(selectedFile, {
         device: 'cpu',
-        progress: (_key: string, current: number, total: number) => {
+        // Smaller/quantized model = faster first-time download + faster processing.
+        model: 'isnet_quint8',
+        progress: (key: string, current: number, total: number) => {
           if (total > 0) {
             setProgressPct(Math.round((current / total) * 100));
           }
+          setProgressLabel(
+            key.startsWith('fetch')
+              ? 'Downloading AI model (first time only)…'
+              : 'Removing background…'
+          );
         },
       });
 
@@ -103,6 +155,7 @@ export default function ZorRemoverPage() {
       setProcessState('error');
     } finally {
       setProgressPct(null);
+      setProgressLabel('');
     }
   };
 
@@ -112,15 +165,50 @@ export default function ZorRemoverPage() {
     setResultImage(null);
     setErrorMessage(null);
     setProcessState('idle');
+    setBgColor('transparent');
+    setShadowOn(false);
+    setBrightness(100);
+    setContrast(100);
   };
 
   const handleDownload = async () => {
     if (!resultImage) return;
     try {
-      // Fetch the blob so the download works reliably
-      // (a plain <a download> can fail to trigger for blob: URLs in some browsers)
-      const response = await fetch(resultImage);
-      const blob = await response.blob();
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = resultImage;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      // Bake the chosen background color, brightness/contrast, and drop
+      // shadow into the exported file so downloads match the preview.
+      const padding = shadowOn ? Math.round(img.naturalWidth * 0.08) : 0;
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth + padding * 2;
+      canvas.height = img.naturalHeight + padding * 2;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas not supported');
+
+      if (bgColor !== 'transparent') {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+      if (shadowOn) {
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
+        ctx.shadowBlur = padding * 0.6;
+        ctx.shadowOffsetY = padding * 0.35;
+      }
+      ctx.drawImage(img, padding, padding, img.naturalWidth, img.naturalHeight);
+
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob(resolve, 'image/png')
+      );
+      if (!blob) throw new Error('Failed to export image');
+
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -241,11 +329,11 @@ export default function ZorRemoverPage() {
                 ) : (
                   /* ================= SELECTED IMAGE ================= */
                   <div>
-                    <div className="relative overflow-hidden rounded-2xl bg-slate-100">
+                    <div className="relative flex max-h-[420px] min-h-[280px] items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
                       <img
                         src={selectedImage}
                         alt="Selected image"
-                        className="block aspect-[4/3] w-full object-cover"
+                        className="block max-h-[420px] w-full object-contain"
                       />
                       <button
                         type="button"
@@ -267,9 +355,8 @@ export default function ZorRemoverPage() {
                         {processState === 'processing' ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            {progressPct !== null
-                              ? `Removing Background... ${progressPct}%`
-                              : 'Removing Background...'}
+                            {progressLabel || 'Removing Background...'}
+                            {progressPct !== null ? ` ${progressPct}%` : ''}
                           </>
                         ) : (
                           <>
@@ -279,6 +366,13 @@ export default function ZorRemoverPage() {
                         )}
                       </button>
                     )}
+                    {processState === 'processing' && (
+                      <p className="mt-2 text-center text-xs text-slate-400">
+                        First removal on this device downloads a small AI
+                        model — it's cached after that and future images are
+                        much faster.
+                      </p>
+                    )}
 
                     {/* ================= ERROR ================= */}
                     {processState === 'error' && errorMessage && (
@@ -287,34 +381,189 @@ export default function ZorRemoverPage() {
                       </p>
                     )}
 
-                    {/* ================= RESULT ================= */}
+                    {/* ================= RESULT + EDITOR ================= */}
                     {processState === 'done' && resultImage && (
                       <div className="mt-5">
                         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-green-600">
                           <CheckCircle2 className="h-4 w-4" />
                           Background Removed
                         </div>
+
+                        {/* Preview */}
                         <div
-                          className="relative overflow-hidden rounded-2xl"
-                          style={{
-                            backgroundColor: '#f8fafc',
-                            backgroundImage: `
-                              linear-gradient(45deg, #dbe2ea 25%, transparent 25%),
-                              linear-gradient(-45deg, #dbe2ea 25%, transparent 25%),
-                              linear-gradient(45deg, transparent 75%, #dbe2ea 75%),
-                              linear-gradient(-45deg, transparent 75%, #dbe2ea 75%)
-                            `,
-                            backgroundSize: '28px 28px',
-                            backgroundPosition:
-                              '0 0, 0 14px, 14px -14px, -14px 0px',
-                          }}
+                          className="relative flex max-h-[420px] min-h-[280px] items-center justify-center overflow-hidden rounded-2xl"
+                          style={
+                            bgColor === 'transparent'
+                              ? {
+                                  backgroundColor: '#f8fafc',
+                                  backgroundImage: `
+                                    linear-gradient(45deg, #dbe2ea 25%, transparent 25%),
+                                    linear-gradient(-45deg, #dbe2ea 25%, transparent 25%),
+                                    linear-gradient(45deg, transparent 75%, #dbe2ea 75%),
+                                    linear-gradient(-45deg, transparent 75%, #dbe2ea 75%)
+                                  `,
+                                  backgroundSize: '28px 28px',
+                                  backgroundPosition:
+                                    '0 0, 0 14px, 14px -14px, -14px 0px',
+                                }
+                              : { backgroundColor: bgColor }
+                          }
                         >
                           <img
                             src={resultImage}
                             alt="Background removed result"
-                            className="block aspect-[4/3] w-full object-contain"
+                            className="block max-h-[420px] w-full object-contain p-4"
+                            style={{
+                              filter: `brightness(${brightness}%) contrast(${contrast}%)${
+                                shadowOn
+                                  ? ' drop-shadow(0 18px 20px rgba(15,23,42,0.35))'
+                                  : ''
+                              }`,
+                            }}
                           />
                         </div>
+
+                        {/* Editor tabs */}
+                        <div className="mt-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+                          {(
+                            [
+                              { id: 'background', label: 'Background', icon: Palette },
+                              { id: 'effects', label: 'Effects', icon: Wand2 },
+                              { id: 'adjust', label: 'Adjust', icon: SlidersHorizontal },
+                            ] as const
+                          ).map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setActiveTab(tab.id)}
+                              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition ${
+                                activeTab === tab.id
+                                  ? 'bg-white text-blue-600 shadow-sm'
+                                  : 'text-slate-500 hover:text-slate-700'
+                              }`}
+                            >
+                              <tab.icon className="h-3.5 w-3.5" />
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Tab panels */}
+                        <div className="mt-4 rounded-xl border border-slate-200 p-4">
+                          {activeTab === 'background' && (
+                            <div>
+                              <p className="mb-3 text-xs font-medium text-slate-500">
+                                Choose a background color, or keep it
+                                transparent.
+                              </p>
+                              <div className="grid grid-cols-6 gap-2">
+                                {BG_COLORS.map((c) => (
+                                  <button
+                                    key={c.value}
+                                    type="button"
+                                    title={c.label}
+                                    onClick={() => setBgColor(c.value)}
+                                    className={`relative aspect-square rounded-lg border-2 transition ${
+                                      bgColor === c.value
+                                        ? 'border-blue-600'
+                                        : 'border-slate-200 hover:border-slate-300'
+                                    }`}
+                                    style={
+                                      c.value === 'transparent'
+                                        ? {
+                                            backgroundImage: `
+                                              linear-gradient(45deg, #cbd5e1 25%, transparent 25%),
+                                              linear-gradient(-45deg, #cbd5e1 25%, transparent 25%),
+                                              linear-gradient(45deg, transparent 75%, #cbd5e1 75%),
+                                              linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)
+                                            `,
+                                            backgroundSize: '10px 10px',
+                                            backgroundPosition:
+                                              '0 0, 0 5px, 5px -5px, -5px 0px',
+                                            backgroundColor: '#fff',
+                                          }
+                                        : { backgroundColor: c.value }
+                                    }
+                                  >
+                                    {bgColor === c.value && (
+                                      <Check
+                                        className={`absolute inset-0 m-auto h-4 w-4 ${
+                                          ['#FFFFFF', '#F1F5F9', 'transparent'].includes(
+                                            c.value
+                                          )
+                                            ? 'text-slate-700'
+                                            : 'text-white'
+                                        }`}
+                                      />
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {activeTab === 'effects' && (
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  Drop shadow
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Adds a soft shadow beneath the subject.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={shadowOn}
+                                onClick={() => setShadowOn((v) => !v)}
+                                className={`relative h-6 w-11 flex-none rounded-full transition ${
+                                  shadowOn ? 'bg-blue-600' : 'bg-slate-200'
+                                }`}
+                              >
+                                <span
+                                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                                    shadowOn ? 'left-5' : 'left-0.5'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          )}
+
+                          {activeTab === 'adjust' && (
+                            <div className="space-y-4">
+                              <div>
+                                <div className="mb-1.5 flex justify-between text-xs font-medium">
+                                  <span className="text-slate-700">Brightness</span>
+                                  <span className="text-slate-400">{brightness}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={50}
+                                  max={150}
+                                  value={brightness}
+                                  onChange={(e) => setBrightness(Number(e.target.value))}
+                                  className="w-full accent-blue-600"
+                                />
+                              </div>
+                              <div>
+                                <div className="mb-1.5 flex justify-between text-xs font-medium">
+                                  <span className="text-slate-700">Contrast</span>
+                                  <span className="text-slate-400">{contrast}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={50}
+                                  max={150}
+                                  value={contrast}
+                                  onChange={(e) => setContrast(Number(e.target.value))}
+                                  className="w-full accent-blue-600"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         <button
                           type="button"
                           onClick={handleDownload}
