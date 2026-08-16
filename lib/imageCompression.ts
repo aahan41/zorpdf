@@ -21,25 +21,25 @@ export const COMPRESSION_PRESETS: Record<CompressionLevel, CompressionSettings> 
     preserveDPI: 300,
   },
   balanced: {
-    quality: 65,
-    maxWidth: 1200,
-    maxHeight: 1600,
+    quality: 80,
+    maxWidth: 1800,
+    maxHeight: 2200,
     enableResize: true,
     removeMetadata: true,
     preserveDPI: 200,
   },
   high: {
-    quality: 50,
-    maxWidth: 1000,
-    maxHeight: 1400,
+    quality: 65,
+    maxWidth: 1400,
+    maxHeight: 1800,
     enableResize: true,
     removeMetadata: true,
     preserveDPI: 150,
   },
   ultra: {
-    quality: 35,
-    maxWidth: 800,
-    maxHeight: 1100,
+    quality: 50,
+    maxWidth: 1000,
+    maxHeight: 1300,
     enableResize: true,
     removeMetadata: true,
     preserveDPI: 100,
@@ -152,24 +152,24 @@ export function calculateAdaptiveQuality(
 
   // For documents, preserve more detail
   if (analysis.isDocument || analysis.hasText) {
-    quality = Math.max(quality, 55);
+    quality = Math.max(quality, 70);
     // Documents with text need higher quality
     if (analysis.complexity === 'high') {
-      quality = Math.min(quality + 15, 75);
+      quality = Math.min(quality + 15, 90);
     }
   }
 
-  // For low complexity images, we can use lower quality
+  // For low complexity images, we can use slightly lower quality
   if (analysis.complexity === 'low' && !analysis.isDocument) {
-    quality = Math.max(quality - 10, 45);
+    quality = Math.max(quality - 10, 60);
   }
 
   // For very bright or dark images, adjust slightly
   if (analysis.brightness < 50 || analysis.brightness > 200) {
-    quality = Math.min(quality + 5, 80);
+    quality = Math.min(quality + 5, 90);
   }
 
-  return Math.max(45, Math.min(80, quality));
+  return Math.max(60, Math.min(90, quality));
 }
 
 /**
