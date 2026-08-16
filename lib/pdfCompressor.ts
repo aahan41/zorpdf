@@ -3,34 +3,64 @@ import { COMPRESSION_PRESETS } from './imageCompression';
 import { getZorPdfFileName } from './fileNaming';
 import type { MergeResult } from './pdfMerger';
 
+type PdfCompressionLevel =
+  | CompressionLevel
+  | 'medium';
+
+function normalizeCompressionLevel(
+  level: PdfCompressionLevel
+): CompressionLevel {
+  if (level === 'medium') {
+    return 'balanced';
+  }
+
+  return level;
+}
+
 export async function compressPdf(
   file: File,
-  level: CompressionLevel = 'balanced'
+  level: PdfCompressionLevel = 'balanced'
 ): Promise<MergeResult> {
-  const pdfjsLib = await import('pdfjs-dist');
+  const compressionLevel =
+    normalizeCompressionLevel(level);
 
-  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+  const pdfjsLib =
+    await import('pdfjs-dist');
+
+  if (
+    !pdfjsLib.GlobalWorkerOptions
+      .workerSrc
+  ) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       '/pdf.worker.min.mjs';
   }
 
-  const { PDFDocument } = await import('pdf-lib');
+  const { PDFDocument } =
+    await import('pdf-lib');
 
-  const inputBytes = await file.arrayBuffer();
+  const inputBytes =
+    await file.arrayBuffer();
 
   const sourcePdf =
-    await pdfjsLib.getDocument({
-      data: inputBytes,
-    }).promise;
+    await pdfjsLib
+      .getDocument({
+        data: inputBytes,
+      })
+      .promise;
 
-  const totalPages = sourcePdf.numPages;
+  const totalPages =
+    sourcePdf.numPages;
 
   if (totalPages === 0) {
-    throw new Error('The PDF has no pages.');
+    throw new Error(
+      'The PDF has no pages.'
+    );
   }
 
   const settings =
-    COMPRESSION_PRESETS[level];
+    COMPRESSION_PRESETS[
+      compressionLevel
+    ];
 
   const outputPdf =
     await PDFDocument.create();
@@ -41,7 +71,9 @@ export async function compressPdf(
     pageNumber++
   ) {
     const sourcePage =
-      await sourcePdf.getPage(pageNumber);
+      await sourcePdf.getPage(
+        pageNumber
+      );
 
     const originalViewport =
       sourcePage.getViewport({
@@ -72,22 +104,31 @@ export async function compressPdf(
       });
 
     const canvas =
-      document.createElement('canvas');
+      document.createElement(
+        'canvas'
+      );
 
     canvas.width = Math.max(
       1,
-      Math.round(viewport.width)
+      Math.round(
+        viewport.width
+      )
     );
 
     canvas.height = Math.max(
       1,
-      Math.round(viewport.height)
+      Math.round(
+        viewport.height
+      )
     );
 
     const context =
-      canvas.getContext('2d', {
-        alpha: false,
-      });
+      canvas.getContext(
+        '2d',
+        {
+          alpha: false,
+        }
+      );
 
     if (!context) {
       throw new Error(
@@ -95,7 +136,9 @@ export async function compressPdf(
       );
     }
 
-    context.fillStyle = '#ffffff';
+    context.fillStyle =
+      '#ffffff';
+
     context.fillRect(
       0,
       0,
@@ -110,7 +153,10 @@ export async function compressPdf(
 
     const jpegBlob =
       await new Promise<Blob>(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
           canvas.toBlob(
             (blob) => {
               if (blob) {
@@ -124,7 +170,8 @@ export async function compressPdf(
               }
             },
             'image/jpeg',
-            settings.quality / 100
+            settings.quality /
+              100
           );
         }
       );
@@ -143,12 +190,17 @@ export async function compressPdf(
         originalViewport.height,
       ]);
 
-    outputPage.drawImage(image, {
-      x: 0,
-      y: 0,
-      width: originalViewport.width,
-      height: originalViewport.height,
-    });
+    outputPage.drawImage(
+      image,
+      {
+        x: 0,
+        y: 0,
+        width:
+          originalViewport.width,
+        height:
+          originalViewport.height,
+      }
+    );
 
     canvas.width = 1;
     canvas.height = 1;
@@ -163,32 +215,39 @@ export async function compressPdf(
     new Blob(
       [outputBytes],
       {
-        type: 'application/pdf',
+        type:
+          'application/pdf',
       }
     );
 
-  // If compression somehow makes the file larger,
-  // keep the original PDF instead of making it larger.
   const finalBlob =
-    compressedBlob.size < file.size
+    compressedBlob.size <
+    file.size
       ? compressedBlob
       : new Blob(
           [inputBytes],
           {
-            type: 'application/pdf',
+            type:
+              'application/pdf',
           }
         );
 
   return {
     blob: finalBlob,
     filename:
-      getZorPdfFileName('pdf'),
-    pageCount: totalPages,
-    originalSize: file.size,
-    pdfSize: finalBlob.size,
+      getZorPdfFileName(
+        'pdf'
+      ),
+    pageCount:
+      totalPages,
+    originalSize:
+      file.size,
+    pdfSize:
+      finalBlob.size,
     compressionRatio:
       finalBlob.size > 0
-        ? file.size / finalBlob.size
+        ? file.size /
+          finalBlob.size
         : 1,
   };
 }
