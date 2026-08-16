@@ -14,6 +14,7 @@ import { formatBytes, calculateCompressionPercentage, compressImage } from '@/li
 import { estimatePdfSize } from '@/lib/pdfEstimator';
 import { getZorPdfFileName } from '@/lib/fileNaming';
 import { DownloadButton } from '@/components/ui/DownloadButton';
+import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
 import { tools, type ToolId, type Tool } from './ToolsGrid';
 
 const converterTabs: { id: ToolId; label: string; from: string; to: string }[] = [
@@ -196,7 +197,7 @@ export default function ConverterWorkspace() {
   const [state, setState] = useState<'idle' | 'loading' | 'selected' | 'converting' | 'done' | 'error'>('idle');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [compressionLevel] = useState<CompressionLevel>('balanced');
+  const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('balanced');
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -432,7 +433,7 @@ export default function ConverterWorkspace() {
         updateFileStatus(pdfFile.id, 'converting');
         try {
           const { compressPdf } = await import('@/lib/pdfCompressor');
-          const result = await compressPdf(pdfFile.file, 'medium');
+          const result = await compressPdf(pdfFile.file, compressionLevel);
           updateFileProgress(pdfFile.id, 100);
           setFiles(prev => prev.map(f =>
             f.id === pdfFile.id ? {
@@ -755,6 +756,16 @@ export default function ConverterWorkspace() {
                         <Zap className="w-3 h-3 text-green-400" />
                         <span className="text-green-400 text-xs font-medium">~{Math.round(70 - (estimatedSize.min / totalSize) * 100)}% smaller</span>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Compression level — user ab khud quality choose kar sakta hai */}
+                  {['jpg-to-pdf', 'png-to-jpg', 'pdf-compressor', 'pdf-to-jpg'].includes(activeTab) && files.length > 0 && (
+                    <div className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-white/5">
+                      <CompressionLevelSelector
+                        value={compressionLevel}
+                        onChange={setCompressionLevel}
+                      />
                     </div>
                   )}
 
