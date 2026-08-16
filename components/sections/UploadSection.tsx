@@ -1298,19 +1298,7 @@ export default function UploadSection({
         try {
           const result = await compressPdf(
             item.file,
-            compressionLevel,
-            (current, total) => {
-              const progress =
-                total > 0
-                  ? Math.round(
-                      (current / total) * 100
-                    )
-                  : 0;
-
-              updateFile(item.id, {
-                progress,
-              });
-            }
+            compressionLevel
           );
 
           updateFile(item.id, {
