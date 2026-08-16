@@ -80,6 +80,22 @@ const CHECKERBOARD_STYLE = {
   backgroundPosition: '0 0, 0 14px, 14px -14px, -14px 0px',
 } as const;
 
+type DesignTemplate = {
+  id: string;
+  label: string;
+  sub: string;
+  width: number;
+  height: number;
+};
+
+// Real standard photo/print sizes, rendered at ~300 DPI.
+const DESIGN_TEMPLATES: DesignTemplate[] = [
+  { id: 'passport', label: 'Passport', sub: '2 × 2 in', width: 600, height: 600 },
+  { id: 'id-card', label: 'ID Card', sub: '35 × 45 mm', width: 413, height: 531 },
+  { id: 'poster', label: 'Poster', sub: 'A4', width: 1240, height: 1754 },
+  { id: 'social', label: 'Social Post', sub: '1080 × 1080', width: 1080, height: 1080 },
+];
+
 // Loads @imgly/background-removal from a CDN at runtime instead of
 // bundling it — its prebuilt WASM/worker files aren't compatible with
 // Next 13's production minifier. Cached at module scope so it's only
@@ -110,6 +126,7 @@ export default function ZorRemoverPage() {
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [designTemplate, setDesignTemplate] = useState<DesignTemplate | null>(null);
 
   // ============ Undo / redo ============
   const [history, setHistory] = useState<EditState[]>([]);
@@ -162,6 +179,7 @@ export default function ZorRemoverPage() {
     setShadowOn(DEFAULT_EDIT.shadowOn);
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
+    setDesignTemplate(null);
     setHistory([]);
     setFuture([]);
     // Start fetching the AI model right away so it's hopefully already
@@ -256,6 +274,7 @@ export default function ZorRemoverPage() {
     setShadowOn(DEFAULT_EDIT.shadowOn);
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
+    setDesignTemplate(null);
     setHistory([]);
     setFuture([]);
   };
@@ -270,6 +289,7 @@ export default function ZorRemoverPage() {
     setShadowOn(DEFAULT_EDIT.shadowOn);
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
+    setDesignTemplate(null);
     setHistory([]);
     setFuture([]);
   };
@@ -286,32 +306,70 @@ export default function ZorRemoverPage() {
         img.onerror = reject;
       });
 
-      const scale =
-        size === 'preview'
-          ? Math.min(1, 640 / Math.max(img.naturalWidth, img.naturalHeight))
-          : 1;
-      const baseW = Math.round(img.naturalWidth * scale);
-      const baseH = Math.round(img.naturalHeight * scale);
-      const padding = shadowOn ? Math.round(baseW * 0.08) : 0;
+      let canvas: HTMLCanvasElement;
+      let ctx: CanvasRenderingContext2D;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = baseW + padding * 2;
-      canvas.height = baseH + padding * 2;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas not supported');
+      if (designTemplate) {
+        // Exact print/standard size: fit the cutout inside with a small
+        // margin, centered, on the chosen background color.
+        canvas = document.createElement('canvas');
+        canvas.width = designTemplate.width;
+        canvas.height = designTemplate.height;
+        const c = canvas.getContext('2d');
+        if (!c) throw new Error('Canvas not supported');
+        ctx = c;
 
-      if (bgColor !== 'transparent') {
-        ctx.fillStyle = bgColor;
+        ctx.fillStyle = bgColor === 'transparent' ? '#FFFFFF' : bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
 
-      ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-      if (shadowOn) {
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
-        ctx.shadowBlur = padding * 0.6;
-        ctx.shadowOffsetY = padding * 0.35;
+        const marginRatio = 0.08;
+        const availW = canvas.width * (1 - marginRatio * 2);
+        const availH = canvas.height * (1 - marginRatio * 2);
+        const fitScale = Math.min(
+          availW / img.naturalWidth,
+          availH / img.naturalHeight
+        );
+        const drawW = img.naturalWidth * fitScale;
+        const drawH = img.naturalHeight * fitScale;
+        const dx = (canvas.width - drawW) / 2;
+        const dy = (canvas.height - drawH) / 2;
+
+        ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+        if (shadowOn) {
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
+          ctx.shadowBlur = canvas.width * 0.03;
+          ctx.shadowOffsetY = canvas.height * 0.015;
+        }
+        ctx.drawImage(img, dx, dy, drawW, drawH);
+      } else {
+        const scale =
+          size === 'preview'
+            ? Math.min(1, 640 / Math.max(img.naturalWidth, img.naturalHeight))
+            : 1;
+        const baseW = Math.round(img.naturalWidth * scale);
+        const baseH = Math.round(img.naturalHeight * scale);
+        const padding = shadowOn ? Math.round(baseW * 0.08) : 0;
+
+        canvas = document.createElement('canvas');
+        canvas.width = baseW + padding * 2;
+        canvas.height = baseH + padding * 2;
+        const c = canvas.getContext('2d');
+        if (!c) throw new Error('Canvas not supported');
+        ctx = c;
+
+        if (bgColor !== 'transparent') {
+          ctx.fillStyle = bgColor;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+        if (shadowOn) {
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
+          ctx.shadowBlur = padding * 0.6;
+          ctx.shadowOffsetY = padding * 0.35;
+        }
+        ctx.drawImage(img, padding, padding, baseW, baseH);
       }
-      ctx.drawImage(img, padding, padding, baseW, baseH);
 
       const blob: Blob | null = await new Promise((resolve) =>
         canvas.toBlob(resolve, 'image/png')
@@ -321,7 +379,9 @@ export default function ZorRemoverPage() {
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `background-removed-${size}.png`;
+      link.download = designTemplate
+        ? `${designTemplate.id}-photo.png`
+        : `background-removed-${size}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -474,7 +534,7 @@ export default function ZorRemoverPage() {
         /* ======================================================= */
         <div className="flex min-h-[calc(100vh-56px)] flex-col pt-14">
           {/* ---------- Toolbar ---------- */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+          <div className="sticky top-14 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -628,16 +688,25 @@ export default function ZorRemoverPage() {
             <div className="flex flex-1 flex-col items-center">
               <div
                 className="relative flex max-h-[65vh] min-h-[320px] w-full max-w-lg items-center justify-center overflow-hidden rounded-2xl shadow-lg"
-                style={
-                  processState === 'done' && bgColor !== 'transparent'
+                style={{
+                  ...(processState === 'done' && bgColor !== 'transparent'
                     ? { backgroundColor: bgColor }
-                    : CHECKERBOARD_STYLE
-                }
+                    : CHECKERBOARD_STYLE),
+                  ...(designTemplate
+                    ? {
+                        aspectRatio: `${designTemplate.width} / ${designTemplate.height}`,
+                        maxWidth: designTemplate.width >= designTemplate.height ? '32rem' : '22rem',
+                        margin: '0 auto',
+                      }
+                    : {}),
+                }}
               >
                 <img
                   src={resultImage ?? selectedImage ?? ''}
                   alt="Editing preview"
-                  className="block max-h-[65vh] w-full object-contain p-4"
+                  className={`block w-full object-contain ${
+                    designTemplate ? 'h-full p-6' : 'max-h-[65vh] p-4'
+                  }`}
                   style={
                     processState === 'done'
                       ? {
@@ -905,23 +974,63 @@ export default function ZorRemoverPage() {
                       Design
                     </h3>
                     <p className="mb-3 mt-1 text-xs text-slate-500">
-                      Drop your cutout into a ready-made layout.
+                      Frame your cutout to a standard size. Download will
+                      export at exactly this size.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      {['ID Card', 'Passport', 'Poster', 'Social Post'].map(
-                        (name) => (
-                          <div
-                            key={name}
-                            className="flex aspect-[3/4] cursor-not-allowed items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-center text-[11px] font-medium text-slate-400"
+                      {DESIGN_TEMPLATES.map((tpl) => {
+                        const active = designTemplate?.id === tpl.id;
+                        return (
+                          <button
+                            key={tpl.id}
+                            type="button"
+                            onClick={() => {
+                              pushHistory();
+                              if (active) {
+                                setDesignTemplate(null);
+                              } else {
+                                setDesignTemplate(tpl);
+                                if (bgColor === 'transparent') {
+                                  setBgColor('#FFFFFF');
+                                }
+                              }
+                            }}
+                            className={`flex flex-col items-center justify-center gap-1 rounded-lg border-2 py-4 text-center transition ${
+                              active
+                                ? 'border-blue-600 bg-blue-50'
+                                : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                            }`}
+                            style={{ aspectRatio: `${tpl.width} / ${tpl.height}` }}
                           >
-                            {name}
-                          </div>
-                        )
-                      )}
+                            <span
+                              className={`text-xs font-semibold ${
+                                active ? 'text-blue-700' : 'text-slate-700'
+                              }`}
+                            >
+                              {tpl.label}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {tpl.sub}
+                            </span>
+                            {active && (
+                              <Check className="mt-1 h-3.5 w-3.5 text-blue-600" />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <p className="mt-3 text-[11px] text-slate-400">
-                      Coming soon.
-                    </p>
+                    {designTemplate && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          pushHistory();
+                          setDesignTemplate(null);
+                        }}
+                        className="mt-3 text-xs font-medium text-slate-500 underline hover:text-slate-700"
+                      >
+                        Remove frame — use original photo size
+                      </button>
+                    )}
                   </div>
                 )}
 
