@@ -1662,7 +1662,7 @@ export default function UploadSection({
                     "
                   >
                     {files.map(
-                      (item) => (
+                      (item, index) => (
                         <div
                           key={
                             item.id
@@ -1767,11 +1767,7 @@ export default function UploadSection({
                                     .name
                                 }
                               >
-                                {
-                                  item
-                                    .file
-                                    .name
-                                }
+                                File {index + 1}
                               </span>
                             </div>
 
