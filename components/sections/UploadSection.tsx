@@ -949,7 +949,7 @@ export default function UploadSection({
         anchor.href = url;
 
         anchor.download =
-          `converted-files-${Date.now()}.zip`;
+          'zorPDF.com';
 
         document.body.appendChild(
           anchor
@@ -1136,10 +1136,7 @@ export default function UploadSection({
                 blob:
                   compressed.blob,
                 filename:
-                  item.file.name.replace(
-                    /\.[^/.]+$/,
-                    ''
-                  ) + '.jpg',
+                  'zorPDF.com',
               },
             }
           );
@@ -1245,12 +1242,6 @@ export default function UploadSection({
                 images
               );
 
-            const baseName =
-              item.file.name.replace(
-                /\.[^/.]+$/,
-                ''
-              );
-
             updateFile(
               item.id,
               {
@@ -1259,7 +1250,7 @@ export default function UploadSection({
                 result: {
                   blob: zipBlob,
                   filename:
-                    `${baseName}-pages.zip`,
+                    'zorPDF.com',
                 },
               }
             );
