@@ -23,6 +23,8 @@ import {
   Plus,
   ArrowLeft,
   Scissors,
+  Crop,
+  ScanFace,
   ZoomIn,
   Minus,
   Move,
@@ -32,13 +34,15 @@ import Navbar from '@/components/sections/Navbar';
 import Footer from '@/components/sections/Footer';
 
 type ProcessState = 'idle' | 'processing' | 'done' | 'error';
-type EditorTab = 'cutout' | 'background' | 'effects' | 'adjust' | 'design';
+type EditorTab = 'cutout' | 'crop' | 'face-clean' | 'background' | 'effects' | 'adjust' | 'design';
 
 type EditState = {
   bgColor: string;
   shadowOn: boolean;
   brightness: number;
   contrast: number;
+  faceCleanOn: boolean;
+  faceCleanIntensity: number;
 };
 
 type RecentItem = {
@@ -70,6 +74,8 @@ const DEFAULT_EDIT: EditState = {
   shadowOn: false,
   brightness: 100,
   contrast: 100,
+  faceCleanOn: false,
+  faceCleanIntensity: 45,
 };
 
 const CHECKERBOARD_STYLE = {
@@ -102,16 +108,14 @@ const DESIGN_TEMPLATES: DesignTemplate[] = [
 ];
 
 const PRINT_COUNT_OPTIONS = [2, 3, 4, 6, 8, 9, 12];
+const CROP_PRESETS = [
+  { id: 'square', label: '1:1', sub: 'Square', width: 1000, height: 1000 },
+  { id: 'id', label: '35 × 45', sub: 'ID photo', width: 413, height: 531 },
+  { id: 'passport', label: '2 × 2', sub: 'Passport', width: 600, height: 600 },
+  { id: 'four-three', label: '4:3', sub: 'Photo', width: 1200, height: 900 },
+  { id: 'sixteen-nine', label: '16:9', sub: 'Wide', width: 1600, height: 900 },
+];
 const A4_SHEET = { width: 1240, height: 1754 }; // A4 @ ~150dpi
-
-// Typical head-and-shoulders phone photos include a lot of chest/shirt.
-// Passport/ID photos need a tight headshot, so start zoomed in and
-// shifted up toward the face rather than showing the whole loose photo.
-// The user can still fine-tune with drag + the zoom slider.
-const SMART_CROP_DEFAULTS: Record<string, { zoom: number; offsetY: number }> = {
-  passport: { zoom: 2.1, offsetY: -0.16 },
-  'id-card': { zoom: 1.9, offsetY: -0.14 },
-};
 
 // Picks the column count that fits `count` photos on the sheet as large
 // as possible (classic photo-studio print-sheet layout).
@@ -166,6 +170,44 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+function drawFaceClean(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  drawX: number,
+  drawY: number,
+  drawW: number,
+  drawH: number,
+  intensity: number,
+) {
+  if (intensity <= 0) return;
+
+  const scaleX = drawW / img.naturalWidth;
+  const scaleY = drawH / img.naturalHeight;
+  const face = {
+    x: drawX + (img.naturalWidth * 0.33) * scaleX,
+    y: drawY + (img.naturalHeight * 0.12) * scaleY,
+    width: img.naturalWidth * 0.34 * scaleX,
+    height: img.naturalHeight * 0.30 * scaleY,
+  };
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(
+    face.x + face.width / 2,
+    face.y + face.height / 2,
+    face.width * 0.62,
+    face.height * 0.62,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.clip();
+  ctx.globalAlpha = Math.min(0.72, intensity / 100 * 0.72);
+  ctx.filter = `blur(${Math.max(0.6, intensity / 22)}px)`;
+  ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  ctx.restore();
+}
+
 // Loads @imgly/background-removal from a CDN at runtime instead of
 // bundling it — its prebuilt WASM/worker files aren't compatible with
 // Next 13's production minifier. Cached at module scope so it's only
@@ -195,6 +237,8 @@ export default function ZorRemoverPage() {
   const [shadowOn, setShadowOn] = useState(false);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
+  const [faceCleanOn, setFaceCleanOn] = useState(false);
+  const [faceCleanIntensity, setFaceCleanIntensity] = useState(45);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [designTemplate, setDesignTemplate] = useState<DesignTemplate | null>(null);
   const [printCount, setPrintCount] = useState<number | null>(null);
@@ -217,12 +261,21 @@ export default function ZorRemoverPage() {
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const newFileInputRef = useRef<HTMLInputElement>(null);
 
-  const snapshot = (): EditState => ({ bgColor, shadowOn, brightness, contrast });
+  const snapshot = (): EditState => ({
+    bgColor,
+    shadowOn,
+    brightness,
+    contrast,
+    faceCleanOn,
+    faceCleanIntensity,
+  });
   const applyEditState = (s: EditState) => {
     setBgColor(s.bgColor);
     setShadowOn(s.shadowOn);
     setBrightness(s.brightness);
     setContrast(s.contrast);
+    setFaceCleanOn(s.faceCleanOn);
+    setFaceCleanIntensity(s.faceCleanIntensity);
   };
   const pushHistory = () => {
     setHistory((h) => [...h, snapshot()]);
@@ -260,6 +313,8 @@ export default function ZorRemoverPage() {
     setShadowOn(DEFAULT_EDIT.shadowOn);
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
+    setFaceCleanOn(DEFAULT_EDIT.faceCleanOn);
+    setFaceCleanIntensity(DEFAULT_EDIT.faceCleanIntensity);
     setDesignTemplate(null);
     setPrintCount(null);
     setCropZoom(1);
@@ -410,6 +465,8 @@ export default function ZorRemoverPage() {
     setShadowOn(DEFAULT_EDIT.shadowOn);
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
+    setFaceCleanOn(DEFAULT_EDIT.faceCleanOn);
+    setFaceCleanIntensity(DEFAULT_EDIT.faceCleanIntensity);
     setDesignTemplate(null);
     setPrintCount(null);
     setCropZoom(1);
@@ -429,6 +486,8 @@ export default function ZorRemoverPage() {
     setShadowOn(DEFAULT_EDIT.shadowOn);
     setBrightness(DEFAULT_EDIT.brightness);
     setContrast(DEFAULT_EDIT.contrast);
+    setFaceCleanOn(DEFAULT_EDIT.faceCleanOn);
+    setFaceCleanIntensity(DEFAULT_EDIT.faceCleanIntensity);
     setDesignTemplate(null);
     setPrintCount(null);
     setCropZoom(1);
@@ -483,6 +542,9 @@ export default function ZorRemoverPage() {
           ctx.shadowOffsetY = canvas.height * 0.015;
         }
         ctx.drawImage(img, box.left, box.top, box.drawW, box.drawH);
+        if (faceCleanOn) {
+          drawFaceClean(ctx, img, box.left, box.top, box.drawW, box.drawH, faceCleanIntensity);
+        }
       } else {
         const scale =
           size === 'preview'
@@ -511,6 +573,9 @@ export default function ZorRemoverPage() {
           ctx.shadowOffsetY = padding * 0.35;
         }
         ctx.drawImage(img, padding, padding, baseW, baseH);
+        if (faceCleanOn) {
+          drawFaceClean(ctx, img, padding, padding, baseW, baseH, faceCleanIntensity);
+        }
       }
 
       const blob: Blob | null = await new Promise((resolve) =>
@@ -612,6 +677,113 @@ export default function ZorRemoverPage() {
       URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error('Print sheet download failed:', err);
+    }
+  };
+
+  const handleQuickA4Six = () => {
+    if (!resultImage) return;
+    const printableTemplate =
+      designTemplate?.printable ? designTemplate : DESIGN_TEMPLATES.find((tpl) => tpl.id === 'id-card')!;
+    setDesignTemplate(printableTemplate);
+    setPrintCount(6);
+    setActiveTab('design');
+    // Render with the current state immediately; no second click is required.
+    void handleDownloadPrintSheetWithTemplate(printableTemplate, 6);
+  };
+
+  const handleDownloadPrintSheetWithTemplate = async (
+    template: DesignTemplate,
+    count: number,
+  ) => {
+    if (!resultImage) return;
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = resultImage;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const photoW = template.width;
+      const photoH = template.height;
+      const { cols, rows, scale } = computePrintGrid(count, photoW, photoH);
+      const renderW = photoW * scale;
+      const renderH = photoH * scale;
+      const cellW = A4_SHEET.width / cols;
+      const cellH = A4_SHEET.height / rows;
+
+      const tile = document.createElement('canvas');
+      tile.width = photoW;
+      tile.height = photoH;
+      const tctx = tile.getContext('2d');
+      if (!tctx) throw new Error('Canvas not supported');
+      tctx.fillStyle = bgColor === 'transparent' ? '#FFFFFF' : bgColor;
+      tctx.fillRect(0, 0, photoW, photoH);
+
+      const tileBox = computeCropBox(
+        photoW,
+        photoH,
+        img.naturalWidth,
+        img.naturalHeight,
+        cropZoom,
+        cropOffset.x,
+        cropOffset.y,
+      );
+      tctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+      tctx.drawImage(img, tileBox.left, tileBox.top, tileBox.drawW, tileBox.drawH);
+      if (faceCleanOn) {
+        drawFaceClean(
+          tctx,
+          img,
+          tileBox.left,
+          tileBox.top,
+          tileBox.drawW,
+          tileBox.drawH,
+          faceCleanIntensity,
+        );
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = A4_SHEET.width;
+      canvas.height = A4_SHEET.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas not supported');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      let placed = 0;
+      for (let r = 0; r < rows && placed < count; r++) {
+        for (let c = 0; c < cols && placed < count; c++) {
+          const cx = c * cellW + (cellW - renderW) / 2;
+          const cy = r * cellH + (cellH - renderH) / 2;
+          ctx.drawImage(tile, cx, cy, renderW, renderH);
+          ctx.save();
+          ctx.strokeStyle = '#94a3b8';
+          ctx.setLineDash([4, 3]);
+          ctx.lineWidth = 1;
+          ctx.strokeRect(cx, cy, renderW, renderH);
+          ctx.restore();
+          placed++;
+        }
+      }
+
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob(resolve, 'image/png'),
+      );
+      if (!blob) throw new Error('Failed to export sheet');
+
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `${template.id}-6-photo-A4.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Quick A4 download failed:', err);
+      setErrorMessage('A4 sheet could not be created. Please try again.');
     }
   };
 
@@ -774,6 +946,8 @@ export default function ZorRemoverPage() {
                   {(
                     [
                       { id: 'cutout', label: 'Cutout', icon: Scissors },
+                      { id: 'crop', label: 'Crop', icon: Crop },
+                      { id: 'face-clean', label: 'Face Clean', icon: ScanFace },
                       { id: 'background', label: 'Background', icon: Palette },
                       { id: 'effects', label: 'Effects', icon: Wand2 },
                       { id: 'adjust', label: 'Adjust', icon: SlidersHorizontal },
@@ -883,6 +1057,8 @@ export default function ZorRemoverPage() {
               {(
                 [
                   { id: 'cutout', label: 'Cutout', icon: Scissors },
+                  { id: 'crop', label: 'Crop', icon: Crop },
+                  { id: 'face-clean', label: 'Face Clean', icon: ScanFace },
                   { id: 'background', label: 'Background', icon: Palette },
                   { id: 'effects', label: 'Effects', icon: Wand2 },
                   { id: 'adjust', label: 'Adjust', icon: SlidersHorizontal },
@@ -986,6 +1162,18 @@ export default function ZorRemoverPage() {
                             : { opacity: 0 }
                         }
                       />
+                      {faceCleanOn && (
+                        <img
+                          src={resultImage ?? selectedImage ?? ''}
+                          alt=""
+                          aria-hidden="true"
+                          draggable={false}
+                          className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-30 blur-[2px]"
+                          style={{
+                            clipPath: 'ellipse(18% 18% at 50% 25%)',
+                          }}
+                        />
+                      )}
                     </div>
                   );
                 })()
@@ -1020,6 +1208,15 @@ export default function ZorRemoverPage() {
                         : undefined
                     }
                   />
+                  {processState === 'done' && faceCleanOn && (
+                    <img
+                      src={resultImage ?? selectedImage ?? ''}
+                      alt=""
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-4 h-[calc(100%-2rem)] w-[calc(100%-2rem)] object-contain opacity-30 blur-[2px]"
+                      style={{ clipPath: 'ellipse(18% 18% at 50% 25%)' }}
+                    />
+                  )}
                   {processState !== 'done' && (
                     <button
                       type="button"
@@ -1128,6 +1325,150 @@ export default function ZorRemoverPage() {
                       background color, effects, or adjust the look before
                       downloading.
                     </p>
+                  </div>
+                )}
+
+                {activeTab === 'crop' && (
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Crop Photo</h3>
+                    <p className="mb-3 mt-1 text-xs leading-relaxed text-slate-500">
+                      Choose a ready-made crop ratio, then drag and zoom the photo inside the frame.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {CROP_PRESETS.map((preset) => {
+                        const active = designTemplate?.id === `crop-${preset.id}`;
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => {
+                              pushHistory();
+                              setCropZoom(1);
+                              setCropOffset({ x: 0, y: 0 });
+                              setDesignTemplate({
+                                id: `crop-${preset.id}`,
+                                label: preset.label,
+                                sub: preset.sub,
+                                width: preset.width,
+                                height: preset.height,
+                              });
+                              if (bgColor === 'transparent') setBgColor('#FFFFFF');
+                            }}
+                            className={`rounded-lg border-2 p-3 text-left transition ${
+                              active
+                                ? 'border-blue-600 bg-blue-50'
+                                : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="text-xs font-bold text-slate-800">{preset.label}</div>
+                            <div className="mt-0.5 text-[10px] text-slate-400">{preset.sub}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {designTemplate && designTemplate.id.startsWith('crop-') && (
+                      <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                          <Move className="h-3.5 w-3.5" />
+                          Drag inside the preview to position the crop.
+                        </div>
+                        <div>
+                          <div className="mb-1.5 flex items-center justify-between text-xs font-medium">
+                            <span className="text-slate-700">Zoom</span>
+                            <span className="text-slate-400">{Math.round(cropZoom * 100)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={100}
+                            max={300}
+                            value={Math.round(cropZoom * 100)}
+                            onChange={(e) => setCropZoom(Number(e.target.value) / 100)}
+                            className="w-full accent-blue-600"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCropZoom(1);
+                            setCropOffset({ x: 0, y: 0 });
+                          }}
+                          className="text-xs font-medium text-slate-500 underline hover:text-slate-700"
+                        >
+                          Reset crop
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleDownload('hd')}
+                      className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-semibold text-white transition hover:bg-blue-700"
+                    >
+                      <Crop className="h-3.5 w-3.5" />
+                      Download Cropped Photo
+                    </button>
+                  </div>
+                )}
+
+                {activeTab === 'face-clean' && (
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Face Clean</h3>
+                    <p className="mb-4 mt-1 text-xs leading-relaxed text-slate-500">
+                      Smooth small skin imperfections while keeping the photo natural. The clean effect is applied during export too.
+                    </p>
+                    <div className="flex items-center justify-between border-t border-slate-100 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Skin smoothing</p>
+                        <p className="text-xs text-slate-500">Natural portrait retouch</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={faceCleanOn}
+                        onClick={() => {
+                          pushHistory();
+                          setFaceCleanOn((v) => !v);
+                        }}
+                        className={`relative h-6 w-11 flex-none rounded-full transition ${
+                          faceCleanOn ? 'bg-blue-600' : 'bg-slate-200'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                            faceCleanOn ? 'left-5' : 'left-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    <div className="mt-3">
+                      <div className="mb-1.5 flex justify-between text-xs font-medium">
+                        <span className="text-slate-700">Intensity</span>
+                        <span className="text-slate-400">{faceCleanIntensity}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={10}
+                        max={80}
+                        value={faceCleanIntensity}
+                        onMouseDown={pushHistory}
+                        onTouchStart={pushHistory}
+                        onChange={(e) => setFaceCleanIntensity(Number(e.target.value))}
+                        className="w-full accent-blue-600"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pushHistory();
+                        setFaceCleanOn(true);
+                        setFaceCleanIntensity(45);
+                      }}
+                      className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-semibold text-white transition hover:bg-blue-700"
+                    >
+                      <ScanFace className="h-3.5 w-3.5" />
+                      Apply Face Clean
+                    </button>
                   </div>
                 )}
 
@@ -1290,16 +1631,13 @@ export default function ZorRemoverPage() {
                             type="button"
                             onClick={() => {
                               pushHistory();
+                              setCropZoom(1);
+                              setCropOffset({ x: 0, y: 0 });
                               if (active) {
                                 setDesignTemplate(null);
-                                setPrintCount(null);
-                                setCropZoom(1);
-                                setCropOffset({ x: 0, y: 0 });
+    setPrintCount(null);
                               } else {
                                 setDesignTemplate(tpl);
-                                const smart = SMART_CROP_DEFAULTS[tpl.id];
-                                setCropZoom(smart?.zoom ?? 1);
-                                setCropOffset({ x: 0, y: smart?.offsetY ?? 0 });
                                 if (bgColor === 'transparent') {
                                   setBgColor('#FFFFFF');
                                 }
@@ -1332,13 +1670,6 @@ export default function ZorRemoverPage() {
 
                     {designTemplate && (
                       <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
-                        {designTemplate.printable && (
-                          <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-700">
-                            We've zoomed in for a headshot crop. Drag the
-                            photo and use the zoom slider to fine-tune the
-                            framing before downloading.
-                          </p>
-                        )}
                         <div className="flex items-center gap-1.5 text-xs text-slate-500">
                           <Move className="h-3.5 w-3.5" />
                           Drag the photo to reposition it in the frame.
@@ -1396,11 +1727,8 @@ export default function ZorRemoverPage() {
                           type="button"
                           onClick={() => {
                             pushHistory();
-                            const smart = designTemplate
-                              ? SMART_CROP_DEFAULTS[designTemplate.id]
-                              : undefined;
-                            setCropZoom(smart?.zoom ?? 1);
-                            setCropOffset({ x: 0, y: smart?.offsetY ?? 0 });
+                            setCropZoom(1);
+                            setCropOffset({ x: 0, y: 0 });
                           }}
                           className="text-xs font-medium text-slate-500 underline hover:text-slate-700"
                         >
@@ -1417,6 +1745,14 @@ export default function ZorRemoverPage() {
                               How many copies does your customer need? We'll
                               arrange them on one A4 sheet, ready to print.
                             </p>
+                            <button
+                              type="button"
+                              onClick={handleQuickA4Six}
+                              className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-bold text-white transition hover:bg-blue-700"
+                            >
+                              <Grid3x3 className="h-3.5 w-3.5" />
+                              One Click: Make 6 Photos on A4
+                            </button>
                             <div className="mt-2.5 flex flex-wrap gap-1.5">
                               {PRINT_COUNT_OPTIONS.map((n) => (
                                 <button
