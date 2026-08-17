@@ -28,7 +28,6 @@ import {
   ZoomIn,
   Minus,
   Move,
-  Grid3x3,
 } from 'lucide-react';
 import Navbar from '@/components/sections/Navbar';
 import Footer from '@/components/sections/Footer';
@@ -106,36 +105,6 @@ const DESIGN_TEMPLATES: DesignTemplate[] = [
   { id: 'poster', label: 'Poster', sub: 'A4', width: 1240, height: 1754 },
   { id: 'social', label: 'Social Post', sub: '1080 × 1080', width: 1080, height: 1080 },
 ];
-
-const PRINT_COUNT_OPTIONS = [2, 3, 4, 6, 8, 9, 12];
-const CROP_PRESETS = [
-  { id: 'square', label: '1:1', sub: 'Square', width: 1000, height: 1000 },
-  { id: 'id', label: '35 × 45', sub: 'ID photo', width: 413, height: 531 },
-  { id: 'passport', label: '2 × 2', sub: 'Passport', width: 600, height: 600 },
-  { id: 'four-three', label: '4:3', sub: 'Photo', width: 1200, height: 900 },
-  { id: 'sixteen-nine', label: '16:9', sub: 'Wide', width: 1600, height: 900 },
-];
-const A4_SHEET = { width: 2480, height: 3508 }; // A4 @ 300dpi
-
-// Picks the column count that fits `count` photos on the sheet as large
-// as possible (classic photo-studio print-sheet layout).
-function computePrintGrid(count: number, photoW: number, photoH: number) {
-  // Passport 2x2 inch prints: keep the physical size exact (600x600 @ 300dpi).
-  // Six true passport prints fit cleanly as 2 columns x 3 rows on portrait A4.
-  if (count === 6 && photoW === 600 && photoH === 600) {
-    return { cols: 2, rows: 3, scale: 1 };
-  }
-
-  let best = { cols: 1, rows: count, scale: 0 };
-  for (let cols = 1; cols <= count; cols++) {
-    const rows = Math.ceil(count / cols);
-    const cellW = A4_SHEET.width / cols;
-    const cellH = A4_SHEET.height / rows;
-    const scale = Math.min(cellW / photoW, cellH / photoH);
-    if (scale > best.scale) best = { cols, rows, scale };
-  }
-  return best;
-}
 
 // The on-screen frame's exact pixel box for a given template, computed in
 // JS instead of via CSS aspect-ratio — guarantees the preview always
@@ -242,7 +211,6 @@ export default function ZorRemoverPage() {
   const [faceCleanIntensity, setFaceCleanIntensity] = useState(45);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [designTemplate, setDesignTemplate] = useState<DesignTemplate | null>(null);
-  const [printCount, setPrintCount] = useState<number | null>(null);
   const [cropZoom, setCropZoom] = useState(1);
   const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
@@ -317,7 +285,6 @@ export default function ZorRemoverPage() {
     setFaceCleanOn(DEFAULT_EDIT.faceCleanOn);
     setFaceCleanIntensity(DEFAULT_EDIT.faceCleanIntensity);
     setDesignTemplate(null);
-    setPrintCount(null);
     setCropZoom(1);
     setCropOffset({ x: 0, y: 0 });
     setImgNaturalSize(null);
@@ -469,7 +436,6 @@ export default function ZorRemoverPage() {
     setFaceCleanOn(DEFAULT_EDIT.faceCleanOn);
     setFaceCleanIntensity(DEFAULT_EDIT.faceCleanIntensity);
     setDesignTemplate(null);
-    setPrintCount(null);
     setCropZoom(1);
     setCropOffset({ x: 0, y: 0 });
     setImgNaturalSize(null);
@@ -490,7 +456,6 @@ export default function ZorRemoverPage() {
     setFaceCleanOn(DEFAULT_EDIT.faceCleanOn);
     setFaceCleanIntensity(DEFAULT_EDIT.faceCleanIntensity);
     setDesignTemplate(null);
-    setPrintCount(null);
     setCropZoom(1);
     setCropOffset({ x: 0, y: 0 });
     setImgNaturalSize(null);
@@ -596,210 +561,6 @@ export default function ZorRemoverPage() {
       URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error('Download failed:', err);
-    }
-  };
-
-  const handleDownloadPrintSheet = async () => {
-    if (!resultImage || !designTemplate || !printCount) return;
-    try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = resultImage;
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-
-      const photoW = designTemplate.width;
-      const photoH = designTemplate.height;
-      const { cols, rows, scale } = computePrintGrid(printCount, photoW, photoH);
-      const renderW = photoW * scale;
-      const renderH = photoH * scale;
-      const cellW = A4_SHEET.width / cols;
-      const cellH = A4_SHEET.height / rows;
-
-      // Render one copy of the framed photo (same crop/zoom/pan math as
-      // the live preview) once, then stamp it onto the sheet N times.
-      const tile = document.createElement('canvas');
-      tile.width = photoW;
-      tile.height = photoH;
-      const tctx = tile.getContext('2d');
-      if (!tctx) throw new Error('Canvas not supported');
-      tctx.fillStyle = bgColor === 'transparent' ? '#FFFFFF' : bgColor;
-      tctx.fillRect(0, 0, photoW, photoH);
-      const tileBox = computeCropBox(
-        photoW,
-        photoH,
-        img.naturalWidth,
-        img.naturalHeight,
-        cropZoom,
-        cropOffset.x,
-        cropOffset.y
-      );
-      tctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-      tctx.drawImage(img, tileBox.left, tileBox.top, tileBox.drawW, tileBox.drawH);
-      if (faceCleanOn) {
-        drawFaceClean(
-          tctx,
-          img,
-          tileBox.left,
-          tileBox.top,
-          tileBox.drawW,
-          tileBox.drawH,
-          faceCleanIntensity,
-        );
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = A4_SHEET.width;
-      canvas.height = A4_SHEET.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas not supported');
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      let placed = 0;
-      for (let r = 0; r < rows && placed < printCount; r++) {
-        for (let c = 0; c < cols && placed < printCount; c++) {
-          const cx = c * cellW + (cellW - renderW) / 2;
-          const cy = r * cellH + (cellH - renderH) / 2;
-          ctx.drawImage(tile, cx, cy, renderW, renderH);
-          ctx.save();
-          ctx.strokeStyle = '#94a3b8';
-          ctx.setLineDash([4, 3]);
-          ctx.lineWidth = 1;
-          ctx.strokeRect(cx, cy, renderW, renderH);
-          ctx.restore();
-          placed++;
-        }
-      }
-
-      const blob: Blob | null = await new Promise((resolve) =>
-        canvas.toBlob(resolve, 'image/png')
-      );
-      if (!blob) throw new Error('Failed to export sheet');
-
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `${designTemplate.id}-print-sheet-${printCount}pc-A4.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      console.error('Print sheet download failed:', err);
-    }
-  };
-
-  const handleQuickA4Six = () => {
-    if (!resultImage) return;
-    const printableTemplate =
-      designTemplate?.id === 'passport'
-        ? designTemplate
-        : DESIGN_TEMPLATES.find((tpl) => tpl.id === 'passport')!;
-    setDesignTemplate(printableTemplate);
-    setPrintCount(6);
-    setActiveTab('design');
-    // Render with the current state immediately; no second click is required.
-    void handleDownloadPrintSheetWithTemplate(printableTemplate, 6, 1, { x: 0, y: 0 });
-  };
-
-  const handleDownloadPrintSheetWithTemplate = async (
-    template: DesignTemplate,
-    count: number,
-    zoom = cropZoom,
-    offset = cropOffset,
-  ) => {
-    if (!resultImage) return;
-    try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = resultImage;
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-
-      const photoW = template.width;
-      const photoH = template.height;
-      const { cols, rows, scale } = computePrintGrid(count, photoW, photoH);
-      const renderW = photoW * scale;
-      const renderH = photoH * scale;
-      const cellW = A4_SHEET.width / cols;
-      const cellH = A4_SHEET.height / rows;
-
-      const tile = document.createElement('canvas');
-      tile.width = photoW;
-      tile.height = photoH;
-      const tctx = tile.getContext('2d');
-      if (!tctx) throw new Error('Canvas not supported');
-      tctx.fillStyle = bgColor === 'transparent' ? '#FFFFFF' : bgColor;
-      tctx.fillRect(0, 0, photoW, photoH);
-
-      const tileBox = computeCropBox(
-        photoW,
-        photoH,
-        img.naturalWidth,
-        img.naturalHeight,
-        zoom,
-        offset.x,
-        offset.y,
-      );
-      tctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-      tctx.drawImage(img, tileBox.left, tileBox.top, tileBox.drawW, tileBox.drawH);
-      if (faceCleanOn) {
-        drawFaceClean(
-          tctx,
-          img,
-          tileBox.left,
-          tileBox.top,
-          tileBox.drawW,
-          tileBox.drawH,
-          faceCleanIntensity,
-        );
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = A4_SHEET.width;
-      canvas.height = A4_SHEET.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas not supported');
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      let placed = 0;
-      for (let r = 0; r < rows && placed < count; r++) {
-        for (let c = 0; c < cols && placed < count; c++) {
-          const cx = c * cellW + (cellW - renderW) / 2;
-          const cy = r * cellH + (cellH - renderH) / 2;
-          ctx.drawImage(tile, cx, cy, renderW, renderH);
-          ctx.save();
-          ctx.strokeStyle = '#94a3b8';
-          ctx.setLineDash([4, 3]);
-          ctx.lineWidth = 1;
-          ctx.strokeRect(cx, cy, renderW, renderH);
-          ctx.restore();
-          placed++;
-        }
-      }
-
-      const blob: Blob | null = await new Promise((resolve) =>
-        canvas.toBlob(resolve, 'image/png'),
-      );
-      if (!blob) throw new Error('Failed to export sheet');
-
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `${template.id}-6-photo-A4.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      console.error('Quick A4 download failed:', err);
-      setErrorMessage('A4 sheet could not be created. Please try again.');
     }
   };
 
@@ -1651,7 +1412,6 @@ export default function ZorRemoverPage() {
                               setCropOffset({ x: 0, y: 0 });
                               if (active) {
                                 setDesignTemplate(null);
-    setPrintCount(null);
                               } else {
                                 setDesignTemplate(tpl);
                                 if (bgColor === 'transparent') {
@@ -1751,51 +1511,7 @@ export default function ZorRemoverPage() {
                           Reset position &amp; zoom
                         </button>
 
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                              <Grid3x3 className="h-3.5 w-3.5" />
-                              Print Sheet (A4)
-                            </div>
-                            <p className="mt-1 text-[11px] text-slate-500">
-                              Six passport photos are fixed at 2 × 2 in and arranged 2 × 3 on portrait A4, ready to print.
-                            </p>
-                            <button
-                              type="button"
-                              onClick={handleQuickA4Six}
-                              className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-bold text-white transition hover:bg-blue-700"
-                            >
-                              <Grid3x3 className="h-3.5 w-3.5" />
-                              One Click: 6 Passport Photos on A4
-                            </button>
-                            <div className="mt-2.5 flex flex-wrap gap-1.5">
-                              {PRINT_COUNT_OPTIONS.map((n) => (
-                                <button
-                                  key={n}
-                                  type="button"
-                                  onClick={() =>
-                                    setPrintCount(printCount === n ? null : n)
-                                  }
-                                  className={`flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-semibold transition ${
-                                    printCount === n
-                                      ? 'border-blue-600 bg-blue-600 text-white'
-                                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                                  }`}
-                                >
-                                  {n}
-                                </button>
-                              ))}
-                            </div>
-                            {designTemplate.printable && printCount && (
-                              <button
-                                type="button"
-                                onClick={handleDownloadPrintSheet}
-                                className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-semibold text-white transition hover:bg-blue-700"
-                              >
-                                <Download className="h-3.5 w-3.5" />
-                                Download {printCount}-Photo A4 Sheet
-                              </button>
-                            )}
-                          </div>
+
 
                         <div>
                           <button
@@ -1803,7 +1519,6 @@ export default function ZorRemoverPage() {
                             onClick={() => {
                               pushHistory();
                               setDesignTemplate(null);
-    setPrintCount(null);
                               setCropZoom(1);
                               setCropOffset({ x: 0, y: 0 });
                             }}
