@@ -104,6 +104,15 @@ const DESIGN_TEMPLATES: DesignTemplate[] = [
 const PRINT_COUNT_OPTIONS = [2, 3, 4, 6, 8, 9, 12];
 const A4_SHEET = { width: 1240, height: 1754 }; // A4 @ ~150dpi
 
+// Typical head-and-shoulders phone photos include a lot of chest/shirt.
+// Passport/ID photos need a tight headshot, so start zoomed in and
+// shifted up toward the face rather than showing the whole loose photo.
+// The user can still fine-tune with drag + the zoom slider.
+const SMART_CROP_DEFAULTS: Record<string, { zoom: number; offsetY: number }> = {
+  passport: { zoom: 2.1, offsetY: -0.16 },
+  'id-card': { zoom: 1.9, offsetY: -0.14 },
+};
+
 // Picks the column count that fits `count` photos on the sheet as large
 // as possible (classic photo-studio print-sheet layout).
 function computePrintGrid(count: number, photoW: number, photoH: number) {
@@ -1281,13 +1290,16 @@ export default function ZorRemoverPage() {
                             type="button"
                             onClick={() => {
                               pushHistory();
-                              setCropZoom(1);
-                              setCropOffset({ x: 0, y: 0 });
                               if (active) {
                                 setDesignTemplate(null);
-    setPrintCount(null);
+                                setPrintCount(null);
+                                setCropZoom(1);
+                                setCropOffset({ x: 0, y: 0 });
                               } else {
                                 setDesignTemplate(tpl);
+                                const smart = SMART_CROP_DEFAULTS[tpl.id];
+                                setCropZoom(smart?.zoom ?? 1);
+                                setCropOffset({ x: 0, y: smart?.offsetY ?? 0 });
                                 if (bgColor === 'transparent') {
                                   setBgColor('#FFFFFF');
                                 }
@@ -1320,6 +1332,13 @@ export default function ZorRemoverPage() {
 
                     {designTemplate && (
                       <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+                        {designTemplate.printable && (
+                          <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-700">
+                            We've zoomed in for a headshot crop. Drag the
+                            photo and use the zoom slider to fine-tune the
+                            framing before downloading.
+                          </p>
+                        )}
                         <div className="flex items-center gap-1.5 text-xs text-slate-500">
                           <Move className="h-3.5 w-3.5" />
                           Drag the photo to reposition it in the frame.
@@ -1377,8 +1396,11 @@ export default function ZorRemoverPage() {
                           type="button"
                           onClick={() => {
                             pushHistory();
-                            setCropZoom(1);
-                            setCropOffset({ x: 0, y: 0 });
+                            const smart = designTemplate
+                              ? SMART_CROP_DEFAULTS[designTemplate.id]
+                              : undefined;
+                            setCropZoom(smart?.zoom ?? 1);
+                            setCropOffset({ x: 0, y: smart?.offsetY ?? 0 });
                           }}
                           className="text-xs font-medium text-slate-500 underline hover:text-slate-700"
                         >
