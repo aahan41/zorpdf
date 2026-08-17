@@ -115,11 +115,17 @@ const CROP_PRESETS = [
   { id: 'four-three', label: '4:3', sub: 'Photo', width: 1200, height: 900 },
   { id: 'sixteen-nine', label: '16:9', sub: 'Wide', width: 1600, height: 900 },
 ];
-const A4_SHEET = { width: 1240, height: 1754 }; // A4 @ ~150dpi
+const A4_SHEET = { width: 2480, height: 3508 }; // A4 @ 300dpi
 
 // Picks the column count that fits `count` photos on the sheet as large
 // as possible (classic photo-studio print-sheet layout).
 function computePrintGrid(count: number, photoW: number, photoH: number) {
+  // Passport 2x2 inch prints: keep the physical size exact (600x600 @ 300dpi).
+  // Six true passport prints fit cleanly as 2 columns x 3 rows on portrait A4.
+  if (count === 6 && photoW === 600 && photoH === 600) {
+    return { cols: 2, rows: 3, scale: 1 };
+  }
+
   let best = { cols: 1, rows: count, scale: 0 };
   for (let cols = 1; cols <= count; cols++) {
     const rows = Math.ceil(count / cols);
@@ -152,17 +158,18 @@ function computeCropBox(
   imgH: number,
   zoom: number,
   offsetX: number,
-  offsetY: number,
-  marginRatio = 0.08
+  offsetY: number
 ) {
-  const availW = frameW * (1 - marginRatio * 2);
-  const availH = frameH * (1 - marginRatio * 2);
-  const baseFit = Math.min(availW / imgW, availH / imgH);
-  const scale = baseFit * zoom;
+  // Crop mode must COVER the frame, not contain inside it. This removes the
+  // unwanted empty borders and makes the crop match the exported image.
+  const baseFit = Math.max(frameW / imgW, frameH / imgH);
+  const scale = baseFit * Math.max(1, zoom);
   const drawW = imgW * scale;
   const drawH = imgH * scale;
-  const left = (frameW - drawW) / 2 + offsetX * frameW;
-  const top = (frameH - drawH) / 2 + offsetY * frameH;
+  const maxX = Math.max(0, (drawW - frameW) / 2);
+  const maxY = Math.max(0, (drawH - frameH) / 2);
+  const left = (frameW - drawW) / 2 + clamp(offsetX, -1, 1) * maxX * 2;
+  const top = (frameH - drawH) / 2 + clamp(offsetY, -1, 1) * maxY * 2;
   return { left, top, drawW, drawH };
 }
 
@@ -183,27 +190,21 @@ function drawFaceClean(
 
   const scaleX = drawW / img.naturalWidth;
   const scaleY = drawH / img.naturalHeight;
-  const face = {
-    x: drawX + (img.naturalWidth * 0.33) * scaleX,
-    y: drawY + (img.naturalHeight * 0.12) * scaleY,
-    width: img.naturalWidth * 0.34 * scaleX,
-    height: img.naturalHeight * 0.30 * scaleY,
-  };
+  // A portrait-safe face region: upper-middle of the subject. The overlay is
+  // deliberately soft so eyes, eyebrows, lips and hair keep their detail.
+  const cx = drawX + img.naturalWidth * 0.50 * scaleX;
+  const cy = drawY + img.naturalHeight * 0.25 * scaleY;
+  const rx = Math.max(12, img.naturalWidth * 0.17 * scaleX);
+  const ry = Math.max(12, img.naturalHeight * 0.15 * scaleY);
+  const blurPx = Math.max(1, intensity / 18);
+  const alpha = Math.min(0.58, 0.10 + intensity / 180);
 
   ctx.save();
   ctx.beginPath();
-  ctx.ellipse(
-    face.x + face.width / 2,
-    face.y + face.height / 2,
-    face.width * 0.62,
-    face.height * 0.62,
-    0,
-    0,
-    Math.PI * 2,
-  );
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.clip();
-  ctx.globalAlpha = Math.min(0.72, intensity / 100 * 0.72);
-  ctx.filter = `blur(${Math.max(0.6, intensity / 22)}px)`;
+  ctx.globalAlpha = alpha;
+  ctx.filter = `blur(${blurPx}px)`;
   ctx.drawImage(img, drawX, drawY, drawW, drawH);
   ctx.restore();
 }
@@ -348,7 +349,7 @@ export default function ZorRemoverPage() {
   // take much longer and can make the tab feel frozen while it computes.
   // Downscaling to a sane max dimension first keeps quality plenty good
   // for cutouts while cutting processing time dramatically.
-  const downscaleForProcessing = (file: File, maxDim = 1600): Promise<File> => {
+  const downscaleForProcessing = (file: File, maxDim = 3000): Promise<File> => {
     return new Promise((resolve) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
@@ -637,6 +638,17 @@ export default function ZorRemoverPage() {
       );
       tctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
       tctx.drawImage(img, tileBox.left, tileBox.top, tileBox.drawW, tileBox.drawH);
+      if (faceCleanOn) {
+        drawFaceClean(
+          tctx,
+          img,
+          tileBox.left,
+          tileBox.top,
+          tileBox.drawW,
+          tileBox.drawH,
+          faceCleanIntensity,
+        );
+      }
 
       const canvas = document.createElement('canvas');
       canvas.width = A4_SHEET.width;
@@ -683,17 +695,21 @@ export default function ZorRemoverPage() {
   const handleQuickA4Six = () => {
     if (!resultImage) return;
     const printableTemplate =
-      designTemplate?.printable ? designTemplate : DESIGN_TEMPLATES.find((tpl) => tpl.id === 'id-card')!;
+      designTemplate?.id === 'passport'
+        ? designTemplate
+        : DESIGN_TEMPLATES.find((tpl) => tpl.id === 'passport')!;
     setDesignTemplate(printableTemplate);
     setPrintCount(6);
     setActiveTab('design');
     // Render with the current state immediately; no second click is required.
-    void handleDownloadPrintSheetWithTemplate(printableTemplate, 6);
+    void handleDownloadPrintSheetWithTemplate(printableTemplate, 6, 1, { x: 0, y: 0 });
   };
 
   const handleDownloadPrintSheetWithTemplate = async (
     template: DesignTemplate,
     count: number,
+    zoom = cropZoom,
+    offset = cropOffset,
   ) => {
     if (!resultImage) return;
     try {
@@ -726,9 +742,9 @@ export default function ZorRemoverPage() {
         photoH,
         img.naturalWidth,
         img.naturalHeight,
-        cropZoom,
-        cropOffset.x,
-        cropOffset.y,
+        zoom,
+        offset.x,
+        offset.y,
       );
       tctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
       tctx.drawImage(img, tileBox.left, tileBox.top, tileBox.drawW, tileBox.drawH);
@@ -1735,15 +1751,13 @@ export default function ZorRemoverPage() {
                           Reset position &amp; zoom
                         </button>
 
-                        {designTemplate.printable && (
-                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                             <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
                               <Grid3x3 className="h-3.5 w-3.5" />
                               Print Sheet (A4)
                             </div>
                             <p className="mt-1 text-[11px] text-slate-500">
-                              How many copies does your customer need? We'll
-                              arrange them on one A4 sheet, ready to print.
+                              Six passport photos are fixed at 2 × 2 in and arranged 2 × 3 on portrait A4, ready to print.
                             </p>
                             <button
                               type="button"
@@ -1751,7 +1765,7 @@ export default function ZorRemoverPage() {
                               className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-bold text-white transition hover:bg-blue-700"
                             >
                               <Grid3x3 className="h-3.5 w-3.5" />
-                              One Click: Make 6 Photos on A4
+                              One Click: 6 Passport Photos on A4
                             </button>
                             <div className="mt-2.5 flex flex-wrap gap-1.5">
                               {PRINT_COUNT_OPTIONS.map((n) => (
@@ -1771,7 +1785,7 @@ export default function ZorRemoverPage() {
                                 </button>
                               ))}
                             </div>
-                            {printCount && (
+                            {designTemplate.printable && printCount && (
                               <button
                                 type="button"
                                 onClick={handleDownloadPrintSheet}
@@ -1782,7 +1796,6 @@ export default function ZorRemoverPage() {
                               </button>
                             )}
                           </div>
-                        )}
 
                         <div>
                           <button
