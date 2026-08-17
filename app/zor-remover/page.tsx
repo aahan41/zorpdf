@@ -106,6 +106,16 @@ const DESIGN_TEMPLATES: DesignTemplate[] = [
   { id: 'social', label: 'Social Post', sub: '1080 × 1080', width: 1080, height: 1080 },
 ];
 
+// Crop presets used by the Crop tool. Dimensions define the exported crop ratio.
+// The crop tool uses COVER fitting, so the selected frame is always filled.
+const CROP_PRESETS = [
+  { id: 'square', label: '1:1', sub: 'Square', width: 1200, height: 1200 },
+  { id: 'id-photo', label: '35 × 45', sub: 'ID photo', width: 413, height: 531 },
+  { id: 'passport', label: '2 × 2', sub: 'Passport', width: 1200, height: 1200 },
+  { id: 'photo', label: '4:3', sub: 'Photo', width: 1200, height: 900 },
+  { id: 'wide', label: '16:9', sub: 'Wide', width: 1600, height: 900 },
+] as const;
+
 // The on-screen frame's exact pixel box for a given template, computed in
 // JS instead of via CSS aspect-ratio — guarantees the preview always
 // visibly matches the chosen template's shape, regardless of any
