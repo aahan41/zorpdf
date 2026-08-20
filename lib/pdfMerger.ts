@@ -1,6 +1,6 @@
-import { PDFDocument, PDFImage, rgb } from 'pdf-lib';
+import { PDFDocument, PDFImage } from 'pdf-lib';
 import type { CompressionLevel } from './imageCompression';
-import { compressImage, COMPRESSION_PRESETS } from './imageCompression';
+import { compressImage } from './imageCompression';
 import { getZorPdfFileName } from './fileNaming';
 
 export interface ImageProcessingResult {
@@ -24,17 +24,22 @@ export interface MergeResult {
 /**
  * Generate thumbnail for preview
  */
-export async function generateThumbnail(file: File, maxSize: number = 150): Promise<string> {
+export async function generateThumbnail(
+  file: File,
+  maxSize: number = 150
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+
+    reader.onload = (event) => {
       const img = new Image();
+
       img.onload = () => {
         const canvas = document.createElement('canvas');
+
         let width = img.width;
         let height = img.height;
 
-        // Calculate dimensions maintaining aspect ratio
         if (width > height) {
           if (width > maxSize) {
             height = Math.round((height * maxSize) / width);
@@ -51,6 +56,7 @@ export async function generateThumbnail(file: File, maxSize: number = 150): Prom
         canvas.height = height;
 
         const ctx = canvas.getContext('2d');
+
         if (!ctx) {
           reject(new Error('Failed to create canvas context'));
           return;
@@ -58,172 +64,273 @@ export async function generateThumbnail(file: File, maxSize: number = 150): Prom
 
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
+
         ctx.drawImage(img, 0, 0, width, height);
 
         resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = e.target?.result as string;
+
+      img.onerror = () => {
+        reject(new Error('Failed to load image'));
+      };
+
+      img.src = event.target?.result as string;
     };
-    reader.onerror = () => reject(new Error('Failed to read file'));
+
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+
     reader.readAsDataURL(file);
   });
 }
 
 /**
- * Load image and get dimensions
+ * Load image information
  */
-export async function loadImageInfo(file: File): Promise<{ width: number; height: number; thumbnail: string }> {
+export async function loadImageInfo(
+  file: File
+): Promise<{
+  width: number;
+  height: number;
+  thumbnail: string;
+}> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+
+    reader.onload = (event) => {
       const img = new Image();
+
       img.onload = async () => {
-        const thumbnail = await generateThumbnail(file);
-        resolve({
-          width: img.width,
-          height: img.height,
-          thumbnail,
-        });
+        try {
+          const thumbnail = await generateThumbnail(file);
+
+          resolve({
+            width: img.width,
+            height: img.height,
+            thumbnail,
+          });
+        } catch (error) {
+          reject(error);
+        }
       };
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = e.target?.result as string;
+
+      img.onerror = () => {
+        reject(new Error('Failed to load image'));
+      };
+
+      img.src = event.target?.result as string;
     };
-    reader.onerror = () => reject(new Error('Failed to read file'));
+
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+
     reader.readAsDataURL(file);
   });
 }
 
 /**
- * Process image for PDF (compress if needed)
+ * Process image before adding to PDF
  */
 export async function processImageForPdf(
   file: File,
   compressionLevel: CompressionLevel
-): Promise<{ blob: Blob; width: number; height: number }> {
-  const settings = COMPRESSION_PRESETS[compressionLevel];
+): Promise<{
+  blob: Blob;
+  width: number;
+  height: number;
+}> {
+  // Use original image for low compression
+  if (compressionLevel === 'low') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
 
-  // For balanced, high, and ultra - compress the image
-  if (compressionLevel !== 'low') {
-    const result = await compressImage(file, compressionLevel);
-    return {
-      blob: result.blob,
-      width: result.newWidth,
-      height: result.newHeight,
-    };
+      reader.onload = (event) => {
+        const img = new Image();
+
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            reject(new Error('Failed to create canvas'));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to create image blob'));
+                return;
+              }
+
+              resolve({
+                blob,
+                width: img.width,
+                height: img.height,
+              });
+            },
+            'image/jpeg',
+            0.92
+          );
+        };
+
+        img.onerror = () => {
+          reject(new Error('Failed to load image'));
+        };
+
+        img.src = event.target?.result as string;
+      };
+
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+
+      reader.readAsDataURL(file);
+    });
   }
 
-  // For low compression, just return original
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to create canvas'));
-          return;
-        }
+  // Compress image for other compression levels
+  const result = await compressImage(file, compressionLevel);
 
-        ctx.drawImage(img, 0, 0);
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              resolve({ blob, width: img.width, height: img.height });
-            } else {
-              reject(new Error('Failed to create blob'));
-            }
-          },
-          'image/jpeg',
-          0.92
-        );
-      };
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
+  return {
+    blob: result.blob,
+    width: result.newWidth,
+    height: result.newHeight,
+  };
 }
 
 /**
- * Merge all images into a single PDF document
- * Optimized for 100+ images with sequential processing
+ * Merge all uploaded images into one PDF.
+ *
+ * IMPORTANT:
+ * - No zorPDF footer
+ * - Standard A4 pages
+ * - No stretching
+ * - No cropping
+ * - Original image aspect ratio preserved
  */
 export async function mergeImagesToPdf(
   images: ImageProcessingResult[],
   compressionLevel: CompressionLevel,
-  onProgress?: (current: number, total: number, imageId: string) => void
+  onProgress?: (
+    current: number,
+    total: number,
+    imageId: string
+  ) => void
 ): Promise<MergeResult> {
   if (images.length === 0) {
     throw new Error('No images to merge');
   }
 
-  // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
+
   let totalOriginalSize = 0;
 
-  // Process images sequentially to prevent memory issues
+  // A4 size in PDF points
+  const A4_WIDTH = 595.28;
+  const A4_HEIGHT = 841.89;
+
   for (let i = 0; i < images.length; i++) {
     const imageInfo = images[i];
     const file = imageInfo.file;
+
     totalOriginalSize += file.size;
 
-    // Report progress
+    // Update progress
     if (onProgress) {
       onProgress(i + 1, images.length, imageInfo.id);
     }
 
     // Process image
-    const { blob, width, height } = await processImageForPdf(file, compressionLevel);
+    const {
+      blob,
+      width,
+      height,
+    } = await processImageForPdf(
+      file,
+      compressionLevel
+    );
 
-    // Convert blob to array buffer
     const arrayBuffer = await blob.arrayBuffer();
 
-    // Embed image in PDF
     let pdfImage: PDFImage;
+
+    // Try JPG first
     try {
       pdfImage = await pdfDoc.embedJpg(arrayBuffer);
     } catch {
-      // If JPG fails, try as PNG
+      // If not JPG, try PNG
       try {
         pdfImage = await pdfDoc.embedPng(arrayBuffer);
       } catch {
-        throw new Error(`Failed to embed image: ${file.name}`);
+        throw new Error(
+          `Failed to embed image: ${file.name}`
+        );
       }
     }
 
-    // Add a new page with the image dimensions
-    const page = pdfDoc.addPage([width, height]);
+    // Select page orientation based on image
+    const isLandscape = width > height;
 
-    // Draw the image on the page
+    const pageWidth = isLandscape
+      ? A4_HEIGHT
+      : A4_WIDTH;
+
+    const pageHeight = isLandscape
+      ? A4_WIDTH
+      : A4_HEIGHT;
+
+    // Create A4 page
+    const page = pdfDoc.addPage([
+      pageWidth,
+      pageHeight,
+    ]);
+
+    // Calculate proportional scaling.
+    // Math.min ensures the complete image fits
+    // without cropping or stretching.
+    const scale = Math.min(
+      pageWidth / width,
+      pageHeight / height
+    );
+
+    const drawWidth = width * scale;
+    const drawHeight = height * scale;
+
+    // Center the image
+    const x = (pageWidth - drawWidth) / 2;
+    const y = (pageHeight - drawHeight) / 2;
+
+    // Draw image on page
     page.drawImage(pdfImage, {
-      x: 0,
-      y: 0,
-      width: width,
-      height: height,
+      x,
+      y,
+      width: drawWidth,
+      height: drawHeight,
     });
 
-    // Add footer branding
-    page.drawText('Generated by zorPDF.com', {
-      x: 20,
-      y: 15,
-      size: 10,
-      color: rgb(0.7, 0.7, 0.7),
-    });
-
-    // Release memory
-    pdfImage = undefined as any;
+    // NOTE:
+    // No "Generated by zorPDF.com" text is added here.
   }
 
-  // Save the PDF
+  // Generate PDF
   const pdfBytes = await pdfDoc.save();
-  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
 
-  // Generate branded filename
+  const blob = new Blob(
+    [pdfBytes],
+    {
+      type: 'application/pdf',
+    }
+  );
+
   const filename = getZorPdfFileName('pdf');
 
   return {
@@ -232,18 +339,30 @@ export async function mergeImagesToPdf(
     pageCount: images.length,
     originalSize: totalOriginalSize,
     pdfSize: blob.size,
-    compressionRatio: totalOriginalSize / blob.size,
+    compressionRatio:
+      totalOriginalSize > 0
+        ? totalOriginalSize / blob.size
+        : 1,
   };
 }
 
 /**
- * Read file as ArrayBuffer
+ * Read a file as ArrayBuffer
  */
-export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+export function readFileAsArrayBuffer(
+  file: File
+): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
-    reader.onerror = () => reject(new Error('Failed to read file'));
+
+    reader.onload = (event) => {
+      resolve(event.target?.result as ArrayBuffer);
+    };
+
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+
     reader.readAsArrayBuffer(file);
   });
 }
