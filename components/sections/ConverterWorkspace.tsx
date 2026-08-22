@@ -16,6 +16,8 @@ import { getZorPdfFileName } from '@/lib/fileNaming';
 import { DownloadButton } from '@/components/ui/DownloadButton';
 import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
 import { tools, type ToolId, type Tool } from './ToolsGrid';
+// NEW: whitespace-detection helper (see lib/pdfContentBBox.ts)
+import { getPageContentBBox } from '@/lib/pdfContentBBox';
 
 const converterTabs: { id: ToolId; label: string; from: string; to: string }[] = [
   { id: 'jpg-to-pdf', label: 'JPG to PDF', from: 'JPG', to: 'PDF' },
@@ -158,9 +160,12 @@ const createImagePdfPage = async (
  * - Image fills the page from edge to edge.
  *
  * PDF INPUT:
- * - Preserve each source page's original dimensions.
- * - Do not resize it to A4.
- * - Do not crop or center it inside another page.
+ * - Detect the real content area of each source page (some source PDFs,
+ *   e.g. government e-contracts, already contain baked-in blank margins).
+ * - Crop to that content area instead of blindly copying the full page box,
+ *   so we don't carry pre-existing whitespace into the merged output.
+ * - Falls back to the full page if content detection fails or the page
+ *   is genuinely blank.
  */
 const mergePdfAndImagesToPdf = async (
   orderedFiles: FileItem[],
@@ -186,26 +191,35 @@ const mergePdfAndImagesToPdf = async (
 
       const sourcePages = sourcePdf.getPages();
 
-      for (const sourcePage of sourcePages) {
-        /**
-         * Preserve the exact source PDF page dimensions.
-         */
-        const sourceWidth = sourcePage.getWidth();
-        const sourceHeight = sourcePage.getHeight();
+      for (let pIdx = 0; pIdx < sourcePages.length; pIdx++) {
+        const sourcePage = sourcePages[pIdx];
 
-        const page = mergedPdf.addPage([
-          sourceWidth,
-          sourceHeight,
-        ]);
+        const fullWidth = sourcePage.getWidth();
+        const fullHeight = sourcePage.getHeight();
 
-        const embeddedPage =
-          await mergedPdf.embedPage(sourcePage);
+        // NEW: detect the actual content bounding box for this page so we
+        // don't drag along blank margins baked into the source PDF.
+        let bbox;
+        try {
+          bbox = await getPageContentBBox(bytes, pIdx, fullWidth, fullHeight);
+        } catch (err) {
+          console.error('Content bbox detection failed, using full page:', err);
+          bbox = { left: 0, bottom: 0, right: fullWidth, top: fullHeight };
+        }
+
+        const cropWidth = bbox.right - bbox.left;
+        const cropHeight = bbox.top - bbox.bottom;
+
+        const page = mergedPdf.addPage([cropWidth, cropHeight]);
+
+        // pdf-lib crops to this box at embed time — this is the actual fix.
+        const embeddedPage = await mergedPdf.embedPage(sourcePage, bbox);
 
         page.drawPage(embeddedPage, {
           x: 0,
           y: 0,
-          width: sourceWidth,
-          height: sourceHeight,
+          width: cropWidth,
+          height: cropHeight,
         });
 
         pageCount += 1;
