@@ -66,62 +66,148 @@ const getFileType = (file: File): 'image' | 'pdf' | null => {
 
   return null;
 };
-const A4_WIDTH = 595.28;
-const A4_HEIGHT = 841.89;
-const A4_RATIO = A4_WIDTH / A4_HEIGHT;
-const LARGE_IMAGE_LIMIT = 2200;
+const A4_PORTRAIT_WIDTH = 595.28;
+const A4_PORTRAIT_HEIGHT = 841.89;
+const A4_LANDSCAPE_WIDTH = 841.89;
+const A4_LANDSCAPE_HEIGHT = 595.28;
 
-const fitCover = (srcWidth: number, srcHeight: number, boxWidth: number, boxHeight: number) => {
-  const scale = Math.max(boxWidth / srcWidth, boxHeight / srcHeight);
+/**
+ * Choose A4 orientation from the source document/image.
+ *
+ * Landscape source -> A4 landscape
+ * Portrait source  -> A4 portrait
+ *
+ * This prevents a landscape document such as UAE employment
+ * contracts from being forced into portrait A4 with large
+ * empty areas above and below.
+ */
+const getA4PageSize = (srcWidth: number, srcHeight: number) => {
+  if (srcWidth > srcHeight) {
+    return {
+      width: A4_LANDSCAPE_WIDTH,
+      height: A4_LANDSCAPE_HEIGHT,
+    };
+  }
+
+  return {
+    width: A4_PORTRAIT_WIDTH,
+    height: A4_PORTRAIT_HEIGHT,
+  };
+};
+
+/**
+ * Fit the complete source inside the A4 page.
+ *
+ * IMPORTANT:
+ * - contain, never cover
+ * - no crop
+ * - no stretch
+ * - no distortion
+ * - original aspect ratio preserved
+ */
+const fitContain = (
+  srcWidth: number,
+  srcHeight: number,
+  boxWidth: number,
+  boxHeight: number
+) => {
+  if (
+    !Number.isFinite(srcWidth) ||
+    !Number.isFinite(srcHeight) ||
+    srcWidth <= 0 ||
+    srcHeight <= 0
+  ) {
+    throw new Error('Invalid source dimensions');
+  }
+
+  const scale = Math.min(
+    boxWidth / srcWidth,
+    boxHeight / srcHeight
+  );
+
   const width = srcWidth * scale;
   const height = srcHeight * scale;
+
   return {
     width,
     height,
     x: (boxWidth - width) / 2,
     y: (boxHeight - height) / 2,
   };
-};
-
-const fitContain = (srcWidth: number, srcHeight: number, boxWidth: number, boxHeight: number) => {
-  const scale = Math.min(boxWidth / srcWidth, boxHeight / srcHeight);
-  const width = srcWidth * scale;
-  const height = srcHeight * scale;
-  return {
-    width,
-    height,
-    x: (boxWidth - width) / 2,
-    y: (boxHeight - height) / 2,
-  };
-};
-
-const shouldKeepOriginalImageSize = (width: number, height: number) => {
-  const ratio = width / height;
-  const veryLarge = Math.max(width, height) > LARGE_IMAGE_LIMIT;
-  const notDocumentLike = ratio < 0.45 || ratio > 1.55;
-  return veryLarge && notDocumentLike;
 };
 
 const mergePdfAndImagesToPdf = async (
   orderedFiles: FileItem[],
-  onProgress?: (current: number, total: number, fileId: string) => void
+  onProgress?: (
+    current: number,
+    total: number,
+    fileId: string
+  ) => void
 ): Promise<MergeResult> => {
+  if (orderedFiles.length === 0) {
+    throw new Error('No files selected');
+  }
+
   const mergedPdf = await PDFDocument.create();
+
   let pageCount = 0;
-  const originalSize = orderedFiles.reduce((sum, item) => sum + item.file.size, 0);
+
+  const originalSize = orderedFiles.reduce(
+    (sum, item) => sum + item.file.size,
+    0
+  );
 
   for (let i = 0; i < orderedFiles.length; i++) {
     const item = orderedFiles[i];
+
+    if (!item?.file) {
+      throw new Error(`Invalid file at position ${i + 1}`);
+    }
+
     const bytes = await item.file.arrayBuffer();
 
+    /**
+     * PDF INPUT
+     *
+     * Every source PDF page becomes one A4 page.
+     * A4 orientation follows the original page orientation.
+     * The complete source page is preserved.
+     */
     if (item.fileType === 'pdf') {
-      const sourcePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const sourcePdf = await PDFDocument.load(
+        bytes,
+        { ignoreEncryption: true }
+      );
+
       const sourcePages = sourcePdf.getPages();
 
+      if (sourcePages.length === 0) {
+        throw new Error(`PDF has no pages: ${item.file.name}`);
+      }
+
       for (const sourcePage of sourcePages) {
-        const embeddedPage = await mergedPdf.embedPage(sourcePage);
-        const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
-        const fitted = fitContain(embeddedPage.width, embeddedPage.height, A4_WIDTH, A4_HEIGHT);
+        const embeddedPage =
+          await mergedPdf.embedPage(sourcePage);
+
+        const sourceWidth = embeddedPage.width;
+        const sourceHeight = embeddedPage.height;
+
+        const pageSize = getA4PageSize(
+          sourceWidth,
+          sourceHeight
+        );
+
+        const page = mergedPdf.addPage([
+          pageSize.width,
+          pageSize.height,
+        ]);
+
+        const fitted = fitContain(
+          sourceWidth,
+          sourceHeight,
+          pageSize.width,
+          pageSize.height
+        );
 
         page.drawPage(embeddedPage, {
           x: fitted.x,
@@ -133,9 +219,19 @@ const mergePdfAndImagesToPdf = async (
         pageCount += 1;
       }
     } else {
-      const fileName = item.file.name.toLowerCase();
-      const mimeType = (item.file.type || '').toLowerCase();
-      const pngFile = mimeType === 'image/png' || fileName.endsWith('.png');
+      /**
+       * IMAGE INPUT
+       */
+      const fileName =
+        item.file.name.toLowerCase();
+
+      const mimeType =
+        (item.file.type || '').toLowerCase();
+
+      const pngFile =
+        mimeType === 'image/png' ||
+        fileName.endsWith('.png');
+
       const jpgFile =
         mimeType === 'image/jpeg' ||
         mimeType === 'image/jpg' ||
@@ -143,7 +239,9 @@ const mergePdfAndImagesToPdf = async (
         fileName.endsWith('.jpeg');
 
       if (!pngFile && !jpgFile) {
-        throw new Error(`${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`);
+        throw new Error(
+          `${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG aur PDF allowed hai.`
+        );
       }
 
       const embeddedImage = pngFile
@@ -153,34 +251,61 @@ const mergePdfAndImagesToPdf = async (
       const imgWidth = embeddedImage.width;
       const imgHeight = embeddedImage.height;
 
-      if (shouldKeepOriginalImageSize(imgWidth, imgHeight)) {
-        const page = mergedPdf.addPage([imgWidth, imgHeight]);
-        page.drawImage(embeddedImage, {
-          x: 0,
-          y: 0,
-          width: imgWidth,
-          height: imgHeight,
-        });
-      } else {
-        const page = mergedPdf.addPage([A4_WIDTH, A4_HEIGHT]);
-        const fitted = fitCover(imgWidth, imgHeight, A4_WIDTH, A4_HEIGHT);
+      /**
+       * IMPORTANT:
+       *
+       * Select A4 orientation from the image itself.
+       *
+       * This fixes landscape documents being placed on
+       * portrait A4 pages with excessive blank space.
+       */
+      const pageSize = getA4PageSize(
+        imgWidth,
+        imgHeight
+      );
 
-        page.drawImage(embeddedImage, {
-          x: fitted.x,
-          y: fitted.y,
-          width: fitted.width,
-          height: fitted.height,
-        });
-      }
+      const page = mergedPdf.addPage([
+        pageSize.width,
+        pageSize.height,
+      ]);
+
+      /**
+       * CONTAIN — NEVER COVER.
+       *
+       * The complete image remains visible.
+       */
+      const fitted = fitContain(
+        imgWidth,
+        imgHeight,
+        pageSize.width,
+        pageSize.height
+      );
+
+      page.drawImage(embeddedImage, {
+        x: fitted.x,
+        y: fitted.y,
+        width: fitted.width,
+        height: fitted.height,
+      });
 
       pageCount += 1;
     }
 
-    onProgress?.(i + 1, orderedFiles.length, item.id);
+    onProgress?.(
+      i + 1,
+      orderedFiles.length,
+      item.id
+    );
   }
 
-  const pdfBytes = await mergedPdf.save();
-  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const pdfBytes = await mergedPdf.save({
+    useObjectStreams: true,
+  });
+
+  const blob = new Blob(
+    [pdfBytes],
+    { type: 'application/pdf' }
+  );
 
   return {
     blob,
@@ -188,7 +313,14 @@ const mergePdfAndImagesToPdf = async (
     pageCount,
     originalSize,
     pdfSize: blob.size,
-    compressionRatio: originalSize > 0 ? Math.round(((originalSize - blob.size) / originalSize) * 100) : 0,
+    compressionRatio:
+      originalSize > 0
+        ? Math.round(
+            ((originalSize - blob.size) /
+              originalSize) *
+              100
+          )
+        : 0,
   };
 };
 
