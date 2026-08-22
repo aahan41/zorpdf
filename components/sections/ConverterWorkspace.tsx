@@ -66,291 +66,101 @@ const getFileType = (file: File): 'image' | 'pdf' | null => {
 
   return null;
 };
-const A4_WIDTH = 595.28;
-const A4_HEIGHT = 841.89;
+const PDF_BASE_WIDTH = 595.28;
 
 /**
- * Fit an image/page completely inside the target box.
- * Never crops, stretches or distorts.
- */
-const fitContain = (
-  srcWidth: number,
-  srcHeight: number,
-  boxWidth: number,
-  boxHeight: number
-) => {
-  const scale = Math.min(
-    boxWidth / srcWidth,
-    boxHeight / srcHeight
-  );
-
-  const width = srcWidth * scale;
-  const height = srcHeight * scale;
-
-  return {
-    width,
-    height,
-    x: (boxWidth - width) / 2,
-    y: (boxHeight - height) / 2,
-  };
-};
-
-/**
- * Load an image file into an HTMLImageElement.
- */
-const loadImageElement = (file: File): Promise<HTMLImageElement> => {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error(`Failed to load image: ${file.name}`));
-    };
-
-    img.src = url;
-  });
-};
-
-/**
- * Trim only the OUTER blank canvas around a scanned/document image.
+ * Convert JPG/PNG images to PDF without forcing A4.
  *
- * Important:
- * - Does NOT use cover/crop scaling.
- * - Does NOT remove white areas inside the document.
- * - Ignores the outer black/gray border lines that many scanners add.
- * - Keeps a tiny safety padding around detected content.
- *
- * This fixes the exact issue where a document has a large blank area
- * above the actual document content and that blank area gets preserved
- * in the generated A4 PDF.
+ * IMPORTANT:
+ * - PDF page uses the exact aspect ratio of the source image.
+ * - Image is drawn from x=0, y=0 and fills the entire PDF page.
+ * - No crop, no contain scaling, no centering, no artificial margins.
+ * - This matches the natural JPG-to-PDF behavior where the PDF page
+ *   follows the source image dimensions/aspect ratio.
  */
-const trimOuterWhitespace = async (
+const createImagePdfPage = async (
+  mergedPdf: PDFDocument,
   file: File
-): Promise<{
-  blob: Blob;
-  width: number;
-  height: number;
-}> => {
-  const img = await loadImageElement(file);
+) => {
+  const fileName = file.name.toLowerCase();
+  const mimeType = (file.type || '').toLowerCase();
 
-  const sourceWidth = img.naturalWidth || img.width;
-  const sourceHeight = img.naturalHeight || img.height;
+  const isPng =
+    mimeType === 'image/png' || fileName.endsWith('.png');
 
-  if (!sourceWidth || !sourceHeight) {
+  const isJpg =
+    mimeType === 'image/jpeg' ||
+    mimeType === 'image/jpg' ||
+    fileName.endsWith('.jpg') ||
+    fileName.endsWith('.jpeg');
+
+  if (!isPng && !isJpg) {
+    throw new Error(
+      `${file.name} supported image nahi hai. Sirf JPG, JPEG aur PNG allowed hai.`
+    );
+  }
+
+  const bytes = await file.arrayBuffer();
+
+  const embeddedImage = isPng
+    ? await mergedPdf.embedPng(bytes)
+    : await mergedPdf.embedJpg(bytes);
+
+  const imageWidth = embeddedImage.width;
+  const imageHeight = embeddedImage.height;
+
+  if (!imageWidth || !imageHeight) {
     throw new Error(`Invalid image dimensions: ${file.name}`);
   }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = sourceWidth;
-  canvas.height = sourceHeight;
+  /**
+   * Keep the original image aspect ratio.
+   *
+   * We use a consistent PDF width and calculate the height from
+   * the original image ratio. Therefore there is no empty area
+   * created by fitting an image into an unrelated A4 rectangle.
+   */
+  const pageWidth = PDF_BASE_WIDTH;
+  const pageHeight =
+    pageWidth * (imageHeight / imageWidth);
 
-  const ctx = canvas.getContext('2d', {
-    willReadFrequently: true,
+  const page = mergedPdf.addPage([
+    pageWidth,
+    pageHeight,
+  ]);
+
+  /**
+   * Fill the complete page.
+   *
+   * PDF coordinates start at the bottom-left, and drawImage()
+   * uses the complete image from edge to edge. No vertical
+   * centering is performed.
+   */
+  page.drawImage(embeddedImage, {
+    x: 0,
+    y: 0,
+    width: pageWidth,
+    height: pageHeight,
   });
 
-  if (!ctx) {
-    throw new Error('Failed to create image canvas');
-  }
-
-  // Always use white as the document background.
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, sourceWidth, sourceHeight);
-  ctx.drawImage(img, 0, 0, sourceWidth, sourceHeight);
-
-  const imageData = ctx.getImageData(
-    0,
-    0,
-    sourceWidth,
-    sourceHeight
-  );
-  const pixels = imageData.data;
-
-  // A pixel darker than this is considered document content.
-  const DARK_THRESHOLD = 242;
-
-  // Ignore scanner/page-border lines that occupy almost the entire row/column.
-  const BORDER_DARK_RATIO = 0.70;
-
-  // Ignore tiny anti-aliasing/noise specks.
-  const MIN_CONTENT_PIXELS = Math.max(
-    4,
-    Math.floor(sourceWidth * 0.002)
-  );
-
-  let top = sourceHeight;
-  let bottom = -1;
-  let left = sourceWidth;
-  let right = -1;
-
-  // Detect meaningful content rows.
-  for (let y = 0; y < sourceHeight; y++) {
-    let darkCount = 0;
-
-    for (let x = 0; x < sourceWidth; x++) {
-      const index = (y * sourceWidth + x) * 4;
-      const r = pixels[index];
-      const g = pixels[index + 1];
-      const b = pixels[index + 2];
-      const a = pixels[index + 3];
-
-      const isDark =
-        a > 10 &&
-        (r < DARK_THRESHOLD ||
-          g < DARK_THRESHOLD ||
-          b < DARK_THRESHOLD);
-
-      if (isDark) darkCount++;
-    }
-
-    const ratio = darkCount / sourceWidth;
-
-    if (
-      darkCount >= MIN_CONTENT_PIXELS &&
-      ratio < BORDER_DARK_RATIO
-    ) {
-      top = Math.min(top, y);
-      bottom = Math.max(bottom, y);
-    }
-  }
-
-  // Detect meaningful content columns.
-  for (let x = 0; x < sourceWidth; x++) {
-    let darkCount = 0;
-
-    for (let y = 0; y < sourceHeight; y++) {
-      const index = (y * sourceWidth + x) * 4;
-      const r = pixels[index];
-      const g = pixels[index + 1];
-      const b = pixels[index + 2];
-      const a = pixels[index + 3];
-
-      const isDark =
-        a > 10 &&
-        (r < DARK_THRESHOLD ||
-          g < DARK_THRESHOLD ||
-          b < DARK_THRESHOLD);
-
-      if (isDark) darkCount++;
-    }
-
-    const ratio = darkCount / sourceHeight;
-
-    if (
-      darkCount >= Math.max(
-        4,
-        Math.floor(sourceHeight * 0.002)
-      ) &&
-      ratio < BORDER_DARK_RATIO
-    ) {
-      left = Math.min(left, x);
-      right = Math.max(right, x);
-    }
-  }
-
-  // If detection fails, return the original image unchanged.
-  if (
-    top >= sourceHeight ||
-    bottom < 0 ||
-    left >= sourceWidth ||
-    right < 0
-  ) {
-    const originalBlob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error(`Failed to process image: ${file.name}`));
-          return;
-        }
-        resolve(blob);
-      }, 'image/jpeg', 0.98);
-    });
-
-    return {
-      blob: originalBlob,
-      width: sourceWidth,
-      height: sourceHeight,
-    };
-  }
-
-  // Small padding so text/borders never touch the crop edge.
-  const paddingX = Math.max(2, Math.round(sourceWidth * 0.003));
-  const paddingY = Math.max(2, Math.round(sourceHeight * 0.003));
-
-  const cropLeft = Math.max(0, left - paddingX);
-  const cropTop = Math.max(0, top - paddingY);
-  const cropRight = Math.min(sourceWidth - 1, right + paddingX);
-  const cropBottom = Math.min(sourceHeight - 1, bottom + paddingY);
-
-  const cropWidth = Math.max(1, cropRight - cropLeft + 1);
-  const cropHeight = Math.max(1, cropBottom - cropTop + 1);
-
-  const outputCanvas = document.createElement('canvas');
-  outputCanvas.width = cropWidth;
-  outputCanvas.height = cropHeight;
-
-  const outputCtx = outputCanvas.getContext('2d');
-
-  if (!outputCtx) {
-    throw new Error('Failed to create cropped image canvas');
-  }
-
-  outputCtx.fillStyle = '#ffffff';
-  outputCtx.fillRect(0, 0, cropWidth, cropHeight);
-
-  outputCtx.drawImage(
-    canvas,
-    cropLeft,
-    cropTop,
-    cropWidth,
-    cropHeight,
-    0,
-    0,
-    cropWidth,
-    cropHeight
-  );
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    outputCanvas.toBlob((result) => {
-      if (!result) {
-        reject(new Error(`Failed to create processed image: ${file.name}`));
-        return;
-      }
-      resolve(result);
-    }, 'image/jpeg', 0.98);
-  });
-
-  return {
-    blob,
-    width: cropWidth,
-    height: cropHeight,
-  };
+  return page;
 };
 
 /**
- * Convert a Blob to ArrayBuffer.
- */
-const blobToArrayBuffer = async (blob: Blob): Promise<ArrayBuffer> => {
-  return await blob.arrayBuffer();
-};
-
-/**
- * Merge images and PDFs into a clean A4 PDF.
+ * Merge JPG/PNG/PDF files into one PDF.
  *
  * IMAGE INPUT:
- * 1. Remove only the outer blank canvas.
- * 2. Detect the actual document orientation.
- * 3. Create matching A4 portrait/landscape page.
- * 4. Fit with CONTAIN — never crop.
+ * - PDF page follows the original image aspect ratio.
+ * - No A4 forcing.
+ * - No crop.
+ * - No stretch.
+ * - No artificial top/bottom whitespace.
+ * - Image fills the page from edge to edge.
  *
  * PDF INPUT:
- * 1. Keep the complete source page.
- * 2. Preserve source orientation.
- * 3. Fit complete page inside matching A4.
+ * - Preserve each source page's original dimensions.
+ * - Do not resize it to A4.
+ * - Do not crop or center it inside another page.
  */
 const mergePdfAndImagesToPdf = async (
   orderedFiles: FileItem[],
@@ -370,13 +180,6 @@ const mergePdfAndImagesToPdf = async (
     const bytes = await item.file.arrayBuffer();
 
     if (item.fileType === 'pdf') {
-      /**
-       * PDF INPUT
-       *
-       * Preserve the original PDF page aspect ratio.
-       * Do NOT force A4 and do NOT shrink it into an A4 box.
-       * This keeps the original document filling the PDF page naturally.
-       */
       const sourcePdf = await PDFDocument.load(bytes, {
         ignoreEncryption: true,
       });
@@ -384,101 +187,34 @@ const mergePdfAndImagesToPdf = async (
       const sourcePages = sourcePdf.getPages();
 
       for (const sourcePage of sourcePages) {
-        const embeddedPage = await mergedPdf.embedPage(sourcePage);
-
-        const pageWidth = embeddedPage.width;
-        const pageHeight = embeddedPage.height;
+        /**
+         * Preserve the exact source PDF page dimensions.
+         */
+        const sourceWidth = sourcePage.getWidth();
+        const sourceHeight = sourcePage.getHeight();
 
         const page = mergedPdf.addPage([
-          pageWidth,
-          pageHeight,
+          sourceWidth,
+          sourceHeight,
         ]);
+
+        const embeddedPage =
+          await mergedPdf.embedPage(sourcePage);
 
         page.drawPage(embeddedPage, {
           x: 0,
           y: 0,
-          width: pageWidth,
-          height: pageHeight,
+          width: sourceWidth,
+          height: sourceHeight,
         });
 
         pageCount += 1;
       }
     } else {
-      /**
-       * IMAGE INPUT
-       *
-       * JPG2PDF-style behavior:
-       * - Do NOT force A4.
-       * - Do NOT trim/crop the source image.
-       * - Preserve the exact original image aspect ratio.
-       * - Make the PDF page the same aspect ratio as the image.
-       * - Draw the image edge-to-edge so there is no artificial
-       *   top/bottom blank space created by A4 fitting.
-       */
-      const fileName = item.file.name.toLowerCase();
-      const mimeType = (item.file.type || '').toLowerCase();
-
-      const isPng =
-        mimeType === 'image/png' ||
-        fileName.endsWith('.png');
-
-      const isJpg =
-        mimeType === 'image/jpeg' ||
-        mimeType === 'image/jpg' ||
-        fileName.endsWith('.jpg') ||
-        fileName.endsWith('.jpeg');
-
-      if (!isPng && !isJpg) {
-        throw new Error(
-          `${item.file.name} supported image nahi hai. Sirf JPG, JPEG, PNG allowed hai.`
-        );
-      }
-
-      /**
-       * Embed the ORIGINAL image.
-       * No trimOuterWhitespace() here.
-       * No canvas crop.
-       */
-      const embeddedImage = isPng
-        ? await mergedPdf.embedPng(bytes)
-        : await mergedPdf.embedJpg(bytes);
-
-      const imageWidth = embeddedImage.width;
-      const imageHeight = embeddedImage.height;
-
-      if (!imageWidth || !imageHeight) {
-        throw new Error(
-          `Invalid image dimensions: ${item.file.name}`
-        );
-      }
-
-      /**
-       * Keep the original image ratio.
-       *
-       * Use a standard PDF width for a practical PDF size,
-       * then calculate height from the exact image ratio.
-       *
-       * This is NOT A4. The page follows the source image.
-       */
-      const PDF_WIDTH = 595.28;
-      const PDF_HEIGHT =
-        PDF_WIDTH * (imageHeight / imageWidth);
-
-      const page = mergedPdf.addPage([
-        PDF_WIDTH,
-        PDF_HEIGHT,
-      ]);
-
-      /**
-       * Image and page have the exact same ratio,
-       * therefore the image fills the whole page.
-       */
-      page.drawImage(embeddedImage, {
-        x: 0,
-        y: 0,
-        width: PDF_WIDTH,
-        height: PDF_HEIGHT,
-      });
+      await createImagePdfPage(
+        mergedPdf,
+        item.file
+      );
 
       pageCount += 1;
     }
@@ -507,7 +243,9 @@ const mergePdfAndImagesToPdf = async (
     compressionRatio:
       originalSize > 0
         ? Math.round(
-            ((originalSize - blob.size) / originalSize) * 100
+            ((originalSize - blob.size) /
+              originalSize) *
+              100
           )
         : 0,
   };
