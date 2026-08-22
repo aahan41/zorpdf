@@ -423,24 +423,52 @@ const mergePdfAndImagesToPdf = async (
       }
 
       /**
-       * THIS IS THE IMPORTANT FIX.
+       * IMAGE -> A4
        *
-       * Do not embed the original canvas directly.
-       * First remove the unnecessary outer blank area.
+       * IMPORTANT:
+       * The uploaded contract image is NOT the same aspect ratio
+       * as an A4 page. Using "contain" leaves large blank areas
+       * above and below the document.
+       *
+       * For JPG/PNG -> PDF we intentionally fill the complete A4
+       * page so the paper uses the full page exactly like the
+       * original document preview:
+       *
+       * - No blank top/bottom area
+       * - No crop
+       * - No missing content
+       * - No extra white margins
+       * - Complete image is preserved
+       *
+       * The image is scaled to the exact A4 page dimensions.
+       * This can introduce a small aspect-ratio adjustment when
+       * the source image is not A4-shaped, but it guarantees that
+       * the complete source document remains visible and fills A4.
        */
-      const trimmed = await trimOuterWhitespace(item.file);
-      const processedBytes = await blobToArrayBuffer(trimmed.blob);
+      const originalBytes = await item.file.arrayBuffer();
 
-      // trimOuterWhitespace always outputs JPEG.
-      const embeddedImage = await mergedPdf.embedJpg(processedBytes);
+      const embeddedImage = pngFile
+        ? await mergedPdf.embedPng(originalBytes)
+        : await mergedPdf.embedJpg(originalBytes);
 
       const imgWidth = embeddedImage.width;
       const imgHeight = embeddedImage.height;
 
-      // Match A4 orientation to the actual document orientation.
+      /**
+       * Keep the page orientation based on the source image.
+       *
+       * Portrait source  -> A4 Portrait
+       * Landscape source -> A4 Landscape
+       */
       const landscape = imgWidth > imgHeight;
-      const pageWidth = landscape ? A4_HEIGHT : A4_WIDTH;
-      const pageHeight = landscape ? A4_WIDTH : A4_HEIGHT;
+
+      const pageWidth = landscape
+        ? A4_HEIGHT
+        : A4_WIDTH;
+
+      const pageHeight = landscape
+        ? A4_WIDTH
+        : A4_HEIGHT;
 
       const page = mergedPdf.addPage([
         pageWidth,
@@ -448,21 +476,19 @@ const mergePdfAndImagesToPdf = async (
       ]);
 
       /**
-       * CONTAIN — complete document stays visible.
-       * Unlike fitCover, this can never crop the image.
+       * FULL-BLEED A4 FIT
+       *
+       * Do NOT use fitContain here.
+       * fitContain is exactly what caused the large blank
+       * area in the first contract page.
+       *
+       * Draw the complete image across the complete A4 page.
        */
-      const fitted = fitContain(
-        imgWidth,
-        imgHeight,
-        pageWidth,
-        pageHeight
-      );
-
       page.drawImage(embeddedImage, {
-        x: fitted.x,
-        y: fitted.y,
-        width: fitted.width,
-        height: fitted.height,
+        x: 0,
+        y: 0,
+        width: pageWidth,
+        height: pageHeight,
       });
 
       pageCount += 1;
