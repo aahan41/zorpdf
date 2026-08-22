@@ -22,13 +22,23 @@ export interface MergeResult {
 }
 
 /**
- * Exact A4 Portrait size in PDF points
+ * A4 page size in PDF points
  *
- * A4 = 210mm × 297mm
- * PDF points = 595.28 × 841.89
+ * 210mm × 297mm
+ * 595.28 × 841.89 points
  */
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
+
+/**
+ * Small safety margin.
+ *
+ * This prevents images from touching/crossing
+ * the absolute edge of the PDF page.
+ *
+ * Set to 0 if completely edge-to-edge output is required.
+ */
+const PAGE_MARGIN = 0;
 
 /**
  * Generate thumbnail for preview
@@ -41,49 +51,76 @@ export async function generateThumbnail(
     const reader = new FileReader();
 
     reader.onload = (event) => {
+      const src = event.target?.result;
+
+      if (!src || typeof src !== 'string') {
+        reject(new Error('Failed to read image'));
+        return;
+      }
+
       const img = new Image();
 
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        try {
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
 
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > maxSize) {
-            height = Math.round((height * maxSize) / width);
-            width = maxSize;
+          if (!width || !height) {
+            reject(new Error('Invalid image dimensions'));
+            return;
           }
-        } else {
-          if (height > maxSize) {
-            width = Math.round((width * maxSize) / height);
-            height = maxSize;
+
+          /**
+           * Keep original aspect ratio
+           */
+          if (width > height) {
+            if (width > maxSize) {
+              height = Math.round((height * maxSize) / width);
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width = Math.round((width * maxSize) / height);
+              height = maxSize;
+            }
           }
+
+          const canvas = document.createElement('canvas');
+
+          canvas.width = Math.max(1, width);
+          canvas.height = Math.max(1, height);
+
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            reject(new Error('Failed to create canvas context'));
+            return;
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          ctx.drawImage(
+            img,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+
+          resolve(
+            canvas.toDataURL('image/jpeg', 0.8)
+          );
+        } catch (error) {
+          reject(error);
         }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-
-        if (!ctx) {
-          reject(new Error('Failed to create canvas context'));
-          return;
-        }
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
 
       img.onerror = () => {
         reject(new Error('Failed to load image'));
       };
 
-      img.src = event.target?.result as string;
+      img.src = src;
     };
 
     reader.onerror = () => {
@@ -107,16 +144,36 @@ export async function loadImageInfo(
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
+      const src = event.target?.result;
+
+      if (!src || typeof src !== 'string') {
+        reject(new Error('Failed to read image'));
+        return;
+      }
+
       const img = new Image();
 
       img.onload = async () => {
         try {
-          const thumbnail = await generateThumbnail(file);
+          const width =
+            img.naturalWidth || img.width;
+
+          const height =
+            img.naturalHeight || img.height;
+
+          if (!width || !height) {
+            throw new Error(
+              'Invalid image dimensions'
+            );
+          }
+
+          const thumbnail =
+            await generateThumbnail(file);
 
           resolve({
-            width: img.width,
-            height: img.height,
+            width,
+            height,
             thumbnail,
           });
         } catch (error) {
@@ -128,7 +185,7 @@ export async function loadImageInfo(
         reject(new Error('Failed to load image'));
       };
 
-      img.src = event.target?.result as string;
+      img.src = src;
     };
 
     reader.onerror = () => {
@@ -136,6 +193,61 @@ export async function loadImageInfo(
     };
 
     reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Convert a File/Blob into a browser image.
+ *
+ * This is used to get the REAL dimensions of the
+ * processed/compressed image.
+ */
+async function loadBlobImage(
+  blob: Blob
+): Promise<{
+  width: number;
+  height: number;
+}> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+
+    const img = new Image();
+
+    img.onload = () => {
+      const width =
+        img.naturalWidth || img.width;
+
+      const height =
+        img.naturalHeight || img.height;
+
+      URL.revokeObjectURL(objectUrl);
+
+      if (!width || !height) {
+        reject(
+          new Error(
+            'Unable to determine image dimensions'
+          )
+        );
+        return;
+      }
+
+      resolve({
+        width,
+        height,
+      });
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      reject(
+        new Error(
+          'Failed to load processed image'
+        )
+      );
+    };
+
+    img.src = objectUrl;
   });
 }
 
@@ -150,84 +262,250 @@ export async function processImageForPdf(
   width: number;
   height: number;
 }> {
-  // Low compression = high-quality original image
+  /**
+   * LOW COMPRESSION
+   *
+   * Keep maximum visual quality.
+   */
   if (compressionLevel === 'low') {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
       reader.onload = (event) => {
+        const src = event.target?.result;
+
+        if (!src || typeof src !== 'string') {
+          reject(
+            new Error('Failed to read image')
+          );
+          return;
+        }
+
         const img = new Image();
 
         img.onload = () => {
-          const canvas = document.createElement('canvas');
+          try {
+            const width =
+              img.naturalWidth || img.width;
 
-          canvas.width = img.width;
-          canvas.height = img.height;
+            const height =
+              img.naturalHeight || img.height;
 
-          const ctx = canvas.getContext('2d');
+            if (!width || !height) {
+              reject(
+                new Error(
+                  'Invalid image dimensions'
+                )
+              );
+              return;
+            }
 
-          if (!ctx) {
-            reject(new Error('Failed to create canvas'));
-            return;
+            const canvas =
+              document.createElement('canvas');
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx =
+              canvas.getContext('2d');
+
+            if (!ctx) {
+              reject(
+                new Error(
+                  'Failed to create canvas'
+                )
+              );
+              return;
+            }
+
+            /**
+             * White background.
+             *
+             * This prevents transparent PNGs from
+             * producing unexpected black areas.
+             */
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(
+              0,
+              0,
+              width,
+              height
+            );
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            /**
+             * Draw without changing aspect ratio.
+             */
+            ctx.drawImage(
+              img,
+              0,
+              0,
+              width,
+              height
+            );
+
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  reject(
+                    new Error(
+                      'Failed to create image blob'
+                    )
+                  );
+                  return;
+                }
+
+                resolve({
+                  blob,
+                  width,
+                  height,
+                });
+              },
+              'image/jpeg',
+              0.95
+            );
+          } catch (error) {
+            reject(error);
           }
-
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-
-          ctx.drawImage(img, 0, 0);
-
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                reject(new Error('Failed to create image blob'));
-                return;
-              }
-
-              resolve({
-                blob,
-                width: img.width,
-                height: img.height,
-              });
-            },
-            'image/jpeg',
-            0.92
-          );
         };
 
         img.onerror = () => {
-          reject(new Error('Failed to load image'));
+          reject(
+            new Error(
+              'Failed to load image'
+            )
+          );
         };
 
-        img.src = event.target?.result as string;
+        img.src = src;
       };
 
       reader.onerror = () => {
-        reject(new Error('Failed to read file'));
+        reject(
+          new Error(
+            'Failed to read file'
+          )
+        );
       };
 
       reader.readAsDataURL(file);
     });
   }
 
-  // Other compression levels
-  const result = await compressImage(file, compressionLevel);
+  /**
+   * Other compression levels
+   */
+  const result = await compressImage(
+    file,
+    compressionLevel
+  );
+
+  /**
+   * IMPORTANT:
+   *
+   * Do not blindly trust dimensions returned by
+   * the compression utility.
+   *
+   * Read the actual processed image dimensions.
+   */
+  const actualDimensions =
+    await loadBlobImage(result.blob);
 
   return {
     blob: result.blob,
-    width: result.newWidth,
-    height: result.newHeight,
+    width: actualDimensions.width,
+    height: actualDimensions.height,
   };
 }
 
 /**
- * Merge all uploaded images into one PDF
+ * Calculate proportional "contain" dimensions.
  *
- * IMPORTANT:
- * - Every page is EXACT A4 PORTRAIT
- * - No Generated by zorPDF.com footer
- * - No stretching
+ * The COMPLETE image always stays visible.
+ *
+ * No:
+ * - crop
+ * - stretch
+ * - distortion
+ */
+function calculateContainDimensions(
+  imageWidth: number,
+  imageHeight: number,
+  pageWidth: number,
+  pageHeight: number,
+  margin: number = 0
+): {
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+} {
+  if (
+    imageWidth <= 0 ||
+    imageHeight <= 0
+  ) {
+    throw new Error(
+      'Invalid image dimensions'
+    );
+  }
+
+  const availableWidth =
+    Math.max(1, pageWidth - margin * 2);
+
+  const availableHeight =
+    Math.max(1, pageHeight - margin * 2);
+
+  /**
+   * CONTAIN:
+   *
+   * Choose the smaller scale so the entire
+   * image remains inside the A4 page.
+   */
+  const scale = Math.min(
+    availableWidth / imageWidth,
+    availableHeight / imageHeight
+  );
+
+  const drawWidth =
+    imageWidth * scale;
+
+  const drawHeight =
+    imageHeight * scale;
+
+  /**
+   * Center horizontally and vertically.
+   */
+  const x =
+    (pageWidth - drawWidth) / 2;
+
+  const y =
+    (pageHeight - drawHeight) / 2;
+
+  return {
+    width: drawWidth,
+    height: drawHeight,
+    x,
+    y,
+  };
+}
+
+/**
+ * Merge all uploaded images into one PDF.
+ *
+ * FINAL PDF RULES:
+ *
+ * - Every page = exact A4 portrait
+ * - 595.28 × 841.89 points
+ * - Complete image visible
  * - No cropping
- * - Original aspect ratio preserved
+ * - No stretching
+ * - No distortion
+ * - Aspect ratio preserved
+ * - Image centered
+ * - No footer
+ * - No extra text
  */
 export async function mergeImagesToPdf(
   images: ImageProcessingResult[],
@@ -238,42 +516,95 @@ export async function mergeImagesToPdf(
     imageId: string
   ) => void
 ): Promise<MergeResult> {
-  if (images.length === 0) {
-    throw new Error('No images to merge');
+  if (!images || images.length === 0) {
+    throw new Error(
+      'No images to merge'
+    );
   }
 
-  const pdfDoc = await PDFDocument.create();
+  /**
+   * Create completely new PDF.
+   */
+  const pdfDoc =
+    await PDFDocument.create();
 
   let totalOriginalSize = 0;
 
-  for (let i = 0; i < images.length; i++) {
+  for (
+    let i = 0;
+    i < images.length;
+    i++
+  ) {
     const imageInfo = images[i];
+
+    if (!imageInfo || !imageInfo.file) {
+      throw new Error(
+        `Invalid image at position ${i + 1}`
+      );
+    }
+
     const file = imageInfo.file;
 
     totalOriginalSize += file.size;
 
-    // Update progress
+    /**
+     * Progress
+     */
     if (onProgress) {
-      onProgress(i + 1, images.length, imageInfo.id);
+      onProgress(
+        i + 1,
+        images.length,
+        imageInfo.id
+      );
     }
 
-    // Process image
-    const { blob, width, height } = await processImageForPdf(
+    /**
+     * Process image.
+     */
+    const {
+      blob,
+      width,
+      height,
+    } = await processImageForPdf(
       file,
       compressionLevel
     );
 
-    const arrayBuffer = await blob.arrayBuffer();
+    if (
+      !blob ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      throw new Error(
+        `Invalid processed image: ${file.name}`
+      );
+    }
+
+    /**
+     * Convert image to ArrayBuffer.
+     */
+    const arrayBuffer =
+      await blob.arrayBuffer();
 
     let pdfImage: PDFImage;
 
-    // Try JPG first
+    /**
+     * Since processImageForPdf normally creates
+     * JPEG, embed JPG first.
+     *
+     * PNG fallback is kept for compatibility.
+     */
     try {
-      pdfImage = await pdfDoc.embedJpg(arrayBuffer);
+      pdfImage =
+        await pdfDoc.embedJpg(
+          arrayBuffer
+        );
     } catch {
-      // If JPG fails, try PNG
       try {
-        pdfImage = await pdfDoc.embedPng(arrayBuffer);
+        pdfImage =
+          await pdfDoc.embedPng(
+            arrayBuffer
+          );
       } catch {
         throw new Error(
           `Failed to embed image: ${file.name}`
@@ -282,73 +613,99 @@ export async function mergeImagesToPdf(
     }
 
     /**
-     * ALWAYS CREATE EXACT A4 PORTRAIT PAGE
+     * ALWAYS CREATE A4 PORTRAIT PAGE.
      *
-     * 595.28 × 841.89 points
-     *
-     * Do not change orientation based on image.
+     * Do not use image orientation to change
+     * the page size.
      */
-    const page = pdfDoc.addPage([
-      A4_WIDTH,
-      A4_HEIGHT,
-    ]);
+    const page =
+      pdfDoc.addPage([
+        A4_WIDTH,
+        A4_HEIGHT,
+      ]);
 
     /**
-     * Calculate proportional scaling.
+     * White A4 background.
      *
-     * Math.min ensures the complete image fits
-     * inside the A4 page without:
-     * - cropping
-     * - stretching
+     * This guarantees a clean page when an image
+     * does not completely cover the page.
      */
-    const scale = Math.min(
-      A4_WIDTH / width,
-      A4_HEIGHT / height
-    );
-
-    const drawWidth = width * scale;
-    const drawHeight = height * scale;
-
-    /**
-     * Center image on A4 page
-     */
-    const x = (A4_WIDTH - drawWidth) / 2;
-    const y = (A4_HEIGHT - drawHeight) / 2;
-
-    /**
-     * Draw image
-     *
-     * NO FOOTER IS ADDED HERE.
-     */
-    page.drawImage(pdfImage, {
-      x,
-      y,
-      width: drawWidth,
-      height: drawHeight,
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width: A4_WIDTH,
+      height: A4_HEIGHT,
+      color: undefined,
+      borderWidth: 0,
     });
 
-    // IMPORTANT:
-    // Do not add:
-    // page.drawText('Generated by zorPDF.com', ...)
+    /**
+     * Calculate exact proportional fit.
+     */
+    const fitted =
+      calculateContainDimensions(
+        width,
+        height,
+        A4_WIDTH,
+        A4_HEIGHT,
+        PAGE_MARGIN
+      );
+
+    /**
+     * Draw image.
+     *
+     * IMPORTANT:
+     *
+     * We use the calculated dimensions only.
+     * Therefore:
+     *
+     * - no crop
+     * - no stretch
+     * - no distortion
+     * - complete image preserved
+     */
+    page.drawImage(pdfImage, {
+      x: fitted.x,
+      y: fitted.y,
+      width: fitted.width,
+      height: fitted.height,
+    });
   }
 
-  // Generate PDF
-  const pdfBytes = await pdfDoc.save();
+  /**
+   * Save final PDF.
+   *
+   * Use object streams for a cleaner/smaller PDF.
+   */
+  const pdfBytes =
+    await pdfDoc.save({
+      useObjectStreams: true,
+    });
 
-  const blob = new Blob([pdfBytes], {
-    type: 'application/pdf',
-  });
+  const blob =
+    new Blob(
+      [pdfBytes],
+      {
+        type: 'application/pdf',
+      }
+    );
 
-  const filename = getZorPdfFileName('pdf');
+  /**
+   * ZorPDF filename.
+   */
+  const filename =
+    getZorPdfFileName('pdf');
 
   return {
     blob,
     filename,
     pageCount: images.length,
-    originalSize: totalOriginalSize,
+    originalSize:
+      totalOriginalSize,
     pdfSize: blob.size,
     compressionRatio:
-      totalOriginalSize > 0 && blob.size > 0
+      totalOriginalSize > 0 &&
+      blob.size > 0
         ? totalOriginalSize / blob.size
         : 1,
   };
@@ -360,17 +717,37 @@ export async function mergeImagesToPdf(
 export function readFileAsArrayBuffer(
   file: File
 ): Promise<ArrayBuffer> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+  return new Promise(
+    (resolve, reject) => {
+      const reader =
+        new FileReader();
 
-    reader.onload = (event) => {
-      resolve(event.target?.result as ArrayBuffer);
-    };
+      reader.onload = (event) => {
+        const result =
+          event.target?.result;
 
-    reader.onerror = () => {
-      reject(new Error('Failed to read file'));
-    };
+        if (
+          result instanceof ArrayBuffer
+        ) {
+          resolve(result);
+        } else {
+          reject(
+            new Error(
+              'Failed to read file as ArrayBuffer'
+            )
+          );
+        }
+      };
 
-    reader.readAsArrayBuffer(file);
-  });
+      reader.onerror = () => {
+        reject(
+          new Error(
+            'Failed to read file'
+          )
+        );
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+  );
 }
