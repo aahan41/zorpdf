@@ -584,7 +584,7 @@ function addImagePage(
     pdfImage,
     {
       x: 0,
-      y: 0,
+      y: 8.5,
       width: pageWidth,
       height: pageHeight,
     }
