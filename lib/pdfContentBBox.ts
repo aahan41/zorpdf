@@ -14,10 +14,8 @@ export async function getPageContentBBox(
   try {
     const pdfjsLib = await import('pdfjs-dist');
 
-    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        '/pdf.worker.min.mjs';
-    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      '/pdf.worker.min.mjs';
 
     const loadingTask = pdfjsLib.getDocument({
       data: pdfBytes.slice(0),
@@ -25,7 +23,9 @@ export async function getPageContentBBox(
 
     const pdf = await loadingTask.promise;
 
-    const page = await pdf.getPage(pageIndex + 1);
+    const page = await pdf.getPage(
+      pageIndex + 1
+    );
 
     const scale = 2;
 
@@ -33,15 +33,22 @@ export async function getPageContentBBox(
       scale,
     });
 
-    const canvas = document.createElement('canvas');
+    const canvas =
+      document.createElement('canvas');
 
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
+    canvas.width = Math.ceil(
+      viewport.width
+    );
 
-    const context = canvas.getContext('2d', {
-      alpha: false,
-      willReadFrequently: true,
-    });
+    canvas.height = Math.ceil(
+      viewport.height
+    );
+
+    const context =
+      canvas.getContext('2d', {
+        alpha: false,
+        willReadFrequently: true,
+      });
 
     if (!context) {
       return {
@@ -52,6 +59,9 @@ export async function getPageContentBBox(
       };
     }
 
+    /*
+     * White background
+     */
     context.save();
 
     context.fillStyle = '#ffffff';
@@ -65,30 +75,50 @@ export async function getPageContentBBox(
 
     context.restore();
 
+    /*
+     * PDF.js 5.x requires BOTH:
+     * canvas
+     * canvasContext
+     */
     await page.render({
+      canvas,
       canvasContext: context,
       viewport,
       background: '#ffffff',
     }).promise;
 
-    const imageData = context.getImageData(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    const imageData =
+      context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
 
-    const data = imageData.data;
+    const data =
+      imageData.data;
 
     const WHITE_THRESHOLD = 247;
 
     let minX = canvas.width;
     let minY = canvas.height;
+
     let maxX = -1;
     let maxY = -1;
 
-    for (let y = 0; y < canvas.height; y++) {
-      for (let x = 0; x < canvas.width; x++) {
+    /*
+     * Detect non-white pixels.
+     */
+    for (
+      let y = 0;
+      y < canvas.height;
+      y++
+    ) {
+      for (
+        let x = 0;
+        x < canvas.width;
+        x++
+      ) {
         const index =
           (y * canvas.width + x) * 4;
 
@@ -113,6 +143,10 @@ export async function getPageContentBBox(
       }
     }
 
+    /*
+     * If nothing detected,
+     * use complete page.
+     */
     if (
       maxX < 0 ||
       maxY < 0 ||
@@ -127,6 +161,10 @@ export async function getPageContentBBox(
       };
     }
 
+    /*
+     * Small safety padding so that
+     * text/borders are never cut.
+     */
     const padding = Math.max(
       8,
       Math.round(
@@ -157,11 +195,17 @@ export async function getPageContentBBox(
       maxY + padding
     );
 
+    /*
+     * Convert canvas coordinates
+     * back to PDF coordinates.
+     */
     const scaleX =
-      fullWidth / canvas.width;
+      fullWidth /
+      canvas.width;
 
     const scaleY =
-      fullHeight / canvas.height;
+      fullHeight /
+      canvas.height;
 
     const left =
       minX * scaleX;
@@ -169,6 +213,10 @@ export async function getPageContentBBox(
     const right =
       (maxX + 1) * scaleX;
 
+    /*
+     * PDF coordinate system starts
+     * from bottom-left.
+     */
     const top =
       fullHeight -
       minY * scaleY;
@@ -180,30 +228,46 @@ export async function getPageContentBBox(
     return {
       left: Math.max(
         0,
-        Math.min(left, fullWidth)
+        Math.min(
+          left,
+          fullWidth
+        )
       ),
 
       bottom: Math.max(
         0,
-        Math.min(bottom, fullHeight)
+        Math.min(
+          bottom,
+          fullHeight
+        )
       ),
 
       right: Math.max(
         0,
-        Math.min(right, fullWidth)
+        Math.min(
+          right,
+          fullWidth
+        )
       ),
 
       top: Math.max(
         0,
-        Math.min(top, fullHeight)
+        Math.min(
+          top,
+          fullHeight
+        )
       ),
     };
   } catch (error) {
     console.error(
-      'Failed to detect PDF content bounds:',
+      'PDF content detection failed:',
       error
     );
 
+    /*
+     * Never break conversion if
+     * detection fails.
+     */
     return {
       left: 0,
       bottom: 0,
