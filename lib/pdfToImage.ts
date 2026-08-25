@@ -12,8 +12,10 @@ export interface PdfToImagesResult {
 }
 
 /**
- * Detect only the OUTER white margins of a rendered PDF page.
- * Internal white spaces inside the document are never removed.
+ * Detect the real visible content of a rendered PDF page.
+ *
+ * Only the OUTER blank white margins are detected.
+ * White spaces inside the actual document are preserved.
  */
 function getContentBounds(
   canvas: HTMLCanvasElement
@@ -31,7 +33,8 @@ function getContentBounds(
     return null;
   }
 
-  const { width, height } = canvas;
+  const width = canvas.width;
+  const height = canvas.height;
 
   if (width <= 0 || height <= 0) {
     return null;
@@ -46,32 +49,41 @@ function getContentBounds(
 
   const data = imageData.data;
 
-  // Pixels brighter than this are treated as page background.
-  // This also handles anti-aliased white edges.
+  /**
+   * Anything almost white is considered page background.
+   *
+   * 247 is deliberately not 255 because PDF rendering can
+   * create very small anti-aliasing differences.
+   */
   const WHITE_THRESHOLD = 247;
 
-  let left = width;
-  let top = height;
-  let right = -1;
-  let bottom = -1;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
 
-  // Avoid tiny isolated rendering noise.
-  const MIN_DARK_PIXELS_PER_ROW = Math.max(
+  /**
+   * Ignore isolated single-pixel rendering noise.
+   */
+  const minimumPixelsPerRow = Math.max(
     2,
     Math.floor(width * 0.0005)
   );
 
-  const MIN_DARK_PIXELS_PER_COLUMN = Math.max(
+  const minimumPixelsPerColumn = Math.max(
     2,
     Math.floor(height * 0.0005)
   );
 
-  // Detect top/bottom content rows.
+  /**
+   * Find TOP.
+   */
   for (let y = 0; y < height; y++) {
-    let darkPixels = 0;
+    let contentPixels = 0;
 
     for (let x = 0; x < width; x++) {
-      const index = (y * width + x) * 4;
+      const index =
+        (y * width + x) * 4;
 
       const r = data[index];
       const g = data[index + 1];
@@ -86,21 +98,32 @@ function getContentBounds(
           b < WHITE_THRESHOLD
         )
       ) {
-        darkPixels++;
+        contentPixels++;
       }
     }
 
-    if (darkPixels >= MIN_DARK_PIXELS_PER_ROW) {
-      top = y;
+    if (
+      contentPixels >=
+      minimumPixelsPerRow
+    ) {
+      minY = y;
       break;
     }
   }
 
-  for (let y = height - 1; y >= 0; y--) {
-    let darkPixels = 0;
+  /**
+   * Find BOTTOM.
+   */
+  for (
+    let y = height - 1;
+    y >= 0;
+    y--
+  ) {
+    let contentPixels = 0;
 
     for (let x = 0; x < width; x++) {
-      const index = (y * width + x) * 4;
+      const index =
+        (y * width + x) * 4;
 
       const r = data[index];
       const g = data[index + 1];
@@ -115,22 +138,28 @@ function getContentBounds(
           b < WHITE_THRESHOLD
         )
       ) {
-        darkPixels++;
+        contentPixels++;
       }
     }
 
-    if (darkPixels >= MIN_DARK_PIXELS_PER_ROW) {
-      bottom = y;
+    if (
+      contentPixels >=
+      minimumPixelsPerRow
+    ) {
+      maxY = y;
       break;
     }
   }
 
-  // Detect left/right content columns.
+  /**
+   * Find LEFT.
+   */
   for (let x = 0; x < width; x++) {
-    let darkPixels = 0;
+    let contentPixels = 0;
 
     for (let y = 0; y < height; y++) {
-      const index = (y * width + x) * 4;
+      const index =
+        (y * width + x) * 4;
 
       const r = data[index];
       const g = data[index + 1];
@@ -145,21 +174,32 @@ function getContentBounds(
           b < WHITE_THRESHOLD
         )
       ) {
-        darkPixels++;
+        contentPixels++;
       }
     }
 
-    if (darkPixels >= MIN_DARK_PIXELS_PER_COLUMN) {
-      left = x;
+    if (
+      contentPixels >=
+      minimumPixelsPerColumn
+    ) {
+      minX = x;
       break;
     }
   }
 
-  for (let x = width - 1; x >= 0; x--) {
-    let darkPixels = 0;
+  /**
+   * Find RIGHT.
+   */
+  for (
+    let x = width - 1;
+    x >= 0;
+    x--
+  ) {
+    let contentPixels = 0;
 
     for (let y = 0; y < height; y++) {
-      const index = (y * width + x) * 4;
+      const index =
+        (y * width + x) * 4;
 
       const r = data[index];
       const g = data[index + 1];
@@ -174,40 +214,74 @@ function getContentBounds(
           b < WHITE_THRESHOLD
         )
       ) {
-        darkPixels++;
+        contentPixels++;
       }
     }
 
-    if (darkPixels >= MIN_DARK_PIXELS_PER_COLUMN) {
-      right = x;
+    if (
+      contentPixels >=
+      minimumPixelsPerColumn
+    ) {
+      maxX = x;
       break;
     }
   }
 
   if (
-    right < 0 ||
-    bottom < 0 ||
-    left >= width ||
-    top >= height
+    minX >= width ||
+    minY >= height ||
+    maxX < 0 ||
+    maxY < 0
   ) {
     return null;
   }
 
-  // Safety padding so borders/text never touch the crop edge.
+  /**
+   * Safety padding.
+   *
+   * This prevents text, borders and logos from touching
+   * the crop edge.
+   */
   const padding = Math.max(
     8,
-    Math.round(Math.min(width, height) * 0.006)
+    Math.round(
+      Math.min(width, height) *
+        0.006
+    )
   );
 
-  left = Math.max(0, left - padding);
-  top = Math.max(0, top - padding);
-  right = Math.min(width - 1, right + padding);
-  bottom = Math.min(height - 1, bottom + padding);
+  minX = Math.max(
+    0,
+    minX - padding
+  );
 
-  const cropWidth = right - left + 1;
-  const cropHeight = bottom - top + 1;
+  minY = Math.max(
+    0,
+    minY - padding
+  );
 
-  // Never crop a suspiciously tiny result.
+  maxX = Math.min(
+    width - 1,
+    maxX + padding
+  );
+
+  maxY = Math.min(
+    height - 1,
+    maxY + padding
+  );
+
+  const cropWidth =
+    maxX - minX + 1;
+
+  const cropHeight =
+    maxY - minY + 1;
+
+  /**
+   * Safety check.
+   *
+   * If detection gives a suspiciously tiny area,
+   * return null and keep the original page.
+   */
   if (
     cropWidth < width * 0.15 ||
     cropHeight < height * 0.15
@@ -216,56 +290,76 @@ function getContentBounds(
   }
 
   return {
-    left,
-    top,
-    right,
-    bottom,
+    left: minX,
+    top: minY,
+    right: maxX,
+    bottom: maxY,
   };
 }
 
 /**
- * Crop only the outer blank area.
+ * Crop only OUTER white margins.
  */
 async function cropOuterWhiteMargins(
   canvas: HTMLCanvasElement
 ): Promise<HTMLCanvasElement> {
-  const bounds = getContentBounds(canvas);
+  const bounds =
+    getContentBounds(canvas);
 
   if (!bounds) {
     return canvas;
   }
 
   const cropWidth =
-    bounds.right - bounds.left + 1;
+    bounds.right -
+    bounds.left +
+    1;
 
   const cropHeight =
-    bounds.bottom - bounds.top + 1;
+    bounds.bottom -
+    bounds.top +
+    1;
 
-  // If almost the entire page is content,
-  // don't crop unnecessarily.
+  /**
+   * If almost the whole page is already content,
+   * don't crop it.
+   */
   if (
-    cropWidth >= canvas.width * 0.98 &&
-    cropHeight >= canvas.height * 0.98
+    cropWidth >=
+      canvas.width * 0.98 &&
+    cropHeight >=
+      canvas.height * 0.98
   ) {
     return canvas;
   }
 
-  const croppedCanvas =
-    document.createElement('canvas');
+  const outputCanvas =
+    document.createElement(
+      'canvas'
+    );
 
-  croppedCanvas.width = cropWidth;
-  croppedCanvas.height = cropHeight;
+  outputCanvas.width =
+    cropWidth;
+
+  outputCanvas.height =
+    cropHeight;
 
   const ctx =
-    croppedCanvas.getContext('2d');
+    outputCanvas.getContext('2d');
 
   if (!ctx) {
     return canvas;
   }
 
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingEnabled =
+    true;
 
+  ctx.imageSmoothingQuality =
+    'high';
+
+  /**
+   * Keep the complete detected content.
+   */
   ctx.drawImage(
     canvas,
     bounds.left,
@@ -278,28 +372,39 @@ async function cropOuterWhiteMargins(
     cropHeight
   );
 
-  return croppedCanvas;
+  return outputCanvas;
 }
 
+/**
+ * Render one PDF page at high resolution.
+ */
 async function getImageFromPdfPage(
   pdfDoc: any,
   pageNumber: number,
   scale: number = 3
 ): Promise<Blob> {
   const page =
-    await pdfDoc.getPage(pageNumber);
+    await pdfDoc.getPage(
+      pageNumber
+    );
 
   const viewport =
-    page.getViewport({ scale });
+    page.getViewport({
+      scale,
+    });
 
   const canvas =
-    document.createElement('canvas');
+    document.createElement(
+      'canvas'
+    );
 
-  canvas.width =
-    Math.ceil(viewport.width);
+  canvas.width = Math.ceil(
+    viewport.width
+  );
 
-  canvas.height =
-    Math.ceil(viewport.height);
+  canvas.height = Math.ceil(
+    viewport.height
+  );
 
   const context =
     canvas.getContext('2d', {
@@ -313,33 +418,49 @@ async function getImageFromPdfPage(
     );
   }
 
-  // White page background.
+  /**
+   * White background.
+   */
   context.save();
-  context.fillStyle = '#ffffff';
+
+  context.fillStyle =
+    '#ffffff';
+
   context.fillRect(
     0,
     0,
     canvas.width,
     canvas.height
   );
+
   context.restore();
 
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = 'high';
+  context.imageSmoothingEnabled =
+    true;
 
+  context.imageSmoothingQuality =
+    'high';
+
+  /**
+   * Render COMPLETE PDF page first.
+   */
   await page.render({
     canvasContext: context,
     viewport,
     background: '#ffffff',
   }).promise;
 
-  // Remove only outer blank margins.
-  const outputCanvas =
-    await cropOuterWhiteMargins(canvas);
+  /**
+   * Then remove ONLY the outer blank margins.
+   */
+  const finalCanvas =
+    await cropOuterWhiteMargins(
+      canvas
+    );
 
   return new Promise(
     (resolve, reject) => {
-      outputCanvas.toBlob(
+      finalCanvas.toBlob(
         (blob) => {
           if (blob) {
             resolve(blob);
@@ -358,6 +479,9 @@ async function getImageFromPdfPage(
   );
 }
 
+/**
+ * Convert all PDF pages to JPG.
+ */
 export async function convertPdfToImages(
   pdfFile: File,
   onProgress?: (
@@ -367,12 +491,21 @@ export async function convertPdfToImages(
 ): Promise<PdfToImagesResult> {
   try {
     const pdfjsLib =
-      await import('pdfjs-dist');
+      await import(
+        'pdfjs-dist'
+      );
 
+    /**
+     * Configure worker before loading PDF.
+     */
     if (
-      !pdfjsLib.GlobalWorkerOptions.workerSrc
+      !pdfjsLib
+        .GlobalWorkerOptions
+        .workerSrc
     ) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
+      pdfjsLib
+        .GlobalWorkerOptions
+        .workerSrc =
         '/pdf.worker.min.mjs';
     }
 
@@ -389,7 +522,8 @@ export async function convertPdfToImages(
     const totalPages =
       pdfDoc.numPages;
 
-    const images: PdfPageImage[] = [];
+    const images: PdfPageImage[] =
+      [];
 
     for (
       let i = 1;
@@ -411,7 +545,9 @@ export async function convertPdfToImages(
 
         const filename =
           totalPages === 1
-            ? getZorPdfFileName('jpg')
+            ? getZorPdfFileName(
+                'jpg'
+              )
             : `page-${i}.jpg`;
 
         images.push({
@@ -419,18 +555,20 @@ export async function convertPdfToImages(
           blob,
           filename,
         });
-      } catch (err) {
+      } catch (error) {
         throw new Error(
           `Failed to convert page ${i}: ${
-            err instanceof Error
-              ? err.message
+            error instanceof Error
+              ? error.message
               : 'Unknown error'
           }`
         );
       }
     }
 
-    if (images.length === 0) {
+    if (
+      images.length === 0
+    ) {
       throw new Error(
         'No pages were converted'
       );
@@ -440,9 +578,11 @@ export async function convertPdfToImages(
       images,
       totalPages,
     };
-  } catch (err) {
-    if (err instanceof Error) {
-      throw err;
+  } catch (error) {
+    if (
+      error instanceof Error
+    ) {
+      throw error;
     }
 
     throw new Error(
@@ -451,15 +591,24 @@ export async function convertPdfToImages(
   }
 }
 
+/**
+ * Create ZIP for multi-page PDF.
+ */
 export async function createZipFromImages(
   images: PdfPageImage[]
 ): Promise<Blob> {
-  const { default: JSZip } =
-    await import('jszip');
+  const {
+    default: JSZip,
+  } = await import(
+    'jszip'
+  );
 
-  const zip = new JSZip();
+  const zip =
+    new JSZip();
 
-  for (const image of images) {
+  for (
+    const image of images
+  ) {
     zip.file(
       image.filename,
       image.blob
