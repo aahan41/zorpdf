@@ -630,7 +630,7 @@ export default function ConverterWorkspace() {
           className="fixed z-[9999] pointer-events-none"
           style={{ left: cursorPos.x - 14, top: cursorPos.y - 14 }}
         >
-          <Move className="w-7 h-7 text-slate-200 drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]" />
+          <Move className="w-8 h-8 text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" strokeWidth={2.5} />
         </div>
       )}
       <div className="max-w-4xl mx-auto">
