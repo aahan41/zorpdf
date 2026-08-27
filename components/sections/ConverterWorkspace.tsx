@@ -758,7 +758,7 @@ export default function ConverterWorkspace() {
                             <Reorder.Item
                               key={f.id}
                               value={f}
-                              className="cursor-grab active:cursor-grabbing"
+                              className="cursor-move"
                               onDragStart={() => setDraggingId(f.id)}
                               onDragEnd={() => setDraggingId(null)}
                             >
@@ -788,7 +788,7 @@ export default function ConverterWorkspace() {
                             <Reorder.Item
                               key={f.id}
                               value={f}
-                              className="cursor-grab active:cursor-grabbing"
+                              className="cursor-move"
                               onDragStart={() => setDraggingId(f.id)}
                               onDragEnd={() => setDraggingId(null)}
                             >
