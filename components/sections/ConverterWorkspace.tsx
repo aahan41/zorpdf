@@ -19,10 +19,6 @@ import { tools, type ToolId, type Tool } from './ToolsGrid';
 // NEW: whitespace-detection helper (see lib/pdfContentBBox.ts)
 import { getPageContentBBox } from '@/lib/pdfContentBBox';
 
-// Custom move-icon cursor (four-way arrow, diamond shape) — same icon on every browser/OS
-const MOVE_CURSOR =
-  'url(\'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M12%201.5%20L15.5%205.5%20L13.2%205.5%20L13.2%2010.3%20L18%2010.3%20L18%208%20L22.5%2012%20L18%2016%20L18%2013.7%20L13.2%2013.7%20L13.2%2018.5%20L15.5%2018.5%20L12%2022.5%20L8.5%2018.5%20L10.8%2018.5%20L10.8%2013.7%20L6%2013.7%20L6%2016%20L1.5%2012%20L6%208%20L6%2010.3%20L10.8%2010.3%20L10.8%205.5%20L8.5%205.5%20Z%22%20fill%3D%22%23c9ced2%22%20stroke%3D%22%235a6570%22%20stroke-width%3D%221.4%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E\') 14 14, move';
-
 const converterTabs: { id: ToolId; label: string; from: string; to: string }[] = [
   { id: 'jpg-to-pdf', label: 'JPG to PDF', from: 'JPG', to: 'PDF' },
   { id: 'pdf-to-jpg', label: 'PDF to JPG', from: 'PDF', to: 'JPG' },
@@ -275,6 +271,7 @@ export default function ConverterWorkspace() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('balanced');
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
@@ -627,6 +624,15 @@ export default function ConverterWorkspace() {
 
   return (
     <section id="tools" className="pt-20 pb-16 px-4 sm:px-6">
+      {/* Floating move-icon that follows the cursor while a card is being dragged */}
+      {draggingId && cursorPos && (
+        <div
+          className="fixed z-[9999] pointer-events-none"
+          style={{ left: cursorPos.x - 14, top: cursorPos.y - 14 }}
+        >
+          <Move className="w-7 h-7 text-slate-200 drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]" />
+        </div>
+      )}
       <div className="max-w-4xl mx-auto">
         {/* Converter Tabs */}
         <div className="flex items-center gap-1 overflow-x-auto pb-3 mb-6 scrollbar-hide -mx-1 px-1">
@@ -762,9 +768,10 @@ export default function ConverterWorkspace() {
                             <Reorder.Item
                               key={f.id}
                               value={f}
-                              style={{ cursor: MOVE_CURSOR }}
+                              className="cursor-none"
                               onDragStart={() => setDraggingId(f.id)}
-                              onDragEnd={() => setDraggingId(null)}
+                              onDrag={(e, info) => setCursorPos({ x: info.point.x, y: info.point.y })}
+                              onDragEnd={() => { setDraggingId(null); setCursorPos(null); }}
                             >
                               <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-white/5 hover:border-white/10 transition-colors">
                                 <div className="w-7 h-7 rounded bg-blue-600/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
@@ -792,9 +799,10 @@ export default function ConverterWorkspace() {
                             <Reorder.Item
                               key={f.id}
                               value={f}
-                              style={{ cursor: MOVE_CURSOR }}
+                              className="cursor-none"
                               onDragStart={() => setDraggingId(f.id)}
-                              onDragEnd={() => setDraggingId(null)}
+                              onDrag={(e, info) => setCursorPos({ x: info.point.x, y: info.point.y })}
+                              onDragEnd={() => { setDraggingId(null); setCursorPos(null); }}
                             >
                               <div className="flex items-center gap-2.5 p-2 rounded-lg bg-red-900/10 border border-red-500/20 hover:border-red-500/30 transition-colors">
                                 <div className="w-7 h-7 rounded bg-red-600/15 border border-red-500/20 flex items-center justify-center flex-shrink-0">
