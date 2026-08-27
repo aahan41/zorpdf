@@ -5,7 +5,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Upload, X, FileText, Layers, ArrowRight,
   Zap, GripVertical, Image as ImageIcon, Trash2, CheckCircle2,
-  RotateCcw, File, AlertCircle
+  RotateCcw, File, AlertCircle, Move
 } from 'lucide-react';
 import type { CompressionLevel } from '@/lib/imageCompression';
 import type { ImageProcessingResult } from '@/lib/pdfMerger';
@@ -270,6 +270,7 @@ export default function ConverterWorkspace() {
   const [state, setState] = useState<'idle' | 'loading' | 'selected' | 'converting' | 'done' | 'error'>('idle');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('balanced');
   const [estimatedSize, setEstimatedSize] = useState<{ min: number; max: number } | null>(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0 });
@@ -754,13 +755,24 @@ export default function ConverterWorkspace() {
                       >
                         {files.filter(f => f.status === 'ready').map((f, index) => (
                           f.fileType === 'image' ? (
-                            <Reorder.Item key={f.id} value={f} className="cursor-grab active:cursor-grabbing">
+                            <Reorder.Item
+                              key={f.id}
+                              value={f}
+                              className="cursor-grab active:cursor-grabbing"
+                              onDragStart={() => setDraggingId(f.id)}
+                              onDragEnd={() => setDraggingId(null)}
+                            >
                               <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-white/5 hover:border-white/10 transition-colors">
                                 <div className="w-7 h-7 rounded bg-blue-600/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
                                   <span className="text-blue-400 text-xs font-bold">{index + 1}</span>
                                 </div>
-                                <div className="w-24 h-24 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
+                                <div className="relative w-24 h-24 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
                                   <img src={f.thumbnail} alt="" className="w-full h-full object-cover" />
+                                  {draggingId === f.id && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                      <Move className="w-6 h-6 text-white drop-shadow" />
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-white text-xs font-medium truncate">{f.file.name}</p>
@@ -773,13 +785,24 @@ export default function ConverterWorkspace() {
                               </div>
                             </Reorder.Item>
                           ) : (
-                            <Reorder.Item key={f.id} value={f} className="cursor-grab active:cursor-grabbing">
+                            <Reorder.Item
+                              key={f.id}
+                              value={f}
+                              className="cursor-grab active:cursor-grabbing"
+                              onDragStart={() => setDraggingId(f.id)}
+                              onDragEnd={() => setDraggingId(null)}
+                            >
                               <div className="flex items-center gap-2.5 p-2 rounded-lg bg-red-900/10 border border-red-500/20 hover:border-red-500/30 transition-colors">
                                 <div className="w-7 h-7 rounded bg-red-600/15 border border-red-500/20 flex items-center justify-center flex-shrink-0">
                                   <span className="text-red-400 text-xs font-bold">{index + 1}</span>
                                 </div>
-                                <div className="w-24 h-24 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                <div className="relative w-24 h-24 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
                                   <FileText className="w-6 h-6 text-red-400" />
+                                  {draggingId === f.id && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                      <Move className="w-6 h-6 text-white drop-shadow" />
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-white text-xs font-medium truncate">{f.file.name}</p>
