@@ -49,7 +49,6 @@ import { compressPdf } from '@/lib/pdfCompressor';
 
 import { getZorPdfFileName } from '@/lib/fileNaming';
 
-
 interface UploadSectionProps {
   toolId: ToolId;
   tool: Tool;
@@ -100,6 +99,13 @@ function createId(): string {
   return `${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}`;
+}
+
+function isPdfFile(file: File): boolean {
+  return (
+    file.type === 'application/pdf' ||
+    file.name.toLowerCase().endsWith('.pdf')
+  );
 }
 
 export default function UploadSection({
@@ -475,33 +481,48 @@ export default function UploadSection({
           pendingFiles[index];
 
         try {
-          const info =
-            await loadImageInfo(
-              item.file
-            );
+          // Existing PDFs are valid input documents.
+          // Do NOT send them through Image()/loadImageInfo().
+          if (isPdfFile(item.file)) {
+            if (cancelled) {
+              return;
+            }
 
-          if (cancelled) {
-            return;
+            updateFile(item.id, {
+              status: 'ready',
+              progress: 100,
+            });
+          } else {
+            const info =
+              await loadImageInfo(
+                item.file
+              );
+
+            if (cancelled) {
+              return;
+            }
+
+            updateFile(item.id, {
+              status: 'ready',
+              thumbnail:
+                info.thumbnail,
+              width: info.width,
+              height: info.height,
+              progress: 100,
+            });
           }
-
-          updateFile(item.id, {
-            status: 'ready',
-            thumbnail:
-              info.thumbnail,
-            width: info.width,
-            height: info.height,
-          });
         } catch (error) {
           console.error(
-            'Could not load image:',
+            'Could not load file:',
             error
           );
 
           if (!cancelled) {
             updateFile(item.id, {
               status: 'error',
-              error:
-                'Could not read this image.',
+              error: isPdfFile(item.file)
+                ? 'Could not read this PDF.'
+                : 'Could not read this image.',
             });
           }
         }
@@ -532,14 +553,22 @@ export default function UploadSection({
       return;
     }
 
-    const readyFiles = files
-      .filter(
-        (item) =>
-          item.status === 'ready'
-      )
-      .map(
-        (item) => item.file
-      );
+    // The estimator is image-based; existing PDFs are copied
+    // directly by the merger and must not be passed to it.
+    const readyItems = files.filter(
+      (item) => item.status === 'ready'
+    );
+
+    // Existing PDFs are copied directly into the final PDF, so the
+    // image-only estimator would be inaccurate for mixed input.
+    if (readyItems.some((item) => isPdfFile(item.file))) {
+      setEstimatedSize(null);
+      return;
+    }
+
+    const readyFiles = readyItems.map(
+      (item) => item.file
+    );
 
     if (readyFiles.length === 0) {
       setEstimatedSize(null);
@@ -676,11 +705,7 @@ export default function UploadSection({
 
   const downloadSingleImageAsPdf =
     async (item: FileItem) => {
-      if (
-        !item.thumbnail ||
-        !item.width ||
-        !item.height
-      ) {
+      if (!item.file) {
         return;
       }
 
@@ -843,8 +868,7 @@ export default function UploadSection({
       const readyItems =
         files.filter(
           (item) =>
-            item.status === 'ready' &&
-            item.thumbnail
+            item.status === 'ready'
         );
 
       if (
@@ -871,11 +895,11 @@ export default function UploadSection({
               id: item.id,
               file: item.file,
               thumbnail:
-                item.thumbnail!,
+                item.thumbnail,
               width:
-                item.width!,
+                item.width,
               height:
-                item.height!,
+                item.height,
             })
           );
 
@@ -1199,11 +1223,16 @@ export default function UploadSection({
       0
     );
 
+  // For JPG to PDF, both images and existing PDFs are valid
+  // merge inputs. PDFs intentionally have no thumbnail.
   const readyImages =
     files.filter(
       (item) =>
         item.status === 'ready' &&
-        item.thumbnail
+        (
+          !!item.thumbnail ||
+          isPdfFile(item.file)
+        )
     );
 
   const completedFiles =
@@ -1882,7 +1911,6 @@ export default function UploadSection({
               )}
             </button>
           </div>
-
         </div>
       ) : null}
 
