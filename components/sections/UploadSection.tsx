@@ -49,6 +49,7 @@ import { compressPdf } from '@/lib/pdfCompressor';
 
 import { getZorPdfFileName } from '@/lib/fileNaming';
 
+
 interface UploadSectionProps {
   toolId: ToolId;
   tool: Tool;
@@ -99,13 +100,6 @@ function createId(): string {
   return `${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}`;
-}
-
-function isPdfFile(file: File): boolean {
-  return (
-    file.type === 'application/pdf' ||
-    file.name.toLowerCase().endsWith('.pdf')
-  );
 }
 
 export default function UploadSection({
@@ -481,48 +475,33 @@ export default function UploadSection({
           pendingFiles[index];
 
         try {
-          // Existing PDFs are valid input documents.
-          // Do NOT send them through Image()/loadImageInfo().
-          if (isPdfFile(item.file)) {
-            if (cancelled) {
-              return;
-            }
+          const info =
+            await loadImageInfo(
+              item.file
+            );
 
-            updateFile(item.id, {
-              status: 'ready',
-              progress: 100,
-            });
-          } else {
-            const info =
-              await loadImageInfo(
-                item.file
-              );
-
-            if (cancelled) {
-              return;
-            }
-
-            updateFile(item.id, {
-              status: 'ready',
-              thumbnail:
-                info.thumbnail,
-              width: info.width,
-              height: info.height,
-              progress: 100,
-            });
+          if (cancelled) {
+            return;
           }
+
+          updateFile(item.id, {
+            status: 'ready',
+            thumbnail:
+              info.thumbnail,
+            width: info.width,
+            height: info.height,
+          });
         } catch (error) {
           console.error(
-            'Could not load file:',
+            'Could not load image:',
             error
           );
 
           if (!cancelled) {
             updateFile(item.id, {
               status: 'error',
-              error: isPdfFile(item.file)
-                ? 'Could not read this PDF.'
-                : 'Could not read this image.',
+              error:
+                'Could not read this image.',
             });
           }
         }
@@ -553,22 +532,14 @@ export default function UploadSection({
       return;
     }
 
-    // The estimator is image-based; existing PDFs are copied
-    // directly by the merger and must not be passed to it.
-    const readyItems = files.filter(
-      (item) => item.status === 'ready'
-    );
-
-    // Existing PDFs are copied directly into the final PDF, so the
-    // image-only estimator would be inaccurate for mixed input.
-    if (readyItems.some((item) => isPdfFile(item.file))) {
-      setEstimatedSize(null);
-      return;
-    }
-
-    const readyFiles = readyItems.map(
-      (item) => item.file
-    );
+    const readyFiles = files
+      .filter(
+        (item) =>
+          item.status === 'ready'
+      )
+      .map(
+        (item) => item.file
+      );
 
     if (readyFiles.length === 0) {
       setEstimatedSize(null);
@@ -705,7 +676,11 @@ export default function UploadSection({
 
   const downloadSingleImageAsPdf =
     async (item: FileItem) => {
-      if (!item.file) {
+      if (
+        !item.thumbnail ||
+        !item.width ||
+        !item.height
+      ) {
         return;
       }
 
@@ -868,7 +843,8 @@ export default function UploadSection({
       const readyItems =
         files.filter(
           (item) =>
-            item.status === 'ready'
+            item.status === 'ready' &&
+            item.thumbnail
         );
 
       if (
@@ -895,11 +871,11 @@ export default function UploadSection({
               id: item.id,
               file: item.file,
               thumbnail:
-                item.thumbnail,
+                item.thumbnail!,
               width:
-                item.width,
+                item.width!,
               height:
-                item.height,
+                item.height!,
             })
           );
 
@@ -1223,16 +1199,11 @@ export default function UploadSection({
       0
     );
 
-  // For JPG to PDF, both images and existing PDFs are valid
-  // merge inputs. PDFs intentionally have no thumbnail.
   const readyImages =
     files.filter(
       (item) =>
         item.status === 'ready' &&
-        (
-          !!item.thumbnail ||
-          isPdfFile(item.file)
-        )
+        item.thumbnail
     );
 
   const completedFiles =
@@ -1825,6 +1796,23 @@ export default function UploadSection({
                     </div>
                   </div>
 
+                  {files.length > 0 && (
+                    <div className="flex flex-1 justify-center">
+                      <p className="whitespace-nowrap rounded-full bg-slate-100 px-4 py-1.5 text-xs font-medium text-slate-500">
+                        {files.length}{' '}
+                        file
+                        {files.length !== 1
+                          ? 's'
+                          : ''}{' '}
+                        selected
+                        {' • '}
+                        {formatBytes(
+                          totalSize
+                        )}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2">
                     <Zap className="h-4 w-4 text-green-600" />
 
@@ -1895,24 +1883,6 @@ export default function UploadSection({
             </button>
           </div>
 
-          {/* FILE COUNT — moved here, this replaces the old "Supported..." line spot */}
-
-          {files.length > 0 && (
-            <div className="mt-3 flex justify-center">
-              <p className="rounded-full bg-slate-100 px-4 py-1.5 text-xs font-medium text-slate-500">
-                {files.length}{' '}
-                file
-                {files.length !== 1
-                  ? 's'
-                  : ''}{' '}
-                selected
-                {' • '}
-                {formatBytes(
-                  totalSize
-                )}
-              </p>
-            </div>
-          )}
         </div>
       ) : null}
 
