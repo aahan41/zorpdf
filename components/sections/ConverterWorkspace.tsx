@@ -19,6 +19,10 @@ import { tools, type ToolId, type Tool } from './ToolsGrid';
 // NEW: whitespace-detection helper (see lib/pdfContentBBox.ts)
 import { getPageContentBBox } from '@/lib/pdfContentBBox';
 
+// Custom move-icon cursor (four-way arrow, diamond shape) — same icon on every browser/OS
+const MOVE_CURSOR =
+  'url(\'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M12%201.5%20L15.5%205.5%20L13.2%205.5%20L13.2%2010.3%20L18%2010.3%20L18%208%20L22.5%2012%20L18%2016%20L18%2013.7%20L13.2%2013.7%20L13.2%2018.5%20L15.5%2018.5%20L12%2022.5%20L8.5%2018.5%20L10.8%2018.5%20L10.8%2013.7%20L6%2013.7%20L6%2016%20L1.5%2012%20L6%208%20L6%2010.3%20L10.8%2010.3%20L10.8%205.5%20L8.5%205.5%20Z%22%20fill%3D%22%23c9ced2%22%20stroke%3D%22%235a6570%22%20stroke-width%3D%221.4%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E\') 14 14, move';
+
 const converterTabs: { id: ToolId; label: string; from: string; to: string }[] = [
   { id: 'jpg-to-pdf', label: 'JPG to PDF', from: 'JPG', to: 'PDF' },
   { id: 'pdf-to-jpg', label: 'PDF to JPG', from: 'PDF', to: 'JPG' },
@@ -758,7 +762,7 @@ export default function ConverterWorkspace() {
                             <Reorder.Item
                               key={f.id}
                               value={f}
-                              className="cursor-move"
+                              style={{ cursor: MOVE_CURSOR }}
                               onDragStart={() => setDraggingId(f.id)}
                               onDragEnd={() => setDraggingId(null)}
                             >
@@ -788,7 +792,7 @@ export default function ConverterWorkspace() {
                             <Reorder.Item
                               key={f.id}
                               value={f}
-                              className="cursor-move"
+                              style={{ cursor: MOVE_CURSOR }}
                               onDragStart={() => setDraggingId(f.id)}
                               onDragEnd={() => setDraggingId(null)}
                             >
