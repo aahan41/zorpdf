@@ -49,8 +49,6 @@ import { compressPdf } from '@/lib/pdfCompressor';
 
 import { getZorPdfFileName } from '@/lib/fileNaming';
 
-import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
-
 interface UploadSectionProps {
   toolId: ToolId;
   tool: Tool;
@@ -1834,13 +1832,6 @@ export default function UploadSection({
                       Smart Compression
                     </span>
                   </div>
-                </div>
-
-                <div className="mt-4 border-t border-slate-100 pt-4">
-                  <CompressionLevelSelector
-                    value={compressionLevel}
-                    onChange={setCompressionLevel}
-                  />
                 </div>
               </div>
             )}
