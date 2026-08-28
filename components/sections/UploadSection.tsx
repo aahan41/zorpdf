@@ -553,44 +553,56 @@ export default function UploadSection({
       return;
     }
 
-    // The estimator is image-based; existing PDFs are copied
-    // directly by the merger and must not be passed to it.
     const readyItems = files.filter(
       (item) => item.status === 'ready'
     );
 
-    // Existing PDFs are copied directly into the final PDF, so the
-    // image-only estimator would be inaccurate for mixed input.
-    if (readyItems.some((item) => isPdfFile(item.file))) {
+    if (readyItems.length === 0) {
       setEstimatedSize(null);
       return;
     }
 
-    const readyFiles = readyItems.map(
-      (item) => item.file
-    );
+    // The size-estimator only knows how to predict compression for
+    // images. Existing PDFs are copied through as-is (no compression),
+    // so we estimate images normally and just add the PDF bytes on top
+    // instead of nulling the whole estimate out when a PDF is present.
+    const imageFiles = readyItems
+      .filter((item) => !isPdfFile(item.file))
+      .map((item) => item.file);
 
-    if (readyFiles.length === 0) {
-      setEstimatedSize(null);
-      return;
-    }
+    const pdfBytes = readyItems
+      .filter((item) => isPdfFile(item.file))
+      .reduce((sum, item) => sum + item.file.size, 0);
 
     try {
-      const estimate =
-        estimatePdfSize(
-          readyFiles,
-          compressionLevel
-        );
+      if (imageFiles.length > 0) {
+        const estimate =
+          estimatePdfSize(
+            imageFiles,
+            compressionLevel
+          );
 
-      setEstimatedSize({
-        min: estimate.minSize,
-        max: estimate.maxSize,
-      });
+        setEstimatedSize({
+          min: estimate.minSize + pdfBytes,
+          max: estimate.maxSize + pdfBytes,
+        });
+      } else {
+        // Only PDFs selected — nothing to compress, size stays as-is.
+        setEstimatedSize({
+          min: pdfBytes,
+          max: pdfBytes,
+        });
+      }
     } catch (error) {
       console.error(
         'Could not estimate PDF size:',
         error
       );
+
+      setEstimatedSize({
+        min: pdfBytes,
+        max: pdfBytes,
+      });
     }
   }, [
     files,
