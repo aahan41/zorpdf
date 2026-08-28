@@ -484,7 +484,7 @@ export default function ConverterWorkspace() {
             updateFileStatus(pdfFile.id, 'done', { blob: result.images[0].blob, filename: getZorPdfFileName('jpg') });
           } else {
             const zipBlob = await createZipFromImages(result.images);
-            updateFileStatus(pdfFile.id, 'done', { blob: zipBlob, filename: getZorPdfFileName('zip') });
+            updateFileStatus(pdfFile.id, 'done', { blob: zipBlob, filename: 'zorpdf.zip' });
           }
         } catch (err: any) {
           updateFileStatus(pdfFile.id, 'error', undefined, undefined, err?.message || 'PDF to JPG conversion failed');
@@ -595,7 +595,7 @@ export default function ConverterWorkspace() {
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `converted-files-${Date.now()}.zip`;
+    a.download = 'zorpdf.zip';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
