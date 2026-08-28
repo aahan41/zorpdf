@@ -43,7 +43,10 @@ import {
   formatBytes,
 } from '@/lib/imageCompression';
 
-import { estimatePdfSize } from '@/lib/pdfEstimator';
+import {
+  estimatePdfSize,
+  estimateJpgSizeFromPdf,
+} from '@/lib/pdfEstimator';
 
 import { compressPdf } from '@/lib/pdfCompressor';
 
@@ -573,7 +576,10 @@ export default function UploadSection({
   }, [files, toolId]);
 
   useEffect(() => {
-    if (toolId !== 'jpg-to-pdf') {
+    if (
+      toolId !== 'jpg-to-pdf' &&
+      toolId !== 'pdf-to-jpg'
+    ) {
       return;
     }
 
@@ -583,6 +589,32 @@ export default function UploadSection({
 
     if (readyItems.length === 0) {
       setEstimatedSize(null);
+      return;
+    }
+
+    if (toolId === 'pdf-to-jpg') {
+      try {
+        const estimate =
+          estimateJpgSizeFromPdf(
+            readyItems.map(
+              (item) => item.file
+            ),
+            compressionLevel
+          );
+
+        setEstimatedSize({
+          min: estimate.minSize,
+          max: estimate.maxSize,
+        });
+      } catch (error) {
+        console.error(
+          'Could not estimate JPG size:',
+          error
+        );
+
+        setEstimatedSize(null);
+      }
+
       return;
     }
 
@@ -1823,11 +1855,14 @@ export default function UploadSection({
             </div>
           )}
 
-          {toolId ===
-            'jpg-to-pdf' &&
+          {(toolId ===
+            'jpg-to-pdf' ||
+            toolId ===
+              'pdf-to-jpg') &&
             estimatedSize &&
-            readyImages.length >
-              0 && (
+            (toolId === 'jpg-to-pdf'
+              ? readyImages.length > 0
+              : files.length > 0) && (
               <div className="mx-auto mt-4 max-w-[898px] rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
@@ -1847,7 +1882,10 @@ export default function UploadSection({
 
                     <div>
                       <p className="text-xs text-slate-400">
-                        Estimated PDF
+                        {toolId ===
+                        'jpg-to-pdf'
+                          ? 'Estimated PDF'
+                          : 'Estimated JPG'}
                       </p>
 
                       <p className="text-sm font-bold text-green-600">
