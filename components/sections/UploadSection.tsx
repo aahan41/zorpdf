@@ -464,10 +464,6 @@ export default function UploadSection({
 
   /*
    * LOAD / PREVIEW FILES
-   *
-   * IMPORTANT:
-   * Loading state is kept internally,
-   * but NO loading progress box is rendered.
    */
   useEffect(() => {
     if (
@@ -820,6 +816,11 @@ export default function UploadSection({
 
     anchor.href = url;
 
+    /*
+     * IMPORTANT:
+     * filename is already generated
+     * through getZorPdfFileName()
+     */
     anchor.download =
       item.result.filename;
 
@@ -896,8 +897,13 @@ export default function UploadSection({
           document.createElement('a');
 
         anchor.href = url;
+
+        /*
+         * FIXED:
+         * zorpdf.zip -> ZorPdf.zip
+         */
         anchor.download =
-          'zorpdf.zip';
+          getZorPdfFileName('zip');
 
         document.body.appendChild(
           anchor
@@ -1021,8 +1027,12 @@ export default function UploadSection({
                   result: {
                     blob:
                       result.blob,
+
+                    /*
+                     * FIXED:
+                     * Always force ZorPdf.pdf
+                     */
                     filename:
-                      result.filename ||
                       getZorPdfFileName(
                         'pdf'
                       ),
@@ -1117,6 +1127,11 @@ export default function UploadSection({
               result: {
                 blob:
                   compressed.blob,
+
+                /*
+                 * FIXED:
+                 * Always ZorPdf.jpg
+                 */
                 filename:
                   getZorPdfFileName(
                     'jpg'
@@ -1220,7 +1235,7 @@ export default function UploadSection({
                     ? Math.round(
                         (current /
                           total) *
-                          100
+                        100
                       )
                     : 0;
 
@@ -1238,8 +1253,13 @@ export default function UploadSection({
               allImages.push({
                 blob:
                   image.blob,
+
+                /*
+                 * FIXED:
+                 * Every generated JPG starts
+                 * with ZorPdf.jpg
+                 */
                 filename:
-                  image.filename ||
                   getZorPdfFileName(
                     'jpg'
                   ),
@@ -1340,8 +1360,15 @@ export default function UploadSection({
                     result: {
                       blob:
                         zipBlob,
+
+                      /*
+                       * FIXED:
+                       * zorpdf.zip -> ZorPdf.zip
+                       */
                       filename:
-                        'zorpdf.zip',
+                        getZorPdfFileName(
+                          'zip'
+                        ),
                     },
                   };
                 }
@@ -1418,6 +1445,11 @@ export default function UploadSection({
               result: {
                 blob:
                   result.blob,
+
+                /*
+                 * FIXED:
+                 * Always ZorPdf.pdf
+                 */
                 filename:
                   getZorPdfFileName(
                     'pdf'
@@ -1966,11 +1998,6 @@ export default function UploadSection({
             )}
           </div>
 
-          {/* 
-            LOADING BOX REMOVED COMPLETELY.
-            No "Loading files... 0 / 1" UI here.
-          */}
-
           {(toolId ===
             'jpg-to-pdf' ||
             toolId ===
@@ -2156,9 +2183,9 @@ export default function UploadSection({
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-900">
-                    {
-                      pdfResult.filename
-                    }
+                    {getZorPdfFileName(
+                      'pdf'
+                    )}
                   </p>
 
                   <p className="mt-1 text-xs text-slate-400">
