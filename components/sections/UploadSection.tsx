@@ -49,6 +49,8 @@ import { compressPdf } from '@/lib/pdfCompressor';
 
 import { getZorPdfFileName } from '@/lib/fileNaming';
 
+import { generatePdfThumbnail } from '@/lib/pdfToImage';
+
 interface UploadSectionProps {
   toolId: ToolId;
   tool: Tool;
@@ -449,7 +451,10 @@ export default function UploadSection({
   };
 
   useEffect(() => {
-    if (toolId !== 'jpg-to-pdf') {
+    if (
+      toolId !== 'jpg-to-pdf' &&
+      toolId !== 'pdf-to-jpg'
+    ) {
       return;
     }
 
@@ -481,9 +486,25 @@ export default function UploadSection({
           pendingFiles[index];
 
         try {
-          // Existing PDFs are valid input documents.
-          // Do NOT send them through Image()/loadImageInfo().
-          if (isPdfFile(item.file)) {
+          if (toolId === 'pdf-to-jpg') {
+            // Render page 1 of the PDF as a small preview thumbnail.
+            const thumbnail =
+              await generatePdfThumbnail(
+                item.file
+              );
+
+            if (cancelled) {
+              return;
+            }
+
+            updateFile(item.id, {
+              status: 'ready',
+              thumbnail,
+              progress: 100,
+            });
+          } else if (isPdfFile(item.file)) {
+            // Existing PDFs are valid input documents.
+            // Do NOT send them through Image()/loadImageInfo().
             if (cancelled) {
               return;
             }
@@ -519,10 +540,13 @@ export default function UploadSection({
 
           if (!cancelled) {
             updateFile(item.id, {
-              status: 'error',
-              error: isPdfFile(item.file)
-                ? 'Could not read this PDF.'
-                : 'Could not read this image.',
+              status: 'ready',
+              error:
+                toolId === 'pdf-to-jpg'
+                  ? undefined
+                  : isPdfFile(item.file)
+                  ? 'Could not read this PDF.'
+                  : 'Could not read this image.',
             });
           }
         }
@@ -659,7 +683,10 @@ export default function UploadSection({
       ...newItems,
     ]);
 
-    if (toolId !== 'jpg-to-pdf') {
+    if (
+      toolId !== 'jpg-to-pdf' &&
+      toolId !== 'pdf-to-jpg'
+    ) {
       setState('selected');
     }
   };
@@ -1645,9 +1672,7 @@ export default function UploadSection({
                                 bg-slate-100
                               "
                             >
-                              {toolId ===
-                                'jpg-to-pdf' &&
-                              item.thumbnail ? (
+                              {item.thumbnail ? (
                                 <img
                                   src={
                                     item.thumbnail
