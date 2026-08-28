@@ -1,5 +1,6 @@
 export function getZorPdfFileName(ext: string): string {
   const cleanExt = ext.replace('.', '').toLowerCase();
+
   return `ZorPdf.${cleanExt}`;
 }
 
@@ -32,14 +33,19 @@ export function getUniqueFilename(
       : '';
 
   let counter = 1;
-  let candidate = `${base} (${counter})${ext}`;
+
+  let candidate =
+    `${base} (${counter})${ext}`;
 
   while (usedNames.has(candidate)) {
     counter++;
-    candidate = `${base} (${counter})${ext}`;
+
+    candidate =
+      `${base} (${counter})${ext}`;
   }
 
   usedNames.add(candidate);
+
   return candidate;
 }
 
