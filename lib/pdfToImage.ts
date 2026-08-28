@@ -87,6 +87,7 @@ export async function generatePdfThumbnail(
   );
 
   await page.render({
+    canvas,
     canvasContext: context,
     viewport,
     background: '#ffffff',
@@ -533,6 +534,7 @@ async function getImageFromPdfPage(
    * Render COMPLETE PDF page first.
    */
   await page.render({
+    canvas,
     canvasContext: context,
     viewport,
     background: '#ffffff',
