@@ -34,14 +34,12 @@ export function getUniqueFilename(
 
   let counter = 1;
 
-  let candidate =
-    `${base} (${counter})${ext}`;
+  let candidate = `${base} (${counter})${ext}`;
 
   while (usedNames.has(candidate)) {
     counter++;
 
-    candidate =
-      `${base} (${counter})${ext}`;
+    candidate = `${base} (${counter})${ext}`;
   }
 
   usedNames.add(candidate);
@@ -53,5 +51,5 @@ export function getUniqueFilename(
  * ZIP ka fixed naam
  */
 export function getZorPdfZipFileName(): string {
-  return 'zorpdf.zip';
+  return 'ZorPdf.zip';
 }
