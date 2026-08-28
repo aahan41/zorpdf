@@ -12,7 +12,95 @@ export interface PdfToImagesResult {
 }
 
 /**
+ * Render just the first page of a PDF at a small scale to use as an
+ * upload-preview thumbnail. Deliberately cheap/low-res — this is only
+ * for the card preview, not the actual JPG export.
+ */
+export async function generatePdfThumbnail(
+  file: File
+): Promise<string> {
+  const pdfjsLib =
+    await import('pdfjs-dist');
+
+  if (
+    !pdfjsLib.GlobalWorkerOptions
+      .workerSrc
+  ) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      '/pdf.worker.min.mjs';
+  }
+
+  const arrayBuffer =
+    await file.arrayBuffer();
+
+  const pdfDoc =
+    await pdfjsLib
+      .getDocument({
+        data: arrayBuffer,
+      })
+      .promise;
+
+  const page =
+    await pdfDoc.getPage(1);
+
+  const baseViewport =
+    page.getViewport({ scale: 1 });
+
+  const targetWidth = 260;
+
+  const scale =
+    targetWidth /
+    baseViewport.width;
+
+  const viewport =
+    page.getViewport({ scale });
+
+  const canvas =
+    document.createElement('canvas');
+
+  canvas.width = Math.ceil(
+    viewport.width
+  );
+
+  canvas.height = Math.ceil(
+    viewport.height
+  );
+
+  const context = canvas.getContext(
+    '2d',
+    { alpha: false }
+  );
+
+  if (!context) {
+    throw new Error(
+      'Failed to get canvas context'
+    );
+  }
+
+  context.fillStyle = '#ffffff';
+
+  context.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  await page.render({
+    canvasContext: context,
+    viewport,
+    background: '#ffffff',
+  }).promise;
+
+  return canvas.toDataURL(
+    'image/jpeg',
+    0.75
+  );
+}
+
+/**
  * Detect the real visible content of a rendered PDF page.
+
  *
  * Only the OUTER blank white margins are detected.
  * White spaces inside the actual document are preserved.
