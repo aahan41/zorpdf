@@ -507,13 +507,29 @@ export default function UploadSection({
             });
           } else if (isPdfFile(item.file)) {
             // Existing PDFs are valid input documents.
-            // Do NOT send them through Image()/loadImageInfo().
+            // Do NOT send them through Image()/loadImageInfo() —
+            // but still render a page-1 preview thumbnail for the card.
+            let pdfThumbnail: string | undefined;
+
+            try {
+              pdfThumbnail =
+                await generatePdfThumbnail(
+                  item.file
+                );
+            } catch (thumbError) {
+              console.error(
+                'Could not generate PDF thumbnail:',
+                thumbError
+              );
+            }
+
             if (cancelled) {
               return;
             }
 
             updateFile(item.id, {
               status: 'ready',
+              thumbnail: pdfThumbnail,
               progress: 100,
             });
           } else {
