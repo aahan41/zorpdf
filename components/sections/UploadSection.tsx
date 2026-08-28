@@ -976,7 +976,7 @@ export default function UploadSection({
         anchor.href = url;
 
         anchor.download =
-          `zorPDF-converted-${Date.now()}.zip`;
+          'zorpdf.zip';
 
         document.body.appendChild(
           anchor
@@ -1258,7 +1258,7 @@ export default function UploadSection({
                 result: {
                   blob: zipBlob,
                   filename:
-                    getZorPdfFileName('zip'),
+                    'zorpdf.zip',
                 },
               }
             );
