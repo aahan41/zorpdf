@@ -50,7 +50,7 @@ import {
 
 import { compressPdf } from '@/lib/pdfCompressor';
 
-import { getZorPdfFileName } from '@/lib/fileNaming';
+import { getZorPdfFileName, getUniqueFilename } from '@/lib/fileNaming';
 
 import { generatePdfThumbnail } from '@/lib/pdfToImage';
 
@@ -940,11 +940,20 @@ export default function UploadSection({
 
         const zip = new JSZip();
 
+        const usedNames =
+          new Set<string>();
+
         completed.forEach(
           (item) => {
             if (item.result) {
+              const uniqueName =
+                getUniqueFilename(
+                  item.result.filename,
+                  usedNames
+                );
+
               zip.file(
-                item.result.filename,
+                uniqueName,
                 item.result.blob
               );
             }
