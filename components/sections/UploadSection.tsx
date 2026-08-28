@@ -154,11 +154,6 @@ export default function UploadSection({
 
   const [isDragging, setIsDragging] = useState(false);
 
-  const [loadingProgress, setLoadingProgress] = useState({
-    loaded: 0,
-    total: 0,
-  });
-
   const [estimatedSize, setEstimatedSize] = useState<{
     min: number;
     max: number;
@@ -204,11 +199,6 @@ export default function UploadSection({
     setFiles([]);
     setState('idle');
     setEstimatedSize(null);
-
-    setLoadingProgress({
-      loaded: 0,
-      total: 0,
-    });
 
     setReorderDragId(null);
     setReorderOverId(null);
@@ -321,8 +311,7 @@ export default function UploadSection({
       currentTargetId: id,
     };
 
-    reorderSessionRef.current =
-      session;
+    reorderSessionRef.current = session;
 
     const previousUserSelect =
       document.body.style.userSelect;
@@ -358,8 +347,7 @@ export default function UploadSection({
         handlePointerUp
       );
 
-      reorderSessionRef.current =
-        null;
+      reorderSessionRef.current = null;
 
       setReorderDragId(null);
       setReorderOverId(null);
@@ -476,6 +464,10 @@ export default function UploadSection({
 
   /*
    * LOAD / PREVIEW FILES
+   *
+   * IMPORTANT:
+   * Loading state is kept internally,
+   * but NO loading progress box is rendered.
    */
   useEffect(() => {
     if (
@@ -498,11 +490,6 @@ export default function UploadSection({
 
     const loadFiles = async () => {
       setState('loading');
-
-      setLoadingProgress({
-        loaded: 0,
-        total: pendingFiles.length,
-      });
 
       for (
         let index = 0;
@@ -581,14 +568,6 @@ export default function UploadSection({
                   : 'Could not read this image.',
             });
           }
-        }
-
-        if (!cancelled) {
-          setLoadingProgress({
-            loaded: index + 1,
-            total:
-              pendingFiles.length,
-          });
         }
       }
 
@@ -917,7 +896,6 @@ export default function UploadSection({
           document.createElement('a');
 
         anchor.href = url;
-
         anchor.download =
           'zorpdf.zip';
 
@@ -951,18 +929,10 @@ export default function UploadSection({
     setState('converting');
 
     /*
-     * ==========================================
      * JPG -> PDF
-     * ==========================================
      *
-     * IMPORTANT:
-     * ALL selected images are sent in ONE call.
-     *
-     * 1 JPG  = 1 page PDF
-     * 2 JPG  = 2 page PDF
-     * 10 JPG = 10 page PDF
-     *
-     * No individual JPG PDF download.
+     * ALL selected images are combined
+     * into ONE PDF.
      */
     if (toolId === 'jpg-to-pdf') {
       const readyItems =
@@ -1007,11 +977,6 @@ export default function UploadSection({
             })
           );
 
-        /*
-         * ONE call.
-         *
-         * This is the important fix.
-         */
         const result =
           await mergeImagesToPdf(
             imageData,
@@ -1039,10 +1004,6 @@ export default function UploadSection({
             }
           );
 
-        /*
-         * Store ONLY the combined PDF
-         * on the first source item.
-         */
         const firstId =
           readyItems[0].id;
 
@@ -1125,9 +1086,7 @@ export default function UploadSection({
     }
 
     /*
-     * ==========================================
      * PNG -> JPG
-     * ==========================================
      */
     if (toolId === 'png-to-jpg') {
       let failed = false;
@@ -1194,30 +1153,10 @@ export default function UploadSection({
     }
 
     /*
-     * ==========================================
      * PDF -> JPG
-     * ==========================================
      *
-     * IMPORTANT FIX:
-     *
-     * Previously:
-     *
-     * 1 page PDF -> JPG
-     * 2+ pages -> ZIP
-     *
-     * This could leave separate JPG files.
-     *
-     * NOW:
-     *
-     * ALL pages -> ONE ZIP
-     *
-     * So:
-     *
-     * PDF 1 page  -> zorpdf.zip
-     * PDF 5 pages -> zorpdf.zip
-     * 2 PDFs      -> zorpdf.zip
-     *
-     * Every JPG stays INSIDE the ZIP.
+     * ALL JPG files are placed inside
+     * ONE ZIP file.
      */
     if (toolId === 'pdf-to-jpg') {
       const {
@@ -1228,12 +1167,6 @@ export default function UploadSection({
 
       let failed = false;
 
-      /*
-       * Store ALL generated JPGs here.
-       *
-       * This is important when multiple PDFs
-       * are selected.
-       */
       const allImages: Array<{
         blob: Blob;
         filename: string;
@@ -1251,10 +1184,6 @@ export default function UploadSection({
         return;
       }
 
-      /*
-       * Convert every PDF.
-       * Do NOT download individual JPGs.
-       */
       for (
         let index = 0;
         index < pdfItems.length;
@@ -1304,10 +1233,6 @@ export default function UploadSection({
               }
             );
 
-          /*
-           * Add EVERY generated JPG
-           * to the common array.
-           */
           images.forEach(
             (image) => {
               allImages.push({
@@ -1356,10 +1281,6 @@ export default function UploadSection({
         }
       }
 
-      /*
-       * If at least one PDF converted,
-       * create ONE ZIP containing ALL JPGs.
-       */
       if (
         allImages.length > 0 &&
         !failed
@@ -1402,10 +1323,6 @@ export default function UploadSection({
                 },
             });
 
-          /*
-           * Store ONE ZIP result
-           * on the first PDF item.
-           */
           const firstPdfId =
             pdfItems[0].id;
 
@@ -1470,9 +1387,7 @@ export default function UploadSection({
     }
 
     /*
-     * ==========================================
      * PDF COMPRESSOR
-     * ==========================================
      */
     if (toolId === 'pdf-compressor') {
       let failed = false;
@@ -1666,9 +1581,7 @@ export default function UploadSection({
 
             <button
               type="button"
-              onClick={
-                clearAllFiles
-              }
+              onClick={clearAllFiles}
               disabled={
                 files.length === 0
               }
@@ -1696,14 +1609,10 @@ export default function UploadSection({
             </button>
 
             <input
-              ref={
-                fileInputRef
-              }
+              ref={fileInputRef}
               type="file"
               multiple
-              accept={
-                tool.accept
-              }
+              accept={tool.accept}
               onChange={
                 handleInputChange
               }
@@ -2057,25 +1966,10 @@ export default function UploadSection({
             )}
           </div>
 
-          {state === 'loading' && (
-            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
-
-                <span className="text-sm text-blue-700">
-                  Loading files...
-                  {' '}
-                  {
-                    loadingProgress.loaded
-                  }
-                  {' / '}
-                  {
-                    loadingProgress.total
-                  }
-                </span>
-              </div>
-            </div>
-          )}
+          {/* 
+            LOADING BOX REMOVED COMPLETELY.
+            No "Loading files... 0 / 1" UI here.
+          */}
 
           {(toolId ===
             'jpg-to-pdf' ||
@@ -2365,13 +2259,6 @@ export default function UploadSection({
             completedFiles.length >
               0 && (
               <div className="mx-auto mt-8 max-w-xl">
-                {/*
-                 * For PDF -> JPG the first/only
-                 * result is the COMMON ZIP.
-                 *
-                 * There will NOT be individual
-                 * JPG download buttons.
-                 */}
                 {completedFiles.map(
                   (item) => (
                     <div
@@ -2442,11 +2329,6 @@ export default function UploadSection({
               </div>
             )}
 
-          {/*
-           * ZIP button is intentionally NOT shown
-           * again for PDF -> JPG because the result
-           * itself is already the single ZIP.
-           */}
           {completedFiles.length >
             1 &&
             toolId !== 'pdf-to-jpg' &&
