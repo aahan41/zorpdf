@@ -12,7 +12,7 @@ import type { ImageProcessingResult } from '@/lib/pdfMerger';
 import { loadImageInfo, type MergeResult } from '@/lib/pdfMerger';
 import { formatBytes, calculateCompressionPercentage, compressImage } from '@/lib/imageCompression';
 import { estimatePdfSize } from '@/lib/pdfEstimator';
-import { getZorPdfFileName } from '@/lib/fileNaming';
+import { getZorPdfFileName, getUniqueFilename } from '@/lib/fileNaming';
 import { DownloadButton } from '@/components/ui/DownloadButton';
 import CompressionLevelSelector from '@/components/ui/CompressionLevelSelector';
 import { tools, type ToolId, type Tool } from './ToolsGrid';
@@ -584,7 +584,13 @@ export default function ConverterWorkspace() {
     if (completedFiles.length === 0) return;
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
-    completedFiles.forEach(f => { if (f.result) zip.file(f.result.filename, f.result.blob); });
+    const usedNames = new Set<string>();
+    completedFiles.forEach(f => {
+      if (f.result) {
+        const uniqueName = getUniqueFilename(f.result.filename, usedNames);
+        zip.file(uniqueName, f.result.blob);
+      }
+    });
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
