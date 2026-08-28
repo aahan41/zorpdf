@@ -1,5 +1,15 @@
+/**
+ * ZorPdf ka fixed filename.
+ *
+ * Examples:
+ * ZorPdf.pdf
+ * ZorPdf.jpg
+ * ZorPdf.png
+ */
 export function getZorPdfFileName(ext: string): string {
-  const cleanExt = ext.replace('.', '').toLowerCase();
+  const cleanExt = ext
+    .replace('.', '')
+    .toLowerCase();
 
   return `ZorPdf.${cleanExt}`;
 }
@@ -7,6 +17,7 @@ export function getZorPdfFileName(ext: string): string {
 /**
  * Multiple converted files ke liye unique filename.
  *
+ * Examples:
  * ZorPdf.jpg
  * ZorPdf (1).jpg
  * ZorPdf (2).jpg
@@ -20,7 +31,8 @@ export function getUniqueFilename(
     return filename;
   }
 
-  const dotIndex = filename.lastIndexOf('.');
+  const dotIndex =
+    filename.lastIndexOf('.');
 
   const base =
     dotIndex > -1
@@ -34,12 +46,14 @@ export function getUniqueFilename(
 
   let counter = 1;
 
-  let candidate = `${base} (${counter})${ext}`;
+  let candidate =
+    `${base} (${counter})${ext}`;
 
   while (usedNames.has(candidate)) {
     counter++;
 
-    candidate = `${base} (${counter})${ext}`;
+    candidate =
+      `${base} (${counter})${ext}`;
   }
 
   usedNames.add(candidate);
@@ -48,7 +62,10 @@ export function getUniqueFilename(
 }
 
 /**
- * ZIP ka fixed naam
+ * ZIP ka fixed naam.
+ *
+ * Result:
+ * ZorPdf.zip
  */
 export function getZorPdfZipFileName(): string {
   return 'ZorPdf.zip';
