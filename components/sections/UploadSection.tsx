@@ -113,6 +113,31 @@ function isPdfFile(file: File): boolean {
   );
 }
 
+const THUMBNAIL_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(
+        new Error('Timed out')
+      );
+    }, ms);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 export default function UploadSection({
   toolId,
   tool,
@@ -491,10 +516,24 @@ export default function UploadSection({
         try {
           if (toolId === 'pdf-to-jpg') {
             // Render page 1 of the PDF as a small preview thumbnail.
-            const thumbnail =
-              await generatePdfThumbnail(
-                item.file
+            // Wrapped in a timeout so one slow/large PDF can never
+            // freeze the loading progress for the whole batch.
+            let thumbnail: string | undefined;
+
+            try {
+              thumbnail =
+                await withTimeout(
+                  generatePdfThumbnail(
+                    item.file
+                  ),
+                  THUMBNAIL_TIMEOUT_MS
+                );
+            } catch (thumbError) {
+              console.error(
+                'Could not generate PDF thumbnail (skipping preview):',
+                thumbError
               );
+            }
 
             if (cancelled) {
               return;
@@ -513,8 +552,11 @@ export default function UploadSection({
 
             try {
               pdfThumbnail =
-                await generatePdfThumbnail(
-                  item.file
+                await withTimeout(
+                  generatePdfThumbnail(
+                    item.file
+                  ),
+                  THUMBNAIL_TIMEOUT_MS
                 );
             } catch (thumbError) {
               console.error(
@@ -1875,6 +1917,7 @@ export default function UploadSection({
             'jpg-to-pdf' ||
             toolId ===
               'pdf-to-jpg') &&
+            state === 'selected' &&
             estimatedSize &&
             (toolId === 'jpg-to-pdf'
               ? readyImages.length > 0
