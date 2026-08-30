@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import {
   Upload,
   X,
-  Crown,
   Sparkles,
   CheckCircle2,
   Loader2,
@@ -601,9 +600,9 @@ export default function ZorRemoverPage() {
                     />
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                     <div className="absolute left-5 top-5">
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3.5 py-2 text-xs font-semibold text-amber-700 shadow-lg backdrop-blur-md">
-                        <Crown className="h-3.5 w-3.5" />
-                        Premium Tool
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3.5 py-2 text-xs font-semibold text-blue-700 shadow-lg backdrop-blur-md">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        100% Free Tool
                       </span>
                     </div>
                     <div className="absolute bottom-5 left-5">
@@ -665,7 +664,7 @@ export default function ZorRemoverPage() {
                       <span className="text-blue-600 underline">URL</span>
                     </p>
                     <p className="mt-6 text-xs text-slate-400">
-                      5 of 5 free removals remaining
+                      Unlimited free removals
                     </p>
                   </label>
 
