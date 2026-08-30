@@ -66,12 +66,16 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-14">
-          {/* Logo — kept exactly as original */}
+        <div className="flex items-center justify-between h-16">
+          {/* Logo — subtle hover scale added */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
+            <motion.div
+              whileHover={{ scale: 1.06, rotate: -3 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+              className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm shadow-blue-600/20"
+            >
               <Zap className="w-4 h-4 text-white fill-white" />
-            </div>
+            </motion.div>
             <span className="text-lg font-bold text-slate-900">
               Zor<span className="text-blue-600">PDF</span>
             </span>
@@ -83,15 +87,23 @@ export default function Navbar() {
               <button
                 key={link.label}
                 onClick={() => handleNavClick(link.href)}
-                className="px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                className="group relative px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:text-slate-900 transition-all"
               >
-                {link.label}
+                <span className="flex items-center gap-1.5">
+                  {link.label}
+                  {link.label === 'Zor Remover' && (
+                    <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-blue-600">
+                      Free
+                    </span>
+                  )}
+                </span>
+                <span className="pointer-events-none absolute left-3 right-3 -bottom-0.5 h-[2px] scale-x-0 rounded-full bg-blue-600 transition-transform duration-200 group-hover:scale-x-100" />
               </button>
             ))}
           </div>
 
           {/* Desktop auth buttons */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-3">
             {!loading && (
               user ? (
                 <div className="relative" ref={userMenuRef}>
@@ -140,7 +152,7 @@ export default function Navbar() {
                   </Link>
                   <Link
                     href="/signup"
-                    className="px-4 py-1.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
+                    className="px-4 py-1.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 hover:-translate-y-0.5 transition-all shadow-sm"
                   >
                     Sign up
                   </Link>
