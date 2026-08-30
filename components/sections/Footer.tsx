@@ -242,7 +242,9 @@ export default function Footer() {
               ))}
 
               <a
-                href="#"
+                href="https://play.google.com/store/search?q=ZorPDF&c=apps"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-blue-100 hover:border-blue-200 transition-colors whitespace-nowrap flex-shrink-0"
               >
                 <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
