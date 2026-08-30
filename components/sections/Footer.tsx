@@ -6,15 +6,60 @@ import {
   Zap,
   Globe,
   ChevronDown,
-  Instagram,
-  Youtube,
-  MessageCircle,
   Clock,
   Lock,
   Star,
   Infinity as InfinityIcon,
   Play,
 } from 'lucide-react';
+
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ig-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#FFDD55" />
+          <stop offset="25%" stopColor="#FF543E" />
+          <stop offset="50%" stopColor="#C837AB" />
+          <stop offset="75%" stopColor="#8134AF" />
+          <stop offset="100%" stopColor="#5B34AF" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#ig-gradient)" />
+      <rect x="2" y="2" width="20" height="20" rx="5.5" stroke="none" />
+      <circle cx="12" cy="12" r="4.2" stroke="white" strokeWidth="1.8" fill="none" />
+      <circle cx="17.15" cy="6.85" r="1.15" fill="white" />
+    </svg>
+  );
+}
+
+function YoutubeIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M23.5 6.2s-.23-1.64-.94-2.36c-.9-.95-1.9-.95-2.36-1.01C16.9 2.5 12 2.5 12 2.5h-.01s-4.89 0-8.19.33c-.46.06-1.46.06-2.36 1.01C.73 4.56.5 6.2.5 6.2S.26 8.12.26 10.04v1.8c0 1.92.24 3.84.24 3.84s.23 1.64.94 2.36c.9.95 2.08.92 2.6 1.02 1.89.18 8.02.33 8.02.33s4.9-.01 8.2-.34c.46-.06 1.46-.06 2.36-1.01.71-.72.94-2.36.94-2.36s.24-1.92.24-3.84v-1.8c0-1.92-.24-3.84-.24-3.84z"
+        fill="#FF0000"
+      />
+      <path d="M9.6 14.6V7.4l6.3 3.6-6.3 3.6z" fill="white" />
+    </svg>
+  );
+}
+
+function WhatsappIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="11" fill="#25D366" />
+      <path
+        d="M12.02 5.5c-3.6 0-6.52 2.92-6.52 6.52 0 1.15.3 2.27.87 3.26L5.5 18.5l3.32-.87a6.5 6.5 0 0 0 3.2.84h.01c3.6 0 6.52-2.92 6.52-6.52 0-1.74-.68-3.38-1.91-4.61a6.48 6.48 0 0 0-4.62-1.84zm0 11.93h-.01a5.4 5.4 0 0 1-2.76-.75l-.2-.12-2.05.54.55-2-.13-.21a5.4 5.4 0 0 1-.83-2.87c0-2.99 2.44-5.43 5.44-5.43 1.45 0 2.82.57 3.84 1.6a5.4 5.4 0 0 1 1.59 3.84c0 3-2.44 5.4-5.44 5.4z"
+        fill="white"
+      />
+      <path
+        d="M14.4 13.15c-.16-.08-.94-.46-1.09-.52-.15-.05-.25-.08-.36.08-.1.16-.4.51-.5.62-.09.1-.18.11-.34.04-.16-.08-.68-.25-1.29-.79-.48-.42-.8-.95-.89-1.11-.09-.16-.01-.25.07-.33.07-.07.16-.18.24-.27.08-.09.1-.16.16-.26.05-.1.02-.19-.01-.27-.04-.08-.36-.86-.49-1.18-.13-.31-.26-.27-.36-.27-.09-.01-.2-.01-.3-.01s-.27.04-.42.19c-.14.16-.55.53-.55 1.3s.56 1.51.64 1.62c.08.1 1.1 1.68 2.67 2.35.37.16.66.26.89.33.37.12.71.1.98.06.3-.04.94-.38 1.07-.75.13-.37.13-.68.09-.75-.04-.06-.14-.1-.3-.18z"
+        fill="white"
+      />
+    </svg>
+  );
+}
 
 const footerColumns = [
   {
@@ -154,9 +199,9 @@ export default function Footer() {
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
                 aria-label="Instagram"
-                className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                className="w-11 h-11 rounded-lg bg-white border border-blue-100 flex items-center justify-center hover:border-blue-200 transition-colors overflow-hidden"
               >
-                <Instagram className="w-4 h-4" />
+                <InstagramIcon className="w-8 h-8" />
               </motion.a>
               <motion.a
                 href="https://www.youtube.com/@Zorsolution"
@@ -165,9 +210,9 @@ export default function Footer() {
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
                 aria-label="YouTube"
-                className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                className="w-11 h-11 rounded-lg bg-white border border-blue-100 flex items-center justify-center hover:border-blue-200 transition-colors"
               >
-                <Youtube className="w-4 h-4" />
+                <YoutubeIcon className="w-8 h-8" />
               </motion.a>
               <motion.a
                 href="https://chat.whatsapp.com/HOFrjjDN93WGh6FdAZtwMA"
@@ -176,9 +221,9 @@ export default function Footer() {
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
                 aria-label="WhatsApp"
-                className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                className="w-11 h-11 rounded-lg bg-white border border-blue-100 flex items-center justify-center hover:border-blue-200 transition-colors"
               >
-                <MessageCircle className="w-4 h-4" />
+                <WhatsappIcon className="w-8 h-8" />
               </motion.a>
             </div>
           </div>
