@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { FileText } from 'lucide-react';
+import { FileText, ArrowLeft } from 'lucide-react';
 import Navbar from '@/components/sections/Navbar';
 import Footer from '@/components/sections/Footer';
 
@@ -62,6 +62,16 @@ export default function TermsAndConditionsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
+              <div className="mb-6 flex justify-center">
+                <a
+                  href="/"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Home
+                </a>
+              </div>
+
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-sm font-medium mb-6">
                 <FileText className="w-3.5 h-3.5" />
                 Terms & Conditions
