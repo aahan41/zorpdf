@@ -7,6 +7,7 @@ import {
   Gauge,
   Users,
   Sparkles,
+  ArrowLeft,
 } from 'lucide-react';
 
 import Navbar from '@/components/sections/Navbar';
@@ -53,6 +54,16 @@ export default function AboutPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
+              <div className="mb-6 flex justify-center">
+                <a
+                  href="/"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Home
+                </a>
+              </div>
+
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-600">
                 <Zap className="h-3.5 w-3.5 fill-blue-600" />
                 About ZorPDF
