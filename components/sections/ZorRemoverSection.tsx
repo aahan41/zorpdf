@@ -46,7 +46,7 @@ export default function ZorRemoverSection() {
             </Link>
 
             <p className="text-slate-500 text-sm">
-              5 free images • HD download is Premium
+              Unlimited free images • HD download included
             </p>
           </div>
 
