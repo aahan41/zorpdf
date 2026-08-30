@@ -6,8 +6,9 @@ import {
   Zap,
   Globe,
   ChevronDown,
-  Facebook,
   Instagram,
+  Youtube,
+  MessageCircle,
   Clock,
   Lock,
   Star,
@@ -147,22 +148,37 @@ export default function Footer() {
 
             <div className="flex items-center gap-2.5">
               <motion.a
-                href="#"
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.95 }}
-                aria-label="Facebook"
-                className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
-              >
-                <Facebook className="w-4 h-4" />
-              </motion.a>
-              <motion.a
-                href="#"
+                href="https://www.instagram.com/mr_aahan41/"
+                target="_blank"
+                rel="noopener noreferrer"
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
                 aria-label="Instagram"
                 className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
               >
                 <Instagram className="w-4 h-4" />
+              </motion.a>
+              <motion.a
+                href="https://www.youtube.com/@Zorsolution"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label="YouTube"
+                className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
+              >
+                <Youtube className="w-4 h-4" />
+              </motion.a>
+              <motion.a
+                href="https://chat.whatsapp.com/HOFrjjDN93WGh6FdAZtwMA"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label="WhatsApp"
+                className="w-9 h-9 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 hover:border-blue-200 hover:text-blue-700 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
               </motion.a>
             </div>
           </div>
