@@ -27,8 +27,8 @@ const footerColumns = [
   {
     title: 'Resources',
     links: [
-      { label: 'ZorPDF Desktop', href: '#' },
-      { label: 'ZorPDF Mobile', href: '#' },
+      { label: 'ZorPDF Desktop', href: '/desktop' },
+      { label: 'ZorPDF Mobile', href: '/mobile' },
     ],
   },
   {
