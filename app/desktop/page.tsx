@@ -84,7 +84,7 @@ export default function DesktopPage() {
                 document in seconds.
               </p>
 
-              
+              <a
                 href="/#tools"
                 className="mt-8 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700"
               >
@@ -171,7 +171,7 @@ export default function DesktopPage() {
             No download, no sign up — just open the tools and start converting.
           </p>
 
-          
+          <a
             href="/#tools"
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700"
           >
