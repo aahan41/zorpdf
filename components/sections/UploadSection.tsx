@@ -16,7 +16,7 @@ import {
   ArrowUpCircle,
   CheckCircle2,
   ChevronLeft,
-  ChevronRight,Q
+  ChevronRight,
   FileText,
   GripVertical,
   RotateCcw,
