@@ -16,7 +16,7 @@ import {
   ArrowUpCircle,
   CheckCircle2,
   ChevronLeft,
-  ChevronRight,
+  ChevronRight,Q
   FileText,
   GripVertical,
   RotateCcw,
@@ -944,8 +944,7 @@ export default function UploadSection({
       const readyItems =
         files.filter(
           (item) =>
-            item.status === 'ready' &&
-            !isPdfFile(item.file)
+            item.status === 'ready'
         );
 
       if (
