@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Minimize2,
   FileOutput,
-  Bot,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -18,8 +17,7 @@ export type ToolId =
   | 'png-to-jpg'
   | 'word-to-pdf'
   | 'pdf-to-word'
-  | 'pdf-compressor'
-  | 'chat-with-pdf';
+  | 'pdf-compressor';
 
 export interface Tool {
   id: ToolId;
@@ -100,20 +98,6 @@ export const tools: Tool[] = [
     iconBg: 'from-cyan-500 to-blue-600',
     accept: '.pdf',
   },
-
-  // AI CHAT WITH PDF - NEW
-  {
-    id: 'chat-with-pdf',
-    title: 'AI Chat with PDF',
-    description:
-      'Upload a PDF and ask questions, summarize it, and find information with AI.',
-    from: 'PDF',
-    to: 'AI',
-    icon: Bot,
-    gradient: 'from-violet-50 to-indigo-100/50',
-    iconBg: 'from-violet-500 to-indigo-700',
-    accept: '.pdf',
-  },
 ];
 
 interface ToolCardProps {
@@ -149,9 +133,7 @@ function ToolCard({ tool, onNavigate }: ToolCardProps) {
           <span className="px-3 py-1 rounded-lg bg-white/70 text-slate-700 text-xs font-bold">
             {tool.from}
           </span>
-
           <ArrowRight className="w-4 h-4 text-slate-400" />
-
           <span className="px-3 py-1 rounded-lg bg-white/70 text-slate-700 text-xs font-bold">
             {tool.to}
           </span>
@@ -200,7 +182,6 @@ export default function ToolsGrid() {
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             File Converter
           </h2>
-
           <p className="text-slate-500 text-lg">
             Convert your files to any format you need
           </p>
