@@ -7,6 +7,37 @@ type Message = {
   content: string;
 };
 
+const tools = [
+  {
+    name: 'JPG to PDF',
+    path: '/tool/jpg-to-pdf',
+  },
+  {
+    name: 'PDF to JPG',
+    path: '/tool/pdf-to-jpg',
+  },
+  {
+    name: 'PNG to JPG',
+    path: '/tool/png-to-jpg',
+  },
+  {
+    name: 'Word to PDF',
+    path: '/tool/word-to-pdf',
+  },
+  {
+    name: 'PDF to Word',
+    path: '/tool/pdf-to-word',
+  },
+  {
+    name: 'PDF Compressor',
+    path: '/tool/pdf-compressor',
+  },
+  {
+    name: 'Zor Remover',
+    path: '/zor-remover',
+  },
+];
+
 export default function HelpBot() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -16,13 +47,14 @@ export default function HelpBot() {
     {
       role: 'assistant',
       content:
-        'Namaste! 👋 Main ZorPDF Help Bot hoon. ZorPDF ke tools use karne, file upload, conversion, compression ya download se related koi bhi sawal pooch sakte hain.',
+        'Assalamo Alaikum 🤝 Main ZorPDF Help Bot hoon. ZorPDF ke tools use karne, file upload, conversion, compression ya download se related koi bhi sawal pooch sakte hain.',
     },
   ]);
 
   const quickQuestions = [
     'PDF kaise compress karein?',
     'PDF ko JPG mein kaise badlein?',
+    'JPG ko PDF kaise banaye?',
     'PDF upload nahi ho raha',
   ];
 
@@ -85,6 +117,10 @@ export default function HelpBot() {
     }
   };
 
+  const openTool = (path: string) => {
+    window.location.href = path;
+  };
+
   return (
     <>
       {open && (
@@ -92,13 +128,13 @@ export default function HelpBot() {
           style={{
             position: 'fixed',
             right: '20px',
-            bottom: '92px',
-            width: '370px',
+            bottom: '94px',
+            width: '390px',
             maxWidth: 'calc(100vw - 24px)',
-            height: '540px',
+            height: '590px',
             background: '#ffffff',
             borderRadius: '20px',
-            boxShadow: '0 18px 50px rgba(37, 99, 235, 0.18)',
+            boxShadow: '0 18px 50px rgba(37, 99, 235, 0.20)',
             border: '1px solid #dbeafe',
             display: 'flex',
             flexDirection: 'column',
@@ -116,28 +152,79 @@ export default function HelpBot() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              boxShadow: '0 4px 14px rgba(37, 99, 235, 0.18)',
             }}
           >
-            <div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
               <div
                 style={{
-                  fontSize: '17px',
-                  fontWeight: 700,
-                  letterSpacing: '-0.2px',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '12px',
+                  background: 'rgba(255,255,255,0.16)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                ZorPDF Help Bot
+                <svg
+                  width="23"
+                  height="23"
+                  viewBox="0 0 48 48"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="9"
+                    y="13"
+                    width="30"
+                    height="24"
+                    rx="8"
+                    stroke="white"
+                    strokeWidth="3"
+                  />
+                  <path
+                    d="M24 13V7"
+                    stroke="white"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="24" cy="5" r="2.5" fill="white" />
+                  <circle cx="18" cy="24" r="2.5" fill="white" />
+                  <circle cx="30" cy="24" r="2.5" fill="white" />
+                  <path
+                    d="M18 30C21 32 27 32 30 30"
+                    stroke="white"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </div>
 
-              <div
-                style={{
-                  fontSize: '12px',
-                  opacity: 0.9,
-                  marginTop: '4px',
-                }}
-              >
-                Online • How can I help?
+              <div>
+                <div
+                  style={{
+                    fontSize: '17px',
+                    fontWeight: 700,
+                  }}
+                >
+                  ZorPDF Help Bot
+                </div>
+
+                <div
+                  style={{
+                    fontSize: '12px',
+                    opacity: 0.9,
+                    marginTop: '3px',
+                  }}
+                >
+                  Online • Customer Support
+                </div>
               </div>
             </div>
 
@@ -151,12 +238,9 @@ export default function HelpBot() {
                 width: '34px',
                 height: '34px',
                 borderRadius: '10px',
-                fontSize: '24px',
+                fontSize: '25px',
                 cursor: 'pointer',
                 lineHeight: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
               }}
             >
               ×
@@ -206,8 +290,8 @@ export default function HelpBot() {
                         : 'none',
                     boxShadow:
                       message.role === 'assistant'
-                        ? '0 3px 10px rgba(37, 99, 235, 0.06)'
-                        : '0 4px 12px rgba(37, 99, 235, 0.16)',
+                        ? '0 3px 10px rgba(37,99,235,0.06)'
+                        : '0 4px 12px rgba(37,99,235,0.15)',
                     fontSize: '14px',
                     lineHeight: 1.55,
                     whiteSpace: 'pre-wrap',
@@ -232,55 +316,110 @@ export default function HelpBot() {
                   fontSize: '13px',
                 }}
               >
-                <span>●</span>
+                <span style={{ color: '#2563eb' }}>●</span>
                 <span>Help Bot typing...</span>
               </div>
             )}
           </div>
 
-          {/* Quick Questions */}
-          {messages.length === 1 && (
+          {/* Tools */}
+          <div
+            style={{
+              padding: '10px 12px',
+              background: '#ffffff',
+              borderTop: '1px solid #e5efff',
+              maxHeight: '170px',
+              overflowY: 'auto',
+            }}
+          >
             <div
               style={{
-                padding: '10px 12px',
-                background: '#ffffff',
-                borderTop: '1px solid #e5efff',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#64748b',
+                marginBottom: '7px',
               }}
             >
-              <div
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: '#64748b',
-                  marginBottom: '7px',
-                  paddingLeft: '2px',
-                }}
-              >
-                Quick Help
-              </div>
+              ZorPDF Tools
+            </div>
 
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '6px',
+              }}
+            >
+              {tools.map((tool) => (
+                <button
+                  key={tool.path}
+                  onClick={() => openTool(tool.path)}
+                  style={{
+                    padding: '9px 8px',
+                    borderRadius: '9px',
+                    border: '1px solid #dbeafe',
+                    background: '#f8fbff',
+                    color: '#1d4ed8',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    textAlign: 'left',
+                  }}
+                >
+                  {tool.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Questions */}
+          <div
+            style={{
+              padding: '8px 12px',
+              background: '#ffffff',
+              borderTop: '1px solid #e5efff',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#64748b',
+                marginBottom: '6px',
+              }}
+            >
+              Quick Help
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                gap: '6px',
+                overflowX: 'auto',
+                paddingBottom: '2px',
+              }}
+            >
               {quickQuestions.map((question) => (
                 <button
                   key={question}
                   onClick={() => sendMessage(question)}
                   style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '9px 11px',
-                    marginBottom: '6px',
-                    borderRadius: '10px',
+                    flexShrink: 0,
+                    padding: '7px 10px',
+                    borderRadius: '9px',
                     border: '1px solid #dbeafe',
                     background: '#f8fbff',
                     cursor: 'pointer',
-                    fontSize: '12px',
+                    fontSize: '11px',
                     color: '#1d4ed8',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {question}
                 </button>
               ))}
             </div>
-          )}
+          </div>
 
           {/* Input */}
           <div
@@ -332,10 +471,6 @@ export default function HelpBot() {
                     ? 'not-allowed'
                     : 'pointer',
                 fontWeight: 700,
-                boxShadow:
-                  loading || !input.trim()
-                    ? 'none'
-                    : '0 5px 14px rgba(37, 99, 235, 0.22)',
               }}
             >
               Send
@@ -381,8 +516,8 @@ export default function HelpBot() {
           </span>
         ) : (
           <svg
-            width="32"
-            height="32"
+            width="34"
+            height="34"
             viewBox="0 0 48 48"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -394,13 +529,13 @@ export default function HelpBot() {
               width="30"
               height="24"
               rx="8"
-              stroke="currentColor"
+              stroke="white"
               strokeWidth="3"
             />
 
             <path
               d="M24 13V7"
-              stroke="currentColor"
+              stroke="white"
               strokeWidth="3"
               strokeLinecap="round"
             />
@@ -409,40 +544,40 @@ export default function HelpBot() {
               cx="24"
               cy="5"
               r="2.5"
-              fill="currentColor"
+              fill="white"
             />
 
             <circle
               cx="18"
               cy="24"
               r="2.5"
-              fill="currentColor"
+              fill="white"
             />
 
             <circle
               cx="30"
               cy="24"
               r="2.5"
-              fill="currentColor"
+              fill="white"
             />
 
             <path
               d="M18 30C21 32 27 32 30 30"
-              stroke="currentColor"
+              stroke="white"
               strokeWidth="2.5"
               strokeLinecap="round"
             />
 
             <path
               d="M9 23H6"
-              stroke="currentColor"
+              stroke="white"
               strokeWidth="3"
               strokeLinecap="round"
             />
 
             <path
               d="M39 23H42"
-              stroke="currentColor"
+              stroke="white"
               strokeWidth="3"
               strokeLinecap="round"
             />
