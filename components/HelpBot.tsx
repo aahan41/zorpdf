@@ -9,6 +9,12 @@ type Message = {
 
 const STORAGE_KEY = 'zorpdf-helpbot-messages';
 
+const defaultMessage: Message = {
+  role: 'assistant',
+  content:
+    'Assalamo Alaikum 🤝\n\nMain ZorPDF Help Bot hoon.\n\nBatayiye, main aapki kaise madad kar sakta hoon? Aap tool use karne, file upload, conversion, compression ya download se related koi bhi sawal pooch sakte hain.',
+};
+
 const tools = [
   {
     name: 'JPG to PDF',
@@ -84,27 +90,19 @@ const popularQuestions = [
   'PDF ko Word mein kaise badlein?',
 ];
 
-const defaultMessage: Message = {
-  role: 'assistant',
-  content:
-    'Assalamo Alaikum 🤝\n\nMain ZorPDF Help Bot hoon.\n\nBatayiye, main aapki kaise madad kar sakta hoon? Aap tool use karne, file upload, conversion, compression ya download se related koi bhi sawal pooch sakte hain.',
-};
-
 export default function HelpBot() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-
   const [messages, setMessages] = useState<Message[]>([
     defaultMessage,
   ]);
-
   const [loaded, setLoaded] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   /*
-   * Load saved chat from localStorage.
+   * Load saved chat
    */
   useEffect(() => {
     try {
@@ -113,19 +111,25 @@ export default function HelpBot() {
       if (saved) {
         const parsed = JSON.parse(saved);
 
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (
+          Array.isArray(parsed) &&
+          parsed.length > 0
+        ) {
           setMessages(parsed);
         }
       }
     } catch (error) {
-      console.error('Help Bot storage load error:', error);
+      console.error(
+        'Help Bot load error:',
+        error
+      );
     } finally {
       setLoaded(true);
     }
   }, []);
 
   /*
-   * Save chat after changes.
+   * Save chat
    */
   useEffect(() => {
     if (!loaded) return;
@@ -136,12 +140,15 @@ export default function HelpBot() {
         JSON.stringify(messages)
       );
     } catch (error) {
-      console.error('Help Bot storage save error:', error);
+      console.error(
+        'Help Bot save error:',
+        error
+      );
     }
   }, [messages, loaded]);
 
   /*
-   * Keep the latest message visible.
+   * Scroll to latest message
    */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -149,6 +156,190 @@ export default function HelpBot() {
     });
   }, [messages, loading]);
 
+  /*
+   * Local customer support answers
+   */
+  const getLocalHelpAnswer = (
+    question: string
+  ): string | null => {
+    const q = question.toLowerCase().trim();
+
+    if (
+      q.includes('compress') ||
+      q.includes('compression') ||
+      q.includes('size kam')
+    ) {
+      return `PDF compress karne ke liye:
+
+1. PDF Compressor tool open karein.
+2. Apni PDF upload karein.
+3. Processing complete hone ka wait karein.
+4. Compressed PDF download karein.
+
+PDF Compressor:
+${window.location.origin}/tool/pdf-compressor`;
+    }
+
+    if (
+      q.includes('pdf ko jpg') ||
+      q.includes('pdf to jpg') ||
+      q.includes('pdf se jpg')
+    ) {
+      return `PDF ko JPG mein convert karne ke liye:
+
+1. PDF to JPG tool open karein.
+2. Apni PDF upload karein.
+3. Conversion complete hone dein.
+4. JPG download karein.
+
+PDF to JPG:
+${window.location.origin}/tool/pdf-to-jpg`;
+    }
+
+    if (
+      q.includes('jpg ko pdf') ||
+      q.includes('jpg to pdf') ||
+      q.includes('jpg se pdf')
+    ) {
+      return `JPG ko PDF mein banane ke liye:
+
+1. JPG to PDF tool open karein.
+2. Apni JPG image upload karein.
+3. Conversion complete hone dein.
+4. PDF download karein.
+
+JPG to PDF:
+${window.location.origin}/tool/jpg-to-pdf`;
+    }
+
+    if (
+      q.includes('png to jpg') ||
+      q.includes('png ko jpg') ||
+      q.includes('png se jpg')
+    ) {
+      return `PNG ko JPG mein convert karne ke liye:
+
+1. PNG to JPG tool open karein.
+2. Apni PNG image upload karein.
+3. Conversion complete hone dein.
+4. JPG download karein.
+
+PNG to JPG:
+${window.location.origin}/tool/png-to-jpg`;
+    }
+
+    if (
+      q.includes('word to pdf') ||
+      q.includes('word ko pdf') ||
+      q.includes('word se pdf')
+    ) {
+      return `Word file ko PDF mein convert karne ke liye:
+
+1. Word to PDF tool open karein.
+2. Apni Word file upload karein.
+3. Conversion complete hone dein.
+4. PDF download karein.
+
+Word to PDF:
+${window.location.origin}/tool/word-to-pdf`;
+    }
+
+    if (
+      q.includes('pdf to word') ||
+      q.includes('pdf ko word') ||
+      q.includes('pdf se word')
+    ) {
+      return `PDF ko Word mein convert karne ke liye:
+
+1. PDF to Word tool open karein.
+2. Apni PDF upload karein.
+3. Conversion complete hone dein.
+4. Word file download karein.
+
+PDF to Word:
+${window.location.origin}/tool/pdf-to-word`;
+    }
+
+    if (
+      q.includes('zor remover') ||
+      q.includes('background remove') ||
+      q.includes('background hata')
+    ) {
+      return `Zor Remover se image ka background remove kar sakte hain:
+
+1. Zor Remover open karein.
+2. Apni image upload karein.
+3. Background removal complete hone dein.
+4. Result download karein.
+
+Zor Remover:
+${window.location.origin}/zor-remover`;
+    }
+
+    if (
+      q.includes('upload') ||
+      q.includes('file upload') ||
+      q.includes('file nahi') ||
+      q.includes('upload nahi')
+    ) {
+      return `Agar file upload nahi ho rahi hai, to:
+
+1. File format check karein.
+2. Chhoti file ke saath try karein.
+3. Internet connection check karein.
+4. Page refresh karein.
+5. Chrome ya Edge jaise doosre browser mein try karein.
+6. Thodi der baad dobara try karein.`;
+    }
+
+    if (
+      q.includes('download') ||
+      q.includes('download button')
+    ) {
+      return `Download problem ke liye:
+
+1. Processing complete hone ka wait karein.
+2. Download button dobara click karein.
+3. Page refresh karke try karein.
+4. Browser ke download settings check karein.
+5. Doosre browser mein try karein.`;
+    }
+
+    if (
+      q.includes('conversion') ||
+      q.includes('convert nahi') ||
+      q.includes('conversion nahi')
+    ) {
+      return `Agar conversion nahi ho raha hai:
+
+1. Input file check karein.
+2. Supported file format use karein.
+3. Page refresh karein.
+4. Chhoti file ke saath try karein.
+5. Doosre browser mein try karein.`;
+    }
+
+    if (
+      q.includes('tools kaise use') ||
+      q.includes('how to use') ||
+      q.includes('zorpdf kaise use')
+    ) {
+      return `ZorPDF use karna bahut easy hai:
+
+1. Apni zarurat ke according tool choose karein.
+2. File upload karein.
+3. Processing complete hone ka wait karein.
+4. Result download karein.
+
+Aap neeche "All ZorPDF Tools" section se bhi directly tool open kar sakte hain.`;
+    }
+
+    return null;
+  };
+
+  /*
+   * Send message
+   */
   const sendMessage = async (text?: string) => {
     const question = (text ?? input).trim();
 
@@ -164,24 +355,52 @@ export default function HelpBot() {
       },
     ]);
 
+    /*
+     * First use local answers.
+     * These work even if Gemini is unavailable.
+     */
+    const localAnswer =
+      getLocalHelpAnswer(question);
+
+    if (localAnswer) {
+      setTimeout(() => {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: localAnswer,
+          },
+        ]);
+      }, 250);
+
+      return;
+    }
+
+    /*
+     * Use Gemini for unknown questions.
+     */
     setLoading(true);
 
     try {
-      const response = await fetch('/api/ai-help', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: question,
-        }),
-      });
+      const response = await fetch(
+        '/api/ai-help',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: question,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data?.error || 'Something went wrong'
+          data?.error ||
+            'Something went wrong'
         );
       }
 
@@ -191,18 +410,21 @@ export default function HelpBot() {
           role: 'assistant',
           content:
             data?.reply ||
-            'Sorry, abhi main answer nahi de pa raha hoon. Please thodi der baad try karein.',
+            'Sorry, abhi main answer nahi de pa raha hoon.',
         },
       ]);
     } catch (error) {
-      console.error('Help Bot error:', error);
+      console.error(
+        'Help Bot error:',
+        error
+      );
 
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
           content:
-            'Sorry 😔 Abhi Help Bot se connection nahi ho pa raha hai. Please thodi der baad try karein.',
+            'Abhi AI service temporarily available nahi hai. Neeche diye gaye ZorPDF tools se aap directly apna kaam kar sakte hain.',
         },
       ]);
     } finally {
@@ -220,7 +442,10 @@ export default function HelpBot() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
-      console.error('Help Bot clear error:', error);
+      console.error(
+        'Help Bot clear error:',
+        error
+      );
     }
   };
 
@@ -233,15 +458,18 @@ export default function HelpBot() {
             position: 'fixed',
             right: '18px',
             bottom: '92px',
-            width: '405px',
-            maxWidth: 'calc(100vw - 20px)',
+            width: '410px',
+            maxWidth:
+              'calc(100vw - 20px)',
             height: '680px',
-            maxHeight: 'calc(100vh - 105px)',
+            maxHeight:
+              'calc(100vh - 105px)',
             background: '#ffffff',
             borderRadius: '22px',
-            border: '1px solid #dbeafe',
+            border:
+              '1px solid #dbeafe',
             boxShadow:
-              '0 24px 70px rgba(15, 23, 42, 0.20)',
+              '0 24px 70px rgba(15,23,42,0.20)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -262,7 +490,8 @@ export default function HelpBot() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent:
+                  'space-between',
               }}
             >
               <div
@@ -281,7 +510,8 @@ export default function HelpBot() {
                       'rgba(255,255,255,0.16)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    justifyContent:
+                      'center',
                   }}
                 >
                   <svg
@@ -362,7 +592,6 @@ export default function HelpBot() {
               <div
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
                   gap: '6px',
                 }}
               >
@@ -386,7 +615,9 @@ export default function HelpBot() {
                 </button>
 
                 <button
-                  onClick={() => setOpen(false)}
+                  onClick={() =>
+                    setOpen(false)
+                  }
                   aria-label="Close Help Bot"
                   style={{
                     width: '34px',
@@ -407,7 +638,7 @@ export default function HelpBot() {
             </div>
           </div>
 
-          {/* Scrollable Content */}
+          {/* Scrollable Main Content */}
           <div
             style={{
               flex: 1,
@@ -416,52 +647,59 @@ export default function HelpBot() {
               padding: '14px',
             }}
           >
-            {/* Chat Messages */}
-            {messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                style={{
-                  display: 'flex',
-                  justifyContent:
-                    message.role === 'user'
-                      ? 'flex-end'
-                      : 'flex-start',
-                  marginBottom: '11px',
-                }}
-              >
+            {/* Messages */}
+            {messages.map(
+              (message, index) => (
                 <div
+                  key={`${message.role}-${index}`}
                   style={{
-                    maxWidth: '88%',
-                    padding: '11px 13px',
-                    borderRadius:
+                    display: 'flex',
+                    justifyContent:
                       message.role === 'user'
-                        ? '16px 16px 5px 16px'
-                        : '16px 16px 16px 5px',
-                    background:
-                      message.role === 'user'
-                        ? '#2563eb'
-                        : '#ffffff',
-                    color:
-                      message.role === 'user'
-                        ? '#ffffff'
-                        : '#1e293b',
-                    border:
-                      message.role === 'assistant'
-                        ? '1px solid #dbeafe'
-                        : 'none',
-                    boxShadow:
-                      message.role === 'assistant'
-                        ? '0 3px 10px rgba(37,99,235,0.05)'
-                        : '0 6px 18px rgba(37,99,235,0.13)',
-                    fontSize: '13px',
-                    lineHeight: 1.6,
-                    whiteSpace: 'pre-wrap',
+                        ? 'flex-end'
+                        : 'flex-start',
+                    marginBottom: '11px',
                   }}
                 >
-                  {message.content}
+                  <div
+                    style={{
+                      maxWidth: '88%',
+                      padding: '11px 13px',
+                      borderRadius:
+                        message.role ===
+                        'user'
+                          ? '16px 16px 5px 16px'
+                          : '16px 16px 16px 5px',
+                      background:
+                        message.role ===
+                        'user'
+                          ? '#2563eb'
+                          : '#ffffff',
+                      color:
+                        message.role ===
+                        'user'
+                          ? '#ffffff'
+                          : '#1e293b',
+                      border:
+                        message.role ===
+                        'assistant'
+                          ? '1px solid #dbeafe'
+                          : 'none',
+                      boxShadow:
+                        message.role ===
+                        'assistant'
+                          ? '0 3px 10px rgba(37,99,235,0.05)'
+                          : '0 6px 18px rgba(37,99,235,0.13)',
+                      fontSize: '13px',
+                      lineHeight: 1.6,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {message.content}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
 
             {loading && (
               <div
@@ -470,19 +708,25 @@ export default function HelpBot() {
                   alignItems: 'center',
                   gap: '7px',
                   background: '#ffffff',
-                  border: '1px solid #dbeafe',
+                  border:
+                    '1px solid #dbeafe',
                   borderRadius: '14px',
                   padding: '10px 12px',
                   color: '#64748b',
                   fontSize: '12px',
                 }}
               >
-                <span style={{ color: '#2563eb' }}>
+                <span
+                  style={{
+                    color: '#2563eb',
+                  }}
+                >
                   ●
                 </span>
 
                 <span>
-                  Help Bot is preparing your answer...
+                  Help Bot is preparing your
+                  answer...
                 </span>
               </div>
             )}
@@ -494,7 +738,7 @@ export default function HelpBot() {
               <>
                 <div
                   style={{
-                    marginTop: '6px',
+                    marginTop: '7px',
                     marginBottom: '8px',
                     fontSize: '12px',
                     fontWeight: 800,
@@ -510,47 +754,57 @@ export default function HelpBot() {
                     gridTemplateColumns:
                       '1fr 1fr',
                     gap: '8px',
-                    marginBottom: '16px',
+                    marginBottom: '17px',
                   }}
                 >
-                  {helpTopics.map((topic) => (
-                    <button
-                      key={topic.title}
-                      onClick={() =>
-                        sendMessage(topic.question)
-                      }
-                      style={{
-                        textAlign: 'left',
-                        padding: '11px',
-                        borderRadius: '13px',
-                        border:
-                          '1px solid #dbeafe',
-                        background: '#ffffff',
-                        cursor: 'pointer',
-                        boxShadow:
-                          '0 3px 10px rgba(37,99,235,0.05)',
-                      }}
-                    >
-                      <div
+                  {helpTopics.map(
+                    (topic) => (
+                      <button
+                        key={topic.title}
+                        onClick={() =>
+                          sendMessage(
+                            topic.question
+                          )
+                        }
                         style={{
-                          fontSize: '17px',
-                          marginBottom: '5px',
+                          textAlign: 'left',
+                          padding: '11px',
+                          borderRadius: '13px',
+                          border:
+                            '1px solid #dbeafe',
+                          background:
+                            '#ffffff',
+                          cursor: 'pointer',
+                          boxShadow:
+                            '0 3px 10px rgba(37,99,235,0.05)',
                         }}
                       >
-                        {topic.icon}
-                      </div>
+                        <div
+                          style={{
+                            fontSize:
+                              '17px',
+                            marginBottom:
+                              '5px',
+                          }}
+                        >
+                          {topic.icon}
+                        </div>
 
-                      <div
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          color: '#1d4ed8',
-                        }}
-                      >
-                        {topic.title}
-                      </div>
-                    </button>
-                  ))}
+                        <div
+                          style={{
+                            fontSize:
+                              '11px',
+                            fontWeight: 800,
+                            color:
+                              '#1d4ed8',
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {topic.title}
+                        </div>
+                      </button>
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -560,7 +814,8 @@ export default function HelpBot() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent:
+                  'space-between',
                 marginBottom: '8px',
               }}
             >
@@ -595,7 +850,9 @@ export default function HelpBot() {
               {tools.map((tool) => (
                 <button
                   key={tool.path}
-                  onClick={() => openTool(tool.path)}
+                  onClick={() =>
+                    openTool(tool.path)
+                  }
                   style={{
                     width: '100%',
                     display: 'flex',
@@ -618,7 +875,8 @@ export default function HelpBot() {
                       background: '#eff6ff',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
+                      justifyContent:
+                        'center',
                       fontSize: '17px',
                       flexShrink: 0,
                     }}
@@ -682,28 +940,33 @@ export default function HelpBot() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '7px',
+                paddingBottom: '8px',
               }}
             >
-              {popularQuestions.map((question) => (
-                <button
-                  key={question}
-                  onClick={() => sendMessage(question)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    textAlign: 'left',
-                    borderRadius: '11px',
-                    border:
-                      '1px solid #dbeafe',
-                    background: '#ffffff',
-                    color: '#334155',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                  }}
-                >
-                  {question}
-                </button>
-              ))}
+              {popularQuestions.map(
+                (question) => (
+                  <button
+                    key={question}
+                    onClick={() =>
+                      sendMessage(question)
+                    }
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      textAlign: 'left',
+                      borderRadius: '11px',
+                      border:
+                        '1px solid #dbeafe',
+                      background: '#ffffff',
+                      color: '#334155',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    {question}
+                  </button>
+                )
+              )}
             </div>
           </div>
 
@@ -712,7 +975,8 @@ export default function HelpBot() {
             style={{
               padding: '12px',
               background: '#ffffff',
-              borderTop: '1px solid #e5efff',
+              borderTop:
+                '1px solid #e5efff',
               flexShrink: 0,
             }}
           >
@@ -743,27 +1007,34 @@ export default function HelpBot() {
                     '1px solid #cbdffb',
                   outline: 'none',
                   fontSize: '12px',
-                  background: '#f8fbff',
+                  background:
+                    '#f8fbff',
                   color: '#1e293b',
                 }}
               />
 
               <button
-                onClick={() => sendMessage()}
+                onClick={() =>
+                  sendMessage()
+                }
                 disabled={
-                  loading || !input.trim()
+                  loading ||
+                  !input.trim()
                 }
                 style={{
-                  padding: '10px 15px',
+                  padding:
+                    '10px 15px',
                   borderRadius: '11px',
                   border: 'none',
                   background:
-                    loading || !input.trim()
+                    loading ||
+                    !input.trim()
                       ? '#bfdbfe'
                       : '#2563eb',
                   color: '#ffffff',
                   cursor:
-                    loading || !input.trim()
+                    loading ||
+                    !input.trim()
                       ? 'not-allowed'
                       : 'pointer',
                   fontWeight: 800,
@@ -781,15 +1052,18 @@ export default function HelpBot() {
                 marginTop: '7px',
               }}
             >
-              ZorPDF Help Bot • Smart Customer Support
+              ZorPDF Help Bot • Smart Customer
+              Support
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Bot Button */}
+      {/* Floating Button */}
       <button
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() =>
+          setOpen((prev) => !prev)
+        }
         aria-label="Open ZorPDF Help Bot"
         title="ZorPDF Help Bot"
         style={{
@@ -799,7 +1073,8 @@ export default function HelpBot() {
           width: '64px',
           height: '64px',
           borderRadius: '50%',
-          border: '3px solid #ffffff',
+          border:
+            '3px solid #ffffff',
           background:
             'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
           color: '#ffffff',
