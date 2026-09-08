@@ -93,13 +93,13 @@ export default function HelpBot() {
             position: 'fixed',
             right: '20px',
             bottom: '92px',
-            width: '360px',
-            maxWidth: 'calc(100vw - 30px)',
-            height: '520px',
+            width: '370px',
+            maxWidth: 'calc(100vw - 24px)',
+            height: '540px',
             background: '#ffffff',
-            borderRadius: '18px',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
-            border: '1px solid #e5e7eb',
+            borderRadius: '20px',
+            boxShadow: '0 18px 50px rgba(37, 99, 235, 0.18)',
+            border: '1px solid #dbeafe',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -109,12 +109,14 @@ export default function HelpBot() {
           {/* Header */}
           <div
             style={{
-              padding: '16px',
-              background: '#111827',
+              padding: '17px 18px',
+              background:
+                'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              boxShadow: '0 4px 14px rgba(37, 99, 235, 0.18)',
             }}
           >
             <div>
@@ -122,6 +124,7 @@ export default function HelpBot() {
                 style={{
                   fontSize: '17px',
                   fontWeight: 700,
+                  letterSpacing: '-0.2px',
                 }}
               >
                 ZorPDF Help Bot
@@ -130,8 +133,8 @@ export default function HelpBot() {
               <div
                 style={{
                   fontSize: '12px',
-                  opacity: 0.8,
-                  marginTop: '3px',
+                  opacity: 0.9,
+                  marginTop: '4px',
                 }}
               >
                 Online • How can I help?
@@ -143,11 +146,17 @@ export default function HelpBot() {
               aria-label="Close Help Bot"
               style={{
                 border: 'none',
-                background: 'transparent',
+                background: 'rgba(255,255,255,0.15)',
                 color: '#ffffff',
-                fontSize: '28px',
+                width: '34px',
+                height: '34px',
+                borderRadius: '10px',
+                fontSize: '24px',
                 cursor: 'pointer',
                 lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
               ×
@@ -158,9 +167,9 @@ export default function HelpBot() {
           <div
             style={{
               flex: 1,
-              padding: '14px',
+              padding: '15px',
               overflowY: 'auto',
-              background: '#f9fafb',
+              background: '#f8fbff',
             }}
           >
             {messages.map((message, index) => (
@@ -172,28 +181,35 @@ export default function HelpBot() {
                     message.role === 'user'
                       ? 'flex-end'
                       : 'flex-start',
-                  marginBottom: '10px',
+                  marginBottom: '11px',
                 }}
               >
                 <div
                   style={{
-                    maxWidth: '82%',
-                    padding: '10px 12px',
-                    borderRadius: '13px',
+                    maxWidth: '84%',
+                    padding: '11px 13px',
+                    borderRadius:
+                      message.role === 'user'
+                        ? '15px 15px 4px 15px'
+                        : '15px 15px 15px 4px',
                     background:
                       message.role === 'user'
-                        ? '#111827'
+                        ? '#2563eb'
                         : '#ffffff',
                     color:
                       message.role === 'user'
                         ? '#ffffff'
-                        : '#1f2937',
+                        : '#1e293b',
                     border:
                       message.role === 'assistant'
-                        ? '1px solid #e5e7eb'
+                        ? '1px solid #dbeafe'
                         : 'none',
+                    boxShadow:
+                      message.role === 'assistant'
+                        ? '0 3px 10px rgba(37, 99, 235, 0.06)'
+                        : '0 4px 12px rgba(37, 99, 235, 0.16)',
                     fontSize: '14px',
-                    lineHeight: 1.5,
+                    lineHeight: 1.55,
                     whiteSpace: 'pre-wrap',
                   }}
                 >
@@ -205,12 +221,19 @@ export default function HelpBot() {
             {loading && (
               <div
                 style={{
-                  color: '#6b7280',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  background: '#ffffff',
+                  border: '1px solid #dbeafe',
+                  borderRadius: '14px',
+                  padding: '10px 12px',
+                  color: '#64748b',
                   fontSize: '13px',
-                  padding: '8px',
                 }}
               >
-                Help Bot typing...
+                <span>●</span>
+                <span>Help Bot typing...</span>
               </div>
             )}
           </div>
@@ -219,11 +242,23 @@ export default function HelpBot() {
           {messages.length === 1 && (
             <div
               style={{
-                padding: '8px 12px',
+                padding: '10px 12px',
                 background: '#ffffff',
-                borderTop: '1px solid #e5e7eb',
+                borderTop: '1px solid #e5efff',
               }}
             >
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#64748b',
+                  marginBottom: '7px',
+                  paddingLeft: '2px',
+                }}
+              >
+                Quick Help
+              </div>
+
               {quickQuestions.map((question) => (
                 <button
                   key={question}
@@ -231,14 +266,14 @@ export default function HelpBot() {
                   style={{
                     width: '100%',
                     textAlign: 'left',
-                    padding: '8px 10px',
-                    marginBottom: '5px',
-                    borderRadius: '9px',
-                    border: '1px solid #e5e7eb',
-                    background: '#ffffff',
+                    padding: '9px 11px',
+                    marginBottom: '6px',
+                    borderRadius: '10px',
+                    border: '1px solid #dbeafe',
+                    background: '#f8fbff',
                     cursor: 'pointer',
                     fontSize: '12px',
-                    color: '#374151',
+                    color: '#1d4ed8',
                   }}
                 >
                   {question}
@@ -254,7 +289,7 @@ export default function HelpBot() {
               gap: '8px',
               padding: '12px',
               background: '#ffffff',
-              borderTop: '1px solid #e5e7eb',
+              borderTop: '1px solid #e5efff',
             }}
           >
             <input
@@ -270,11 +305,13 @@ export default function HelpBot() {
               style={{
                 flex: 1,
                 minWidth: 0,
-                padding: '10px 12px',
-                borderRadius: '10px',
-                border: '1px solid #d1d5db',
+                padding: '11px 12px',
+                borderRadius: '11px',
+                border: '1px solid #cbdffb',
                 outline: 'none',
                 fontSize: '14px',
+                color: '#1e293b',
+                background: '#f8fbff',
               }}
             />
 
@@ -282,19 +319,23 @@ export default function HelpBot() {
               onClick={() => sendMessage()}
               disabled={loading || !input.trim()}
               style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
+                padding: '10px 15px',
+                borderRadius: '11px',
                 border: 'none',
                 background:
                   loading || !input.trim()
-                    ? '#9ca3af'
-                    : '#111827',
+                    ? '#bfdbfe'
+                    : '#2563eb',
                 color: '#ffffff',
                 cursor:
                   loading || !input.trim()
                     ? 'not-allowed'
                     : 'pointer',
-                fontWeight: 600,
+                fontWeight: 700,
+                boxShadow:
+                  loading || !input.trim()
+                    ? 'none'
+                    : '0 5px 14px rgba(37, 99, 235, 0.22)',
               }}
             >
               Send
@@ -312,19 +353,20 @@ export default function HelpBot() {
           position: 'fixed',
           right: '20px',
           bottom: '20px',
-          width: '62px',
-          height: '62px',
+          width: '64px',
+          height: '64px',
           borderRadius: '50%',
-          border: 'none',
-          background: '#111827',
+          border: '3px solid #ffffff',
+          background:
+            'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
           color: '#ffffff',
-          boxShadow: '0 8px 25px rgba(0,0,0,0.22)',
+          boxShadow:
+            '0 10px 30px rgba(37, 99, 235, 0.30)',
           cursor: 'pointer',
           zIndex: 10000,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'transform 0.2s ease',
         }}
       >
         {open ? (
@@ -346,7 +388,6 @@ export default function HelpBot() {
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
           >
-            {/* Robot Head */}
             <rect
               x="9"
               y="13"
@@ -357,7 +398,6 @@ export default function HelpBot() {
               strokeWidth="3"
             />
 
-            {/* Antenna */}
             <path
               d="M24 13V7"
               stroke="currentColor"
@@ -372,7 +412,6 @@ export default function HelpBot() {
               fill="currentColor"
             />
 
-            {/* Eyes */}
             <circle
               cx="18"
               cy="24"
@@ -387,7 +426,6 @@ export default function HelpBot() {
               fill="currentColor"
             />
 
-            {/* Smile */}
             <path
               d="M18 30C21 32 27 32 30 30"
               stroke="currentColor"
@@ -395,7 +433,6 @@ export default function HelpBot() {
               strokeLinecap="round"
             />
 
-            {/* Ears */}
             <path
               d="M9 23H6"
               stroke="currentColor"
