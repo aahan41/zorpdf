@@ -551,6 +551,7 @@ export default function HelpBot() {
                 }}
               >
                 <button
+                  type="button"
                   onClick={clearChat}
                   title="Clear chat"
                   style={{
@@ -569,6 +570,7 @@ export default function HelpBot() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() =>
                     setOpen(false)
                   }
@@ -659,6 +661,7 @@ export default function HelpBot() {
                   {/* ACTION BUTTON */}
                   {message.action && (
                     <button
+                      type="button"
                       onClick={() =>
                         openTool(
                           message.action!
@@ -743,6 +746,7 @@ export default function HelpBot() {
                   {helpTopics.map(
                     (topic) => (
                       <button
+                        type="button"
                         key={topic.title}
                         onClick={() =>
                           handleHelpClick(
@@ -837,6 +841,7 @@ export default function HelpBot() {
             >
               {tools.map((tool) => (
                 <button
+                  type="button"
                   key={tool.path}
                   onClick={() =>
                     handleToolClick(
@@ -954,6 +959,7 @@ export default function HelpBot() {
               {popularQuestions.map(
                 (item) => (
                   <button
+                    type="button"
                     key={item.question}
                     onClick={() =>
                       handlePopularClick(
@@ -1041,6 +1047,7 @@ export default function HelpBot() {
               />
 
               <button
+                type="button"
                 onClick={() =>
                   sendMessage()
                 }
@@ -1095,6 +1102,7 @@ export default function HelpBot() {
 
       {/* FLOATING BUTTON */}
       <button
+        type="button"
         onClick={() =>
           setOpen(
             (prev) => !prev
