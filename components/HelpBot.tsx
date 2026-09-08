@@ -1,16 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Message = {
   role: 'user' | 'assistant';
   content: string;
 };
 
+const STORAGE_KEY = 'zorpdf-helpbot-messages';
+
 const tools = [
   {
     name: 'JPG to PDF',
-    description: 'Images ko PDF mein badlein',
+    description: 'JPG images ko PDF mein badlein',
     path: '/tool/jpg-to-pdf',
     icon: '🖼️',
   },
@@ -28,25 +30,25 @@ const tools = [
   },
   {
     name: 'Word to PDF',
-    description: 'Word file ko PDF banayein',
+    description: 'Word document ko PDF banayein',
     path: '/tool/word-to-pdf',
     icon: '📝',
   },
   {
     name: 'PDF to Word',
-    description: 'PDF ko editable Word banayein',
+    description: 'PDF ko editable Word mein badlein',
     path: '/tool/pdf-to-word',
     icon: '📘',
   },
   {
     name: 'PDF Compressor',
-    description: 'PDF size kam karein',
+    description: 'PDF file ka size kam karein',
     path: '/tool/pdf-compressor',
     icon: '🗜️',
   },
   {
     name: 'Zor Remover',
-    description: 'Image background remove karein',
+    description: 'Image ka background remove karein',
     path: '/zor-remover',
     icon: '✨',
   },
@@ -54,33 +56,39 @@ const tools = [
 
 const helpTopics = [
   {
-    title: 'How to use?',
+    title: 'Tool kaise use karein?',
     icon: '💡',
     question: 'ZorPDF tools kaise use karein?',
   },
   {
-    title: 'Upload Problem',
+    title: 'File upload nahi ho raha',
     icon: '📤',
     question: 'Mera file upload nahi ho raha',
   },
   {
-    title: 'Conversion Problem',
+    title: 'Conversion problem',
     icon: '⚙️',
     question: 'Mera conversion nahi ho raha',
   },
   {
-    title: 'Download Problem',
+    title: 'Download problem',
     icon: '⬇️',
     question: 'Download button kaam nahi kar raha',
   },
 ];
 
-const quickQuestions = [
+const popularQuestions = [
   'PDF kaise compress karein?',
   'PDF ko JPG mein kaise badlein?',
   'JPG ko PDF kaise banaye?',
   'PDF ko Word mein kaise badlein?',
 ];
+
+const defaultMessage: Message = {
+  role: 'assistant',
+  content:
+    'Assalamo Alaikum 🤝\n\nMain ZorPDF Help Bot hoon.\n\nBatayiye, main aapki kaise madad kar sakta hoon? Aap tool use karne, file upload, conversion, compression ya download se related koi bhi sawal pooch sakte hain.',
+};
 
 export default function HelpBot() {
   const [open, setOpen] = useState(false);
@@ -88,12 +96,58 @@ export default function HelpBot() {
   const [loading, setLoading] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content:
-        'Assalamo Alaikum 🤝\n\nMain ZorPDF Help Bot hoon.\n\nBatayiye, main aapki kaise madad kar sakta hoon? Aap tool use karne, file upload, conversion, compression ya download se related koi bhi sawal pooch sakte hain.',
-    },
+    defaultMessage,
   ]);
+
+  const [loaded, setLoaded] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * Load saved chat from localStorage.
+   */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+
+      if (saved) {
+        const parsed = JSON.parse(saved);
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Help Bot storage load error:', error);
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
+
+  /*
+   * Save chat after changes.
+   */
+  useEffect(() => {
+    if (!loaded) return;
+
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(messages)
+      );
+    } catch (error) {
+      console.error('Help Bot storage save error:', error);
+    }
+  }, [messages, loaded]);
+
+  /*
+   * Keep the latest message visible.
+   */
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: 'smooth',
+    });
+  }, [messages, loading]);
 
   const sendMessage = async (text?: string) => {
     const question = (text ?? input).trim();
@@ -126,7 +180,9 @@ export default function HelpBot() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error || 'Something went wrong');
+        throw new Error(
+          data?.error || 'Something went wrong'
+        );
       }
 
       setMessages((prev) => [
@@ -158,6 +214,16 @@ export default function HelpBot() {
     window.location.href = path;
   };
 
+  const clearChat = () => {
+    setMessages([defaultMessage]);
+
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error('Help Bot clear error:', error);
+    }
+  };
+
   return (
     <>
       {/* Help Bot Window */}
@@ -167,15 +233,15 @@ export default function HelpBot() {
             position: 'fixed',
             right: '18px',
             bottom: '92px',
-            width: '400px',
+            width: '405px',
             maxWidth: 'calc(100vw - 20px)',
-            height: '650px',
-            maxHeight: 'calc(100vh - 110px)',
+            height: '680px',
+            maxHeight: 'calc(100vh - 105px)',
             background: '#ffffff',
             borderRadius: '22px',
             border: '1px solid #dbeafe',
             boxShadow:
-              '0 25px 70px rgba(15, 23, 42, 0.20)',
+              '0 24px 70px rgba(15, 23, 42, 0.20)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -185,10 +251,11 @@ export default function HelpBot() {
           {/* Header */}
           <div
             style={{
-              padding: '18px',
+              padding: '17px 18px',
               background:
                 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
               color: '#ffffff',
+              flexShrink: 0,
             }}
           >
             <div
@@ -210,15 +277,16 @@ export default function HelpBot() {
                     width: '44px',
                     height: '44px',
                     borderRadius: '14px',
-                    background: 'rgba(255,255,255,0.16)',
+                    background:
+                      'rgba(255,255,255,0.16)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
                   <svg
-                    width="28"
-                    height="28"
+                    width="27"
+                    height="27"
                     viewBox="0 0 48 48"
                     fill="none"
                   >
@@ -231,30 +299,35 @@ export default function HelpBot() {
                       stroke="white"
                       strokeWidth="3"
                     />
+
                     <path
                       d="M24 13V7"
                       stroke="white"
                       strokeWidth="3"
                       strokeLinecap="round"
                     />
+
                     <circle
                       cx="24"
                       cy="5"
                       r="2.5"
                       fill="white"
                     />
+
                     <circle
                       cx="18"
                       cy="24"
                       r="2.5"
                       fill="white"
                     />
+
                     <circle
                       cx="30"
                       cy="24"
                       r="2.5"
                       fill="white"
                     />
+
                     <path
                       d="M18 30C21 32 27 32 30 30"
                       stroke="white"
@@ -267,7 +340,7 @@ export default function HelpBot() {
                 <div>
                   <div
                     style={{
-                      fontSize: '18px',
+                      fontSize: '17px',
                       fontWeight: 800,
                     }}
                   >
@@ -276,7 +349,7 @@ export default function HelpBot() {
 
                   <div
                     style={{
-                      fontSize: '12px',
+                      fontSize: '11px',
                       opacity: 0.9,
                       marginTop: '3px',
                     }}
@@ -286,26 +359,55 @@ export default function HelpBot() {
                 </div>
               </div>
 
-              <button
-                onClick={() => setOpen(false)}
-                aria-label="Close Help Bot"
+              <div
                 style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '11px',
-                  border: 'none',
-                  background: 'rgba(255,255,255,0.14)',
-                  color: '#ffffff',
-                  fontSize: '25px',
-                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
-                ×
-              </button>
+                <button
+                  onClick={clearChat}
+                  title="Clear chat"
+                  aria-label="Clear chat"
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background:
+                      'rgba(255,255,255,0.12)',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                  }}
+                >
+                  ↻
+                </button>
+
+                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Close Help Bot"
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background:
+                      'rgba(255,255,255,0.14)',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    fontSize: '25px',
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Main Content */}
+          {/* Scrollable Content */}
           <div
             style={{
               flex: 1,
@@ -314,23 +416,23 @@ export default function HelpBot() {
               padding: '14px',
             }}
           >
-            {/* Messages */}
+            {/* Chat Messages */}
             {messages.map((message, index) => (
               <div
-                key={index}
+                key={`${message.role}-${index}`}
                 style={{
                   display: 'flex',
                   justifyContent:
                     message.role === 'user'
                       ? 'flex-end'
                       : 'flex-start',
-                  marginBottom: '12px',
+                  marginBottom: '11px',
                 }}
               >
                 <div
                   style={{
                     maxWidth: '88%',
-                    padding: '12px 14px',
+                    padding: '11px 13px',
                     borderRadius:
                       message.role === 'user'
                         ? '16px 16px 5px 16px'
@@ -349,9 +451,9 @@ export default function HelpBot() {
                         : 'none',
                     boxShadow:
                       message.role === 'assistant'
-                        ? '0 4px 14px rgba(37,99,235,0.06)'
-                        : '0 6px 18px rgba(37,99,235,0.16)',
-                    fontSize: '14px',
+                        ? '0 3px 10px rgba(37,99,235,0.05)'
+                        : '0 6px 18px rgba(37,99,235,0.13)',
+                    fontSize: '13px',
                     lineHeight: 1.6,
                     whiteSpace: 'pre-wrap',
                   }}
@@ -360,197 +462,6 @@ export default function HelpBot() {
                 </div>
               </div>
             ))}
-
-            {/* Welcome Help */}
-            {messages.length === 1 && (
-              <>
-                <div
-                  style={{
-                    marginTop: '4px',
-                    marginBottom: '8px',
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    color: '#475569',
-                  }}
-                >
-                  👇 Quick Help
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '8px',
-                    marginBottom: '16px',
-                  }}
-                >
-                  {helpTopics.map((topic) => (
-                    <button
-                      key={topic.title}
-                      onClick={() => sendMessage(topic.question)}
-                      style={{
-                        textAlign: 'left',
-                        padding: '11px',
-                        borderRadius: '13px',
-                        border: '1px solid #dbeafe',
-                        background: '#ffffff',
-                        cursor: 'pointer',
-                        boxShadow:
-                          '0 3px 10px rgba(37,99,235,0.05)',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '18px',
-                          marginBottom: '5px',
-                        }}
-                      >
-                        {topic.icon}
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: '#1d4ed8',
-                        }}
-                      >
-                        {topic.title}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Tools */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '8px',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      color: '#475569',
-                    }}
-                  >
-                    🛠️ ZorPDF Tools
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      color: '#64748b',
-                    }}
-                  >
-                    Open directly
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '8px',
-                    marginBottom: '16px',
-                  }}
-                >
-                  {tools.map((tool) => (
-                    <button
-                      key={tool.path}
-                      onClick={() => openTool(tool.path)}
-                      style={{
-                        textAlign: 'left',
-                        padding: '10px',
-                        borderRadius: '13px',
-                        border: '1px solid #dbeafe',
-                        background: '#ffffff',
-                        cursor: 'pointer',
-                        boxShadow:
-                          '0 3px 10px rgba(37,99,235,0.05)',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '7px',
-                          marginBottom: '4px',
-                        }}
-                      >
-                        <span style={{ fontSize: '16px' }}>
-                          {tool.icon}
-                        </span>
-
-                        <span
-                          style={{
-                            fontSize: '12px',
-                            fontWeight: 800,
-                            color: '#1d4ed8',
-                          }}
-                        >
-                          {tool.name}
-                        </span>
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: '10px',
-                          lineHeight: 1.4,
-                          color: '#64748b',
-                        }}
-                      >
-                        {tool.description}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Popular Questions */}
-                <div
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    color: '#475569',
-                    marginBottom: '8px',
-                  }}
-                >
-                  🔥 Popular Questions
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '7px',
-                    marginBottom: '6px',
-                  }}
-                >
-                  {quickQuestions.map((question) => (
-                    <button
-                      key={question}
-                      onClick={() => sendMessage(question)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        textAlign: 'left',
-                        borderRadius: '11px',
-                        border: '1px solid #dbeafe',
-                        background: '#ffffff',
-                        color: '#334155',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                      }}
-                    >
-                      {question}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
 
             {loading && (
               <div
@@ -566,10 +477,234 @@ export default function HelpBot() {
                   fontSize: '12px',
                 }}
               >
-                <span style={{ color: '#2563eb' }}>●</span>
-                <span>Help Bot typing...</span>
+                <span style={{ color: '#2563eb' }}>
+                  ●
+                </span>
+
+                <span>
+                  Help Bot is preparing your answer...
+                </span>
               </div>
             )}
+
+            <div ref={messagesEndRef} />
+
+            {/* Quick Help */}
+            {messages.length === 1 && (
+              <>
+                <div
+                  style={{
+                    marginTop: '6px',
+                    marginBottom: '8px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    color: '#475569',
+                  }}
+                >
+                  💡 Quick Help
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      '1fr 1fr',
+                    gap: '8px',
+                    marginBottom: '16px',
+                  }}
+                >
+                  {helpTopics.map((topic) => (
+                    <button
+                      key={topic.title}
+                      onClick={() =>
+                        sendMessage(topic.question)
+                      }
+                      style={{
+                        textAlign: 'left',
+                        padding: '11px',
+                        borderRadius: '13px',
+                        border:
+                          '1px solid #dbeafe',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        boxShadow:
+                          '0 3px 10px rgba(37,99,235,0.05)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '17px',
+                          marginBottom: '5px',
+                        }}
+                      >
+                        {topic.icon}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          color: '#1d4ed8',
+                        }}
+                      >
+                        {topic.title}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* All Tools */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '8px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  color: '#475569',
+                }}
+              >
+                🛠️ All ZorPDF Tools
+              </div>
+
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: '#94a3b8',
+                }}
+              >
+                Tap to open
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '7px',
+                marginBottom: '17px',
+              }}
+            >
+              {tools.map((tool) => (
+                <button
+                  key={tool.path}
+                  onClick={() => openTool(tool.path)}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '11px',
+                    padding: '11px',
+                    borderRadius: '12px',
+                    border:
+                      '1px solid #dbeafe',
+                    background: '#ffffff',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      background: '#eff6ff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '17px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {tool.icon}
+                  </div>
+
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        color: '#1d4ed8',
+                      }}
+                    >
+                      {tool.name}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: '2px',
+                        fontSize: '10px',
+                        color: '#64748b',
+                      }}
+                    >
+                      {tool.description}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: '18px',
+                      color: '#93c5fd',
+                    }}
+                  >
+                    →
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Popular Questions */}
+            <div
+              style={{
+                fontSize: '12px',
+                fontWeight: 800,
+                color: '#475569',
+                marginBottom: '8px',
+              }}
+            >
+              🔥 Popular Questions
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '7px',
+              }}
+            >
+              {popularQuestions.map((question) => (
+                <button
+                  key={question}
+                  onClick={() => sendMessage(question)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    textAlign: 'left',
+                    borderRadius: '11px',
+                    border:
+                      '1px solid #dbeafe',
+                    background: '#ffffff',
+                    color: '#334155',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Input */}
@@ -578,6 +713,7 @@ export default function HelpBot() {
               padding: '12px',
               background: '#ffffff',
               borderTop: '1px solid #e5efff',
+              flexShrink: 0,
             }}
           >
             <div
@@ -588,7 +724,9 @@ export default function HelpBot() {
             >
               <input
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) =>
+                  setInput(e.target.value)
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     sendMessage();
@@ -599,11 +737,12 @@ export default function HelpBot() {
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  padding: '12px',
-                  borderRadius: '12px',
-                  border: '1px solid #cbdffb',
+                  padding: '11px 12px',
+                  borderRadius: '11px',
+                  border:
+                    '1px solid #cbdffb',
                   outline: 'none',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   background: '#f8fbff',
                   color: '#1e293b',
                 }}
@@ -611,10 +750,12 @@ export default function HelpBot() {
 
               <button
                 onClick={() => sendMessage()}
-                disabled={loading || !input.trim()}
+                disabled={
+                  loading || !input.trim()
+                }
                 style={{
                   padding: '10px 15px',
-                  borderRadius: '12px',
+                  borderRadius: '11px',
                   border: 'none',
                   background:
                     loading || !input.trim()
@@ -635,18 +776,18 @@ export default function HelpBot() {
             <div
               style={{
                 textAlign: 'center',
-                fontSize: '10px',
+                fontSize: '9px',
                 color: '#94a3b8',
                 marginTop: '7px',
               }}
             >
-              ZorPDF Help Bot • Smart customer support
+              ZorPDF Help Bot • Smart Customer Support
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Button */}
+      {/* Floating Bot Button */}
       <button
         onClick={() => setOpen((prev) => !prev)}
         aria-label="Open ZorPDF Help Bot"
