@@ -11,6 +11,7 @@ export default function HelpBot() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -32,12 +33,14 @@ export default function HelpBot() {
 
     setInput('');
 
-    const userMessage: Message = {
-      role: 'user',
-      content: question,
-    };
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'user',
+        content: question,
+      },
+    ]);
 
-    setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
 
     try {
@@ -67,6 +70,8 @@ export default function HelpBot() {
         },
       ]);
     } catch (error) {
+      console.error('Help Bot error:', error);
+
       setMessages((prev) => [
         ...prev,
         {
@@ -87,7 +92,7 @@ export default function HelpBot() {
           style={{
             position: 'fixed',
             right: '20px',
-            bottom: '90px',
+            bottom: '92px',
             width: '360px',
             maxWidth: 'calc(100vw - 30px)',
             height: '520px',
@@ -140,7 +145,7 @@ export default function HelpBot() {
                 border: 'none',
                 background: 'transparent',
                 color: '#ffffff',
-                fontSize: '24px',
+                fontSize: '28px',
                 cursor: 'pointer',
                 lineHeight: 1,
               }}
@@ -164,7 +169,9 @@ export default function HelpBot() {
                 style={{
                   display: 'flex',
                   justifyContent:
-                    message.role === 'user' ? 'flex-end' : 'flex-start',
+                    message.role === 'user'
+                      ? 'flex-end'
+                      : 'flex-start',
                   marginBottom: '10px',
                 }}
               >
@@ -174,9 +181,13 @@ export default function HelpBot() {
                     padding: '10px 12px',
                     borderRadius: '13px',
                     background:
-                      message.role === 'user' ? '#111827' : '#ffffff',
+                      message.role === 'user'
+                        ? '#111827'
+                        : '#ffffff',
                     color:
-                      message.role === 'user' ? '#ffffff' : '#1f2937',
+                      message.role === 'user'
+                        ? '#ffffff'
+                        : '#1f2937',
                     border:
                       message.role === 'assistant'
                         ? '1px solid #e5e7eb'
@@ -275,10 +286,14 @@ export default function HelpBot() {
                 borderRadius: '10px',
                 border: 'none',
                 background:
-                  loading || !input.trim() ? '#9ca3af' : '#111827',
+                  loading || !input.trim()
+                    ? '#9ca3af'
+                    : '#111827',
                 color: '#ffffff',
                 cursor:
-                  loading || !input.trim() ? 'not-allowed' : 'pointer',
+                  loading || !input.trim()
+                    ? 'not-allowed'
+                    : 'pointer',
                 fontWeight: 600,
               }}
             >
@@ -288,27 +303,114 @@ export default function HelpBot() {
         </div>
       )}
 
-      {/* Floating Button */}
+      {/* Floating Help Bot Button */}
       <button
         onClick={() => setOpen((prev) => !prev)}
         aria-label="Open ZorPDF Help Bot"
+        title="ZorPDF Help Bot"
         style={{
           position: 'fixed',
           right: '20px',
           bottom: '20px',
-          width: '58px',
-          height: '58px',
+          width: '62px',
+          height: '62px',
           borderRadius: '50%',
           border: 'none',
           background: '#111827',
           color: '#ffffff',
-          boxShadow: '0 8px 25px rgba(0,0,0,0.2)',
+          boxShadow: '0 8px 25px rgba(0,0,0,0.22)',
           cursor: 'pointer',
           zIndex: 10000,
-          fontSize: '25px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'transform 0.2s ease',
         }}
       >
-        {open ? '×' : '?'}
+        {open ? (
+          <span
+            style={{
+              fontSize: '30px',
+              lineHeight: 1,
+              fontWeight: 300,
+            }}
+          >
+            ×
+          </span>
+        ) : (
+          <svg
+            width="32"
+            height="32"
+            viewBox="0 0 48 48"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            {/* Robot Head */}
+            <rect
+              x="9"
+              y="13"
+              width="30"
+              height="24"
+              rx="8"
+              stroke="currentColor"
+              strokeWidth="3"
+            />
+
+            {/* Antenna */}
+            <path
+              d="M24 13V7"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+
+            <circle
+              cx="24"
+              cy="5"
+              r="2.5"
+              fill="currentColor"
+            />
+
+            {/* Eyes */}
+            <circle
+              cx="18"
+              cy="24"
+              r="2.5"
+              fill="currentColor"
+            />
+
+            <circle
+              cx="30"
+              cy="24"
+              r="2.5"
+              fill="currentColor"
+            />
+
+            {/* Smile */}
+            <path
+              d="M18 30C21 32 27 32 30 30"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+
+            {/* Ears */}
+            <path
+              d="M9 23H6"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+
+            <path
+              d="M39 23H42"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
       </button>
     </>
   );
